@@ -263,8 +263,58 @@ class InventoryService:
         }
     
     @require_permission('inventory.read')
+    def get_all_products(self, current_user) -> List[Product]:
+        """Get all products for inventory view"""
+        return self.product_service.search_products(current_user, active_only=True)
+    
+    @require_permission('inventory.create')
+    def create_stock_movement(self, current_user, product_id: str, 
+                           movement_type: str, quantity: int, reason: str):
+        """Create a stock movement entry"""
+        try:
+            # Get current product
+            product = self.product_service.get_product_by_id(product_id)
+            if not product:
+                raise ValueError("Product not found")
+            
+            # Create stock movement
+            movement = StockMovement(
+                id=uuid.uuid4(),
+                product_id=product_id,
+                movement_type=movement_type,
+                quantity=quantity,
+                reason=reason,
+                stock_before=product.current_stock or 0,
+                stock_after=(product.current_stock or 0) + (quantity if movement_type == 'in' else -quantity),
+                user_id=current_user.id if current_user else None,
+                timestamp=datetime.utcnow()
+            )
+            
+            self.db.add(movement)
+            
+            # Update product stock
+            stock_change = quantity if movement_type == 'in' else -quantity
+            new_stock = (product.current_stock or 0) + stock_change
+            product.current_stock = new_stock
+            
+            self.db.commit()
+            
+            return {
+                'success': True,
+                'movement_id': str(movement.id),
+                'new_stock': new_stock
+            }
+            
+        except Exception as e:
+            self.db.rollback()
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    @require_permission('inventory.read')
     def search_products_by_stock(self, query: str, min_stock: int = None,
-                               max_stock: int = None) -> List[Dict[str, Any]]:
+                                max_stock: int = None) -> List[Dict[str, Any]]:
         """
         Search products by stock levels
         

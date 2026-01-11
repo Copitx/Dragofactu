@@ -236,7 +236,16 @@ class UserService:
 def require_permission(permission: str):
     def decorator(func):
         @wraps(func)
-        def wrapper(self, current_user: User, *args, **kwargs):
+        def wrapper(self, *args, **kwargs):
+            # Try to get current_user from kwargs or assume it's the first arg after self
+            current_user = kwargs.get('current_user')
+            if current_user is None and args:
+                current_user = args[0]
+                args = args[1:]  # Remove current_user from args
+            
+            if current_user is None:
+                raise PermissionError(f"No current_user provided for permission check: {permission}")
+            
             permission_service = PermissionService()
             if not permission_service.has_permission(current_user, permission):
                 raise PermissionError(f"User lacks required permission: {permission}")

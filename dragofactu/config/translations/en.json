@@ -1,0 +1,85 @@
+{
+  "app": {
+    "name": "DRAGOFACTU",
+    "subtitle": "Business Management System"
+  },
+  "login": {
+    "title": "Login",
+    "username": "Username",
+    "password": "Password",
+    "login_button": "Sign In",
+    "invalid_credentials": "Invalid username or password",
+    "please_enter_credentials": "Please enter username and password"
+  },
+  "menu": {
+    "dashboard": "Dashboard",
+    "clients": "Clients",
+    "suppliers": "Suppliers", 
+    "products": "Products",
+    "documents": "Documents",
+    "inventory": "Inventory",
+    "reports": "Reports",
+    "diary": "Diary",
+    "workers": "Workers",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "total_clients": "Total Clients",
+    "total_suppliers": "Total Suppliers", 
+    "active_products": "Active Products",
+    "pending_documents": "Pending Documents",
+    "low_stock_items": "Low Stock Items",
+    "unpaid_invoices": "Unpaid Invoices",
+    "recent_activity": "Recent Activity",
+    "error_loading_data": "Error loading dashboard data"
+  },
+  "buttons": {
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete", 
+    "save": "Save",
+    "cancel": "Cancel",
+    "new_quote": "New Quote",
+    "new_invoice": "New Invoice",
+    "adjust_stock": "Adjust Stock",
+    "add_product": "Add Product"
+  },
+  "clients": {
+    "title": "Client Management",
+    "code": "Code",
+    "name": "Name",
+    "tax_id": "Tax ID",
+    "address": "Address",
+    "city": "City",
+    "phone": "Phone",
+    "email": "Email",
+    "active": "Active"
+  },
+  "documents": {
+    "quote": "Quote",
+    "invoice": "Invoice", 
+    "receipt": "Receipt",
+    "supplier_invoice": "Supplier Invoice",
+    "code": "Code",
+    "type": "Type",
+    "status": "Status",
+    "client": "Client",
+    "date": "Date",
+    "total": "Total"
+  },
+  "inventory": {
+    "title": "Inventory Management",
+    "product": "Product",
+    "current_stock": "Current Stock",
+    "minimum_stock": "Minimum Stock",
+    "add_item": "Add Item",
+    "stock_adjustment": "Stock Adjustment"
+  },
+  "messages": {
+    "confirm_delete": "Are you sure you want to delete this item?",
+    "save_success": "Saved successfully",
+    "delete_success": "Deleted successfully",
+    "error_occurred": "An error has occurred"
+  }
+}

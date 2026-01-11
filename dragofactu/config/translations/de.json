@@ -1,0 +1,85 @@
+{
+  "app": {
+    "name": "DRAGOFACTU",
+    "subtitle": "Unternehmensverwaltungssystem"
+  },
+  "login": {
+    "title": "Anmeldung",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "login_button": "Anmelden",
+    "invalid_credentials": "Ungültiger Benutzername oder Passwort",
+    "please_enter_credentials": "Bitte geben Sie Benutzername und Passwort ein"
+  },
+  "menu": {
+    "dashboard": "Dashboard",
+    "clients": "Kunden",
+    "suppliers": "Lieferanten", 
+    "products": "Produkte",
+    "documents": "Dokumente",
+    "inventory": "Inventar",
+    "reports": "Berichte",
+    "diary": "Tagebuch",
+    "workers": "Mitarbeiter",
+    "settings": "Einstellungen",
+    "logout": "Abmelden"
+  },
+  "dashboard": {
+    "total_clients": "Gesamtkunden",
+    "total_suppliers": "Gesamtlieferanten", 
+    "active_products": "Aktive Produkte",
+    "pending_documents": "Ausstehende Dokumente",
+    "low_stock_items": "Niedriger Bestand",
+    "unpaid_invoices": "Unbezahlte Rechnungen",
+    "recent_activity": "Aktuelle Aktivität",
+    "error_loading_data": "Fehler beim Laden der Dashboard-Daten"
+  },
+  "buttons": {
+    "add": "Hinzufügen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen", 
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "new_quote": "Neues Angebot",
+    "new_invoice": "Neue Rechnung",
+    "adjust_stock": "Bestand anpassen",
+    "add_product": "Produkt hinzufügen"
+  },
+  "clients": {
+    "title": "Kundenverwaltung",
+    "code": "Code",
+    "name": "Name",
+    "tax_id": "Steuernummer",
+    "address": "Adresse",
+    "city": "Stadt",
+    "phone": "Telefon",
+    "email": "E-Mail",
+    "active": "Aktiv"
+  },
+  "documents": {
+    "quote": "Angebot",
+    "invoice": "Rechnung", 
+    "receipt": "Lieferschein",
+    "supplier_invoice": "Lieferantenrechnung",
+    "code": "Code",
+    "type": "Typ",
+    "status": "Status",
+    "client": "Kunde",
+    "date": "Datum",
+    "total": "Gesamt"
+  },
+  "inventory": {
+    "title": "Inventarverwaltung",
+    "product": "Produkt",
+    "current_stock": "Aktueller Bestand",
+    "minimum_stock": "Mindestbestand",
+    "add_item": "Artikel hinzufügen",
+    "stock_adjustment": "Bestandsanpassung"
+  },
+  "messages": {
+    "confirm_delete": "Sind Sie sicher, dass Sie dieses Element löschen möchten?",
+    "save_success": "Erfolgreich gespeichert",
+    "delete_success": "Erfolgreich gelöscht",
+    "error_occurred": "Ein Fehler ist aufgetreten"
+  }
+}

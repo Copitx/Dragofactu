@@ -1,0 +1,85 @@
+{
+  "app": {
+    "name": "DRAGOFACTU",
+    "subtitle": "Sistema de Gestión Empresarial"
+  },
+  "login": {
+    "title": "Login",
+    "username": "Usuario",
+    "password": "Contraseña",
+    "login_button": "Iniciar Sesión",
+    "invalid_credentials": "Usuario o contraseña incorrectos",
+    "please_enter_credentials": "Por favor ingrese usuario y contraseña"
+  },
+  "menu": {
+    "dashboard": "Panel Principal",
+    "clients": "Clientes",
+    "suppliers": "Proveedores", 
+    "products": "Productos",
+    "documents": "Documentos",
+    "inventory": "Inventario",
+    "reports": "Informes",
+    "diary": "Diario",
+    "workers": "Personal",
+    "settings": "Ajustes",
+    "logout": "Cerrar Sesión"
+  },
+  "dashboard": {
+    "total_clients": "Clientes Totales",
+    "total_suppliers": "Proveedores Totales", 
+    "active_products": "Productos Activos",
+    "pending_documents": "Documentos Pendientes",
+    "low_stock_items": "Stock Bajo",
+    "unpaid_invoices": "Facturas Impagadas",
+    "recent_activity": "Actividad Reciente",
+    "error_loading_data": "Error cargando datos del panel"
+  },
+  "buttons": {
+    "add": "Añadir",
+    "edit": "Editar",
+    "delete": "Eliminar", 
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "new_quote": "Nuevo Presupuesto",
+    "new_invoice": "Nueva Factura",
+    "adjust_stock": "Ajustar Stock",
+    "add_product": "Añadir Producto"
+  },
+  "clients": {
+    "title": "Gestión de Clientes",
+    "code": "Código",
+    "name": "Nombre",
+    "tax_id": "NIF/CIF",
+    "address": "Dirección",
+    "city": "Ciudad",
+    "phone": "Teléfono",
+    "email": "Email",
+    "active": "Activo"
+  },
+  "documents": {
+    "quote": "Presupuesto",
+    "invoice": "Factura", 
+    "receipt": "Albarán",
+    "supplier_invoice": "Factura Proveedor",
+    "code": "Código",
+    "type": "Tipo",
+    "status": "Estado",
+    "client": "Cliente",
+    "date": "Fecha",
+    "total": "Total"
+  },
+  "inventory": {
+    "title": "Gestión de Inventario",
+    "product": "Producto",
+    "current_stock": "Stock Actual",
+    "minimum_stock": "Stock Mínimo",
+    "add_item": "Añadir Item",
+    "stock_adjustment": "Ajuste de Stock"
+  },
+  "messages": {
+    "confirm_delete": "¿Está seguro de que desea eliminar este elemento?",
+    "save_success": "Guardado exitosamente",
+    "delete_success": "Eliminado exitosamente",
+    "error_occurred": "Ha ocurrido un error"
+  }
+}

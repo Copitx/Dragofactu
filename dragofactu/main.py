@@ -4,15 +4,15 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QDialog
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QIcon
 
-from models.database import engine, Base
-from config.config import AppConfig, setup_logging
-from services.auth.auth_service import AuthService
-from ui.views.login_dialog import LoginDialog
-from ui.views.main_window import MainWindow
+from dragofactu.models.database import engine, Base, SessionLocal
+from dragofactu.config.config import AppConfig, setup_logging
+from dragofactu.services.auth.auth_service import AuthService
+from dragofactu.ui.views.login_dialog import LoginDialog
+from dragofactu.ui.views.main_window import MainWindow
 
 
 class DragofactuApp(QApplication):
@@ -63,8 +63,10 @@ class DragofactuApp(QApplication):
         login_dialog = LoginDialog(self.auth_service)
         
         if login_dialog.exec() == QDialog.DialogCode.Accepted:
-            self.current_user = login_dialog.user
-            self.main_window.set_current_user(self.current_user)
+            # Refresh user with new session to avoid DetachedInstanceError
+            with SessionLocal() as db:
+                self.current_user = db.merge(login_dialog.user)
+                self.main_window.set_current_user(self.current_user)
             self.main_window.show()
             self.main_window.raise_()
             self.main_window.activateWindow()

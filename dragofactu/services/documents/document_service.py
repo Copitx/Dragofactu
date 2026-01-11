@@ -3,9 +3,9 @@ from datetime import datetime
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-from ...models.entities import Document, DocumentLine, DocumentType, DocumentStatus, Client
-from ...models.audit import DocumentHistory
-from ..auth.auth_service import require_permission
+from dragofactu.models.entities import Document, DocumentLine, DocumentType, DocumentStatus, Client
+from dragofactu.models.audit import DocumentHistory
+from dragofactu.services.auth.auth_service import require_permission
 import json
 
 

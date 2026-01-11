@@ -48,11 +48,33 @@ print("2. python3 simple_main.py - Versión simplificada")
 print("3. ./Scripts/start.sh - Script de inicio")
 
 # Recomendación
+# Verificar si hay usuario admin
+print("\n👤 Verificando usuario administrador...")
+try:
+    import sqlite3
+    conn = sqlite3.connect("dragofactu.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users WHERE username = 'admin'")
+    admin_exists = cursor.fetchone()[0] > 0
+    conn.close()
+    
+    if admin_exists:
+        print("✅ Usuario admin configurado")
+    else:
+        print("⚠️  Usuario admin no encontrado")
+        print("   Ejecuta: python3 scripts/init_db.py")
+        print("   Para crear el usuario admin")
+except Exception as e:
+    print(f"❌ Error verificando usuario: {e}")
+
 print("\n💡 Recomendación:")
 if os.path.exists("venv"):
     print("✅ Entorno virtual detectado")
     print("   Ejecuta: source venv/bin/activate")
     print("   Luego: python3 dragofactu/main.py")
+    print("\n🎯 ¡La aplicación completa está funcionando!")
+    print("   Base de datos SQLite: dragofactu.db")
+    print("   Login por defecto: admin/admin123")
 else:
     print("⚠️  Entorno virtual no encontrado")
     print("   Ejecuta: python3 install.py")

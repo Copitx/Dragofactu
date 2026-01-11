@@ -1,20 +1,20 @@
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QTabWidget, QMenuBar, QStatusBar, QLabel, 
-    QMessageBox, QToolBar, QAction, QSplitter
+    QMessageBox, QToolBar, QSplitter
 )
 from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QIcon, QFont, QKeySequence
+from PySide6.QtGui import QIcon, QFont, QKeySequence, QAction
 
-from models.database import SessionLocal
-from services.auth.auth_service import PermissionService
-from config.config import AppConfig
+from dragofactu.models.database import SessionLocal
+from dragofactu.services.auth.auth_service import PermissionService
+from dragofactu.config.config import AppConfig
 
-from .dashboard_view import DashboardView
-from .clients_view import ClientsView
-from .documents_view import DocumentsView
-from .inventory_view import InventoryView
-from .diary_view import DiaryView
+from dragofactu.ui.views.dashboard_view import DashboardView
+from dragofactu.ui.views.clients_view import ClientsView
+from dragofactu.ui.views.documents_view import DocumentsView
+from dragofactu.ui.views.inventory_view import InventoryView
+from dragofactu.ui.views.diary_view import DiaryView
 
 
 class MainWindow(QMainWindow):

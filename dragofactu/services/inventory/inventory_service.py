@@ -3,10 +3,10 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
-from ...models.entities import StockMovement
-from ...models.database import SessionLocal
-from ..business.entity_services import ProductService
-from ..auth.auth_service import require_permission
+from dragofactu.models.audit import StockMovement
+from dragofactu.models.database import SessionLocal
+from dragofactu.services.business.entity_services import ProductService
+from dragofactu.services.auth.auth_service import require_permission
 
 
 class InventoryService:

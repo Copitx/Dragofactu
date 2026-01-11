@@ -8,9 +8,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QDate
 from PySide6.QtGui import QFont, QTextCharFormat, QColor
 
-from models.database import SessionLocal
-from services.diary.diary_service import DiaryService
-from services.auth.auth_service import PermissionService
+from dragofactu.models.database import SessionLocal
+from dragofactu.services.diary.diary_service import DiaryService
+from dragofactu.services.auth.auth_service import PermissionService
 
 
 class DiaryEntryDialog(QDialog):

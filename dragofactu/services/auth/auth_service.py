@@ -4,8 +4,8 @@ import bcrypt
 import jwt
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
-from ...models.entities import User, UserRole
-from ...models.database import get_db
+from dragofactu.models.entities import User, UserRole
+from dragofactu.models.database import get_db
 import os
 from functools import wraps
 

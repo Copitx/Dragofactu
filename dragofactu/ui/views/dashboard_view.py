@@ -5,9 +5,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QFont
 
-from models.database import SessionLocal
-from services.business.entity_services import ClientService, SupplierService, ProductService
-from services.documents.document_service import DocumentService
+from dragofactu.models.database import SessionLocal
+from dragofactu.services.business.entity_services import ClientService, SupplierService, ProductService
+from dragofactu.services.documents.document_service import DocumentService
 
 
 class DashboardView(QWidget):

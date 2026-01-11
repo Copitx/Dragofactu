@@ -11,8 +11,8 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 import os
 import tempfile
 
-from ...config.config import AppConfig
-from ...models.entities import Document, DocumentLine, Client
+from dragofactu.config.config import AppConfig
+from dragofactu.models.entities import Document, DocumentLine, Client
 
 
 class PDFService:

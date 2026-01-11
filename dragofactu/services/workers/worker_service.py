@@ -2,9 +2,9 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-from ...models.entities import Worker, Course
-from ...models.database import SessionLocal
-from ..auth.auth_service import require_permission
+from dragofactu.models.entities import Worker, Course
+from dragofactu.models.database import SessionLocal
+from dragofactu.services.auth.auth_service import require_permission
 
 
 class WorkerService:

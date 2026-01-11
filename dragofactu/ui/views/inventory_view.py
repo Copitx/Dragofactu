@@ -2,15 +2,15 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QTableWidget, QTableWidgetItem, QPushButton, QLabel,
     QLineEdit, QComboBox, QMessageBox, QDialog, QFormLayout,
-    QSpinBox, QHeaderView, QProgressBar, QFrame
+    QSpinBox, QHeaderView, QProgressBar, QFrame, QCheckBox
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QColor
 
-from models.database import SessionLocal
-from services.inventory.inventory_service import InventoryService
-from services.business.entity_services import ProductService
-from services.auth.auth_service import PermissionService
+from dragofactu.models.database import SessionLocal
+from dragofactu.services.inventory.inventory_service import InventoryService
+from dragofactu.services.business.entity_services import ProductService
+from dragofactu.services.auth.auth_service import PermissionService
 
 
 class StockAdjustmentDialog(QDialog):

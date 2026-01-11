@@ -8,7 +8,7 @@ from email import encoders
 from datetime import datetime
 import logging
 
-from ...config.config import AppConfig
+from dragofactu.config.config import AppConfig
 
 
 class EmailService:

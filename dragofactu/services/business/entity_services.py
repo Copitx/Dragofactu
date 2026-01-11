@@ -2,8 +2,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-from ...models.entities import Client, Supplier, Product
-from ..auth.auth_service import require_permission
+from dragofactu.models.entities import Client, Supplier, Product
+from dragofactu.services.auth.auth_service import require_permission
 import json
 
 
@@ -314,7 +314,7 @@ class ProductService:
         old_stock = product.current_stock
         
         # Create stock movement record
-        from ...models.audit import StockMovement
+        from dragofactu.models.audit import StockMovement
         movement_type = "in" if new_stock > old_stock else "out"
         quantity = abs(new_stock - old_stock)
         

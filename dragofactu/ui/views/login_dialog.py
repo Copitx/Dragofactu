@@ -6,9 +6,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QIntValidator
 
-from models.database import SessionLocal
-from services.auth.auth_service import AuthService
-from models.entities import User
+from dragofactu.models.database import SessionLocal
+from dragofactu.services.auth.auth_service import AuthService
+from dragofactu.models.entities import User
 
 
 class LoginDialog(QDialog):

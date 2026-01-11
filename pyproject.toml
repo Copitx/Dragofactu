@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dragofactu"
+version = "1.0.0"
+description = "Professional Business Management Application"
+authors = [{name = "Dragofactu Team", email = "info@dragofactu.com"}]
+license = {text = "Proprietary"}
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "PySide6>=6.5.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.8.0",
+    "alembic>=1.12.0",
+    "reportlab>=4.0.0",
+    "pillow>=9.0.0",
+    "bcrypt>=3.2.0",
+    "python-dotenv>=1.0.0",
+    "python-dateutil>=2.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "sqlalchemy-utils>=0.41.0",
+]
+
+[project.gui-scripts]
+dragofactu = "dragofactu.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dragofactu*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+select = ["E", "F", "W", "I", "N", "UP", "YTT", "S", "BLE", "B", "A", "COM", "C4", "DTZ", "T10", "EM", "ISC", "ICN", "G", "PIE", "T20", "PT", "Q", "RSE", "RET", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PGH", "PL", "TRY", "FLY", "NPY", "RUF"]
+ignore = ["E501", "S311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

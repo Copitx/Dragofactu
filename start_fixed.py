@@ -40,6 +40,10 @@ def main():
             print(" Usuario admin no encontrado")
             print("🔧 Creando usuario administrador...")
             subprocess.run(["./venv/bin/python", "scripts/init_db.py"])
+    except Exception as e:
+        print(f"⚠️ Error checking admin user: {e}")
+        print("🔧 Creando usuario administrador...")
+        subprocess.run(["./venv/bin/python", "scripts/init_db.py"])
     
     print("")
     print("🚀 INICIANDO APLICACIÓN...")

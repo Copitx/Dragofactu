@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QComboBox, QMessageBox, QDialog, QFormLayout,
     QCheckBox, QDateEdit, QFrame
 )
-from PySide6.QtCore import Qt, Signal, QDate
+from PySide6.QtCore import Qt, Signal, QDate, QTimer
 from PySide6.QtGui import QFont, QTextCharFormat, QColor
 
 from dragofactu.models.database import SessionLocal
@@ -160,7 +160,8 @@ class DiaryView(QWidget):
         self.diary_service = None
         
         self.setup_ui()
-        self.refresh()
+        # Defer refresh to prevent blocking during initialization
+        QTimer.singleShot(100, self.refresh)
     
     def setup_ui(self):
         """Setup diary UI"""

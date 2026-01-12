@@ -1,10 +1,12 @@
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from datetime import datetime, timedelta
+import uuid
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 from dragofactu.models.audit import StockMovement
 from dragofactu.models.database import SessionLocal
+from dragofactu.models.entities import Product
 from dragofactu.services.business.entity_services import ProductService
 from dragofactu.services.auth.auth_service import require_permission
 

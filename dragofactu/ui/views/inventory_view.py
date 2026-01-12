@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QComboBox, QMessageBox, QDialog, QFormLayout,
     QSpinBox, QHeaderView, QProgressBar, QFrame, QCheckBox
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QFont, QColor
 
 from dragofactu.models.database import SessionLocal
@@ -126,7 +126,8 @@ class InventoryView(QWidget):
         self.product_service = None
         
         self.setup_ui()
-        self.refresh()
+        # Defer refresh to prevent blocking during initialization
+        QTimer.singleShot(100, self.refresh)
     
     def setup_ui(self):
         """Setup inventory UI"""

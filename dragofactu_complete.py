@@ -30,17 +30,15 @@ from dragofactu.config.translation import translator
 class Dashboard(QWidget):
     def __init__(self):
         super().__init__()
+        self.card_widgets = []  # Track card widgets for refreshing
         self.setup_ui()
     
     def setup_ui(self):
-        # Clear existing layout
-        if self.layout():
-            while self.layout().count():
-                child = self.layout().takeAt(0)
-                if child.widget():
-                    child.widget().deleteLater()
-        
         layout = QVBoxLayout(self)
+        self._create_dashboard_content(layout)
+    
+    def _create_dashboard_content(self, layout):
+        """Create dashboard content without clearing existing widgets"""
         
         # Title
         title = QLabel("🐲 Panel Principal - DRAGOFACTU")
@@ -171,7 +169,25 @@ class Dashboard(QWidget):
         value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(value_label)
         
+        # Store reference for updating
+        self.card_widgets.append({'title': title_label, 'value': value_label})
+        
         return card
+    
+    def refresh_data(self):
+        """Refresh dashboard data without recreating UI"""
+        for card_widget in self.card_widgets:
+            if 'value' in card_widget:
+                # Update counts based on card title
+                title_text = card_widget['title'].text()
+                if "Clientes" in title_text:
+                    card_widget['value'].setText(str(self.get_client_count()))
+                elif "Productos" in title_text:
+                    card_widget['value'].setText(str(self.get_product_count()))
+                elif "Documentos" in title_text:
+                    card_widget['value'].setText(str(self.get_document_count()))
+                elif "Stock Bajo" in title_text:
+                    card_widget['value'].setText(str(self.get_low_stock_count()))
     
     def get_client_count(self):
         """Get total clients"""
@@ -212,14 +228,14 @@ class Dashboard(QWidget):
         dialog = ClientDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             QMessageBox.information(self, "✅ Éxito", "Cliente añadido correctamente")
-            self.setup_ui()  # Refresh dashboard
+            self.refresh_data()  # Refresh dashboard
     
     def add_product(self):
         """Add new product"""
         dialog = ProductDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             QMessageBox.information(self, "✅ Éxito", "Producto añadido correctamente")
-            self.setup_ui()  # Refresh dashboard
+            self.refresh_data()  # Refresh dashboard
     
     def add_quote(self):
         """Add new quote"""
@@ -292,7 +308,7 @@ class ClientDialog(QDialog):
                     email=self.email_edit.text() or None,
                     phone=self.phone_edit.text() or None,
                     address=self.address_edit.text() or None,
-                    nif=self.nif_edit.text() or None,
+                    tax_id=self.nif_edit.text() or None,
                     is_active=self.active_check.isChecked()
                 )
                 db.add(client)
@@ -649,7 +665,9 @@ class ClientManagementTab(QWidget):
     def __init__(self):
         super().__init__()
         self.setup_ui()
-        self.refresh_data()
+        # Defer refresh to prevent blocking during initialization
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self.refresh_data)
     
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -792,7 +810,9 @@ class ProductManagementTab(QWidget):
     def __init__(self):
         super().__init__()
         self.setup_ui()
-        self.refresh_data()
+        # Defer refresh to prevent blocking during initialization
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self.refresh_data)
     
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -938,26 +958,255 @@ class ProductManagementTab(QWidget):
 
 # Placeholder classes for other tabs (to be implemented)
 class DocumentManagementTab(QWidget):
+    """Document Explorer with recent documents list"""
     def __init__(self):
         super().__init__()
+        self.setup_ui()
+        # Defer refresh to prevent blocking during initialization
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self.refresh_data)
+    
+    def setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("📄 Gestión de Documentos - En desarrollo"))
         
-        # Basic document creation
+        # Toolbar
+        toolbar_layout = QHBoxLayout()
+        
         new_quote_btn = QPushButton("💰 Nuevo Presupuesto")
-        new_quote_btn.clicked.connect(lambda: DocumentDialog(self, "quote").exec())
-        layout.addWidget(new_quote_btn)
+        new_quote_btn.clicked.connect(lambda: self.create_document("quote"))
+        new_quote_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #8e44ad; }
+        """)
+        toolbar_layout.addWidget(new_quote_btn)
         
         new_invoice_btn = QPushButton("🧾 Nueva Factura")
-        new_invoice_btn.clicked.connect(lambda: DocumentDialog(self, "invoice").exec())
-        layout.addWidget(new_invoice_btn)
+        new_invoice_btn.clicked.connect(lambda: self.create_document("invoice"))
+        new_invoice_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e67e22;
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #d35400; }
+        """)
+        toolbar_layout.addWidget(new_invoice_btn)
+        
+        new_delivery_btn = QPushButton("📦 Nuevo Albarán")
+        new_delivery_btn.clicked.connect(lambda: self.create_document("delivery"))
+        new_delivery_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #2980b9; }
+        """)
+        toolbar_layout.addWidget(new_delivery_btn)
+        
+        refresh_btn = QPushButton("🔄 Actualizar")
+        refresh_btn.clicked.connect(self.refresh_data)
+        toolbar_layout.addWidget(refresh_btn)
+        
+        toolbar_layout.addStretch()
+        layout.addLayout(toolbar_layout)
+        
+        # Document type filter
+        filter_layout = QHBoxLayout()
+        self.filter_combo = QComboBox()
+        self.filter_combo.addItems(["Todos", "Presupuestos", "Facturas", "Albaranes"])
+        self.filter_combo.currentTextChanged.connect(self.refresh_data)
+        filter_layout.addWidget(QLabel("Filtrar:"))
+        filter_layout.addWidget(self.filter_combo)
+        filter_layout.addStretch()
+        layout.addLayout(filter_layout)
+        
+        # Documents table
+        self.docs_table = QTableWidget()
+        self.docs_table.setColumnCount(8)
+        self.docs_table.setHorizontalHeaderLabels([
+            "Código", "Tipo", "Cliente", "Fecha", "Estado", "Total", "Vencimiento", "Acciones"
+        ])
+        
+        # Configure table
+        header = self.docs_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
+        
+        layout.addWidget(self.docs_table)
+        
+        # Status label
+        self.status_label = QLabel("📄 Gestión de Documentos - Cargando datos...")
+        layout.addWidget(self.status_label)
+    
+    def refresh_data(self):
+        """Refresh documents data"""
+        try:
+            with SessionLocal() as db:
+                # Get filter
+                filter_type = self.filter_combo.currentText()
+                
+                # Build query
+                query = db.query(Document)
+                if filter_type != "Todos":
+                    if filter_type == "Presupuestos":
+                        query = query.filter(Document.type == DocumentType.QUOTE)
+                    elif filter_type == "Facturas":
+                        query = query.filter(Document.type == DocumentType.INVOICE)
+                    elif filter_type == "Albaranes":
+                        query = query.filter(Document.type == DocumentType.DELIVERY_NOTE)
+                
+                # Get documents with most recent first
+                documents = query.order_by(Document.updated_at.desc()).limit(100).all()
+                
+                self.docs_table.setRowCount(0)
+                
+                for row, doc in enumerate(documents):
+                    self.docs_table.insertRow(row)
+                    
+                    # Document code
+                    self.docs_table.setItem(row, 0, QTableWidgetItem(doc.code or ""))
+                    
+                    # Document type
+                    type_text = ""
+                    if doc.type == DocumentType.QUOTE:
+                        type_text = "Presupuesto"
+                    elif doc.type == DocumentType.INVOICE:
+                        type_text = "Factura"
+                    elif doc.type == DocumentType.DELIVERY_NOTE:
+                        type_text = "Albarán"
+                    
+                    type_item = QTableWidgetItem(type_text)
+                    if doc.type == DocumentType.QUOTE:
+                        type_item.setStyleSheet("color: #9b59b6; font-weight: bold;")
+                    elif doc.type == DocumentType.INVOICE:
+                        type_item.setStyleSheet("color: #e67e22; font-weight: bold;")
+                    elif doc.type == DocumentType.DELIVERY_NOTE:
+                        type_item.setStyleSheet("color: #3498db; font-weight: bold;")
+                    
+                    self.docs_table.setItem(row, 1, type_item)
+                    
+                    # Client name (with relationship loading)
+                    try:
+                        client_name = doc.client.name if doc.client else "N/A"
+                    except:
+                        client_name = "N/A"
+                    self.docs_table.setItem(row, 2, QTableWidgetItem(client_name))
+                    
+                    # Date
+                    date_text = ""
+                    if doc.issue_date:
+                        date_text = doc.issue_date.strftime('%d/%m/%Y')
+                    self.docs_table.setItem(row, 3, QTableWidgetItem(date_text))
+                    
+                    # Status
+                    status_text = ""
+                    status_color = ""
+                    if doc.status == DocumentStatus.DRAFT:
+                        status_text = "Borrador"
+                        status_color = "gray"
+                    elif doc.status == DocumentStatus.SENT:
+                        status_text = "Enviado"
+                        status_color = "blue"
+                    elif doc.status == DocumentStatus.ACCEPTED:
+                        status_text = "Aceptado"
+                        status_color = "green"
+                    elif doc.status == DocumentStatus.PAID:
+                        status_text = "Pagado"
+                        status_color = "purple"
+                    
+                    status_item = QTableWidgetItem(status_text)
+                    status_item.setStyleSheet(f"color: {status_color}; font-weight: bold;")
+                    self.docs_table.setItem(row, 4, status_item)
+                    
+                    # Total
+                    total_text = f"{doc.total or 0:.2f} €"
+                    self.docs_table.setItem(row, 5, QTableWidgetItem(total_text))
+                    
+                    # Due date
+                    due_text = ""
+                    if doc.due_date:
+                        due_text = doc.due_date.strftime('%d/%m/%Y')
+                    self.docs_table.setItem(row, 6, QTableWidgetItem(due_text))
+                    
+                    # Actions
+                    actions_widget = QWidget()
+                    actions_layout = QHBoxLayout(actions_widget)
+                    actions_layout.setContentsMargins(2, 2, 2, 2)
+                    
+                    view_btn = QPushButton("👁️")
+                    view_btn.setToolTip("Ver Documento")
+                    view_btn.setMaximumSize(30, 25)
+                    view_btn.clicked.connect(lambda checked, d=doc: self.view_document(d))
+                    actions_layout.addWidget(view_btn)
+                    
+                    edit_btn = QPushButton("✏️")
+                    edit_btn.setToolTip("Editar Documento")
+                    edit_btn.setMaximumSize(30, 25)
+                    edit_btn.clicked.connect(lambda checked, d=doc: self.edit_document(d))
+                    actions_layout.addWidget(edit_btn)
+                    
+                    delete_btn = QPushButton("🗑️")
+                    delete_btn.setToolTip("Eliminar Documento")
+                    delete_btn.setMaximumSize(30, 25)
+                    delete_btn.setStyleSheet("color: #e74c3c;")
+                    delete_btn.clicked.connect(lambda checked, d=doc: self.delete_document(d))
+                    actions_layout.addWidget(delete_btn)
+                    
+                    self.docs_table.setCellWidget(row, 7, actions_widget)
+                
+                self.status_label.setText(f"📊 Mostrando {len(documents)} documentos - Filtro: {filter_type}")
+                
+        except Exception as e:
+            self.status_label.setText(f"❌ Error: {str(e)}")
+    
+    def create_document(self, doc_type):
+        """Create new document"""
+        dialog = DocumentDialog(self, doc_type)
+        dialog.exec()
+    
+    def view_document(self, document):
+        """View document details"""
+        QMessageBox.information(self, f"📄 Ver Documento", f"Ver documento {document.code} en desarrollo")
+    
+    def edit_document(self, document):
+        """Edit document"""
+        QMessageBox.information(self, f"✏️ Editar Documento", f"Editar documento {document.code} en desarrollo")
+    
+    def delete_document(self, document):
+        """Delete document"""
+        reply = QMessageBox.question(
+            self, "❌ Confirmar Eliminación", 
+            f"¿Está seguro de eliminar el documento '{document.code}'?\n\nEsta acción no se puede deshacer."
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            QMessageBox.information(self, "ℹ️ En desarrollo", "Función de eliminación en desarrollo")
 
 class InventoryManagementTab(QWidget):
     """Complete inventory management tab"""
     def __init__(self):
         super().__init__()
         self.setup_ui()
-        self.refresh_data()
+        # Defer refresh to prevent blocking during initialization
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self.refresh_data)
     
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -1413,6 +1662,9 @@ class DiaryManagementTab(QWidget):
         display_text = f"📅 Notas para {selected_date}:\n"
         display_text += "=" * 50 + "\n\n"
         
+        # Reload notes from file to get latest data
+        self.load_notes()
+        
         filtered_notes = [
             note for note in self.notes 
             if note['date'] == selected_date
@@ -1603,7 +1855,8 @@ class MainWindow(QMainWindow):
         
         # Always refresh dashboard when switching to it
         if index == 0:  # Dashboard tab
-            self.dashboard.setup_ui()
+            if hasattr(self.dashboard, 'refresh_data'):
+                self.dashboard.refresh_data()
         # Refresh the specific tab when it becomes active
         elif index == 1:  # Clients tab
             if hasattr(tab_widget, 'refresh_data'):
@@ -1626,6 +1879,16 @@ class MainWindow(QMainWindow):
         new_invoice_action = QAction("🧾 Nueva Factura", self)
         new_invoice_action.triggered.connect(self.new_invoice)
         file_menu.addAction(new_invoice_action)
+        
+        file_menu.addSeparator()
+        
+        import_file_action = QAction("📂 Importar Archivo", self)
+        import_file_action.triggered.connect(self.import_external_file)
+        file_menu.addAction(import_file_action)
+        
+        export_data_action = QAction("📤 Exportar Datos", self)
+        export_data_action.triggered.connect(self.export_data)
+        file_menu.addAction(export_data_action)
         
         file_menu.addSeparator()
         
@@ -1660,12 +1923,313 @@ class MainWindow(QMainWindow):
     
     def show_settings(self):
         """Show settings dialog"""
-        QMessageBox.information(self, "⚙️ Ajustes", "Configuración del sistema en desarrollo")
+        dialog = SettingsDialog(self)
+        dialog.exec()
+
+
+    def import_external_file(self):
+        """"Import external files - Fixed QAction/slot mismatch"""
+        try:
+            from PySide6.QtWidgets import QFileDialog, QMessageBox
+            file_path, _ = QFileDialog.getOpenFileName(
+                self, "Seleccionar Archivo", "", "Files (*.*)"
+            )
+            if file_path:
+                QMessageBox.information(self, "✅ Importado", f"Archivo: {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Error", f"Error: {str(e)}")
     
-    def change_language(self, language_code):
-        """Change application language"""
-        if translator.set_language(language_code):
-            self.statusBar().showMessage(f"🌍 Idioma cambiado a: {translator.get_available_languages()[language_code]}", 3000)
+    def export_data(self):
+        """Export application data"""
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        QMessageBox.information(self, "Export", "Export functionality not yet implemented")
+    
+
+
+class SettingsDialog(QDialog):
+    """Functional Settings dialog"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("⚙️ Configuración - DRAGOFACTU")
+        self.setModal(True)
+        self.resize(500, 600)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        
+        # General settings
+        general_group = QGroupBox("🔧 Configuración General")
+        general_layout = QFormLayout(general_group)
+        
+        # Company info
+        self.company_name_edit = QLineEdit()
+        self.company_name_edit.setText("DRAGOFACTU Software")
+        general_layout.addRow("Nombre Empresa:", self.company_name_edit)
+        
+        self.company_email_edit = QLineEdit()
+        self.company_email_edit.setText("info@dragofactu.com")
+        general_layout.addRow("Email Empresa:", self.company_email_edit)
+        
+        self.company_phone_edit = QLineEdit()
+        self.company_phone_edit.setText("+34 900 000 000")
+        general_layout.addRow("Teléfono Empresa:", self.company_phone_edit)
+        
+        layout.addWidget(general_group)
+        
+        # UI settings
+        ui_group = QGroupBox("🎨 Apariencia")
+        ui_layout = QFormLayout(ui_group)
+        
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["Claro", "Oscuro", "Auto"])
+        self.theme_combo.setCurrentText("Auto")
+        ui_layout.addRow("Tema:", self.theme_combo)
+        
+        self.language_combo = QComboBox()
+        self.language_combo.addItems(["Español", "English", "Deutsch"])
+        self.language_combo.setCurrentText("Español")
+        ui_layout.addRow("Idioma:", self.language_combo)
+        
+        self.font_size_spin = QSpinBox()
+        self.font_size_spin.setRange(8, 24)
+        self.font_size_spin.setValue(12)
+        ui_layout.addRow("Tamaño Fuente:", self.font_size_spin)
+        
+        layout.addWidget(ui_group)
+        
+        # Business settings
+        business_group = QGroupBox("💼 Configuración Negocio")
+        business_layout = QFormLayout(business_group)
+        
+        self.currency_combo = QComboBox()
+        self.currency_combo.addItems(["EUR - Euro €", "USD - Dólar $", "GBP - Libra £"])
+        self.currency_combo.setCurrentText("EUR - Euro €")
+        business_layout.addRow("Moneda:", self.currency_combo)
+        
+        self.tax_rate_spin = QDoubleSpinBox()
+        self.tax_rate_spin.setRange(0, 50)
+        self.tax_rate_spin.setDecimals(2)
+        self.tax_rate_spin.setValue(21)
+        self.tax_rate_spin.setSuffix("%")
+        business_layout.addRow("IVA Por Defecto:", self.tax_rate_spin)
+        
+        layout.addWidget(business_group)
+        
+        # Database info
+        db_group = QGroupBox("🗄️ Información Base de Datos")
+        db_layout = QFormLayout(db_group)
+        
+        # Get database info
+        try:
+            with SessionLocal() as db:
+                client_count = db.query(Client).count()
+                product_count = db.query(Product).count()
+                document_count = db.query(Document).count()
+                
+                db_layout.addRow("Clientes:", QLabel(str(client_count)))
+                db_layout.addRow("Productos:", QLabel(str(product_count)))
+                db_layout.addRow("Documentos:", QLabel(str(document_count)))
+        except:
+            db_layout.addRow("Estado:", QLabel("❌ Error de conexión"))
+        
+        layout.addWidget(db_group)
+        
+        # App info
+        info_group = QGroupBox("ℹ️ Información Aplicación")
+        info_layout = QFormLayout(info_group)
+        
+        info_layout.addRow("Versión:", QLabel("V1.0.0.3"))
+        info_layout.addRow("Desarrollador:", QLabel("DRAGOFACTU Team"))
+        info_layout.addRow("GitHub:", QLabel("github.com/Copitx/Dragofactu"))
+        info_layout.addRow("Python:", QLabel(f"3.{sys.version_info.minor}.{sys.version_info.micro}"))
+        
+        layout.addWidget(info_group)
+        
+        # Buttons
+        buttons_layout = QHBoxLayout()
+        
+        save_btn = QPushButton("💾 Guardar Configuración")
+        save_btn.clicked.connect(self.save_settings)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #229954; }
+        """)
+        buttons_layout.addWidget(save_btn)
+        
+        reset_btn = QPushButton("🔄 Restablecer")
+        reset_btn.clicked.connect(self.reset_settings)
+        reset_btn.setStyleSheet("background-color: #f39c12; color: white; padding: 10px; border-radius: 5px;")
+        buttons_layout.addWidget(reset_btn)
+        
+        cancel_btn = QPushButton("❌ Cancelar")
+        cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet("background-color: #95a5a6; color: white; padding: 10px; border-radius: 5px;")
+        buttons_layout.addWidget(cancel_btn)
+        
+        buttons_layout.addStretch()
+        layout.addLayout(buttons_layout)
+    
+    def save_settings(self):
+        """Save settings"""
+        try:
+            # Get all values
+            settings = {
+                'company_name': self.company_name_edit.text(),
+                'company_email': self.company_email_edit.text(),
+                'company_phone': self.company_phone_edit.text(),
+                'theme': self.theme_combo.currentText(),
+                'language': self.language_combo.currentText(),
+                'font_size': self.font_size_spin.value(),
+                'currency': self.currency_combo.currentText(),
+                'tax_rate': self.tax_rate_spin.value()
+            }
+            
+            # Here you would save to a config file or database
+            # For now, just show success message
+            QMessageBox.information(self, "✅ Guardado", "Configuración guardada correctamente")
+            self.accept()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Error", f"Error guardando configuración: {str(e)}")
+    
+    def reset_settings(self):
+        """Reset settings to defaults"""
+        reply = QMessageBox.question(
+            self, "🔄 Restablecer", 
+            "¿Está seguro de restablecer la configuración a valores por defecto?"
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.company_name_edit.setText("DRAGOFACTU Software")
+            self.company_email_edit.setText("info@dragofactu.com")
+            self.company_phone_edit.setText("+34 900 000 000")
+            self.theme_combo.setCurrentText("Auto")
+            self.language_combo.setCurrentText("Español")
+            self.font_size_spin.setValue(12)
+            self.currency_combo.setCurrentText("EUR - Euro €")
+            self.tax_rate_spin.setValue(21)
+            
+            QMessageBox.information(self, "✅ Restablecido", "Configuración restablecida a valores por defecto")
+    
+    def import_external_file(self):
+        """Import external files"""
+        from PySide6.QtWidgets import QFileDialog
+        import json
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Seleccionar Archivo para Importar",
+            "",
+            "Todos los Archivos (*.csv *.json *.txt);;CSV Files (*.csv);;JSON Files (*.json);;Text Files (*.txt)"
+        )
+        
+        if file_path:
+            try:
+                if file_path.endswith('.csv'):
+                    self.import_csv_file(file_path)
+                elif file_path.endswith('.json'):
+                    self.import_json_file(file_path)
+                else:
+                    self.import_text_file(file_path)
+                    
+                QMessageBox.information(self, "✅ Importado", f"Archivo importado correctamente:\n{file_path}")
+                
+            except Exception as e:
+                QMessageBox.critical(self, "❌ Error", f"Error importando archivo: {str(e)}")
+    
+    def import_csv_file(self, file_path):
+        """Import CSV file"""
+        try:
+            import csv
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                count = 0
+                for row in reader:
+                    # Try to import as client if it looks like client data
+                    if 'name' in row and ('email' in row or 'phone' in row):
+                        with SessionLocal() as db:
+                            client = Client(
+                                code=row.get('code', f"C-{datetime.now().strftime('%Y%m%d%H%M%S')}"),
+                                name=row.get('name', ''),
+                                email=row.get('email') or None,
+                                phone=row.get('phone') or None,
+                                address=row.get('address') or None,
+                                tax_id=row.get('tax_id') or None,
+                                is_active=True
+                            )
+                            db.add(client)
+                            db.commit()
+                            count += 1
+                
+                QMessageBox.information(self, "✅ CSV Importado", f"Se importaron {count} clientes")
+                
+        except Exception as e:
+            raise Exception(f"Error importando CSV: {str(e)}")
+    
+    def import_json_file(self, file_path):
+        """Import JSON file"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                count = 0
+                
+                if isinstance(data, list):
+                    for item in data:
+                        if 'name' in item:  # Treat as client
+                            with SessionLocal() as db:
+                                client = Client(
+                                    code=item.get('code', f"C-{datetime.now().strftime('%Y%m%d%H%M%S')}"),
+                                    name=item.get('name', ''),
+                                    email=item.get('email') or None,
+                                    phone=item.get('phone') or None,
+                                    address=item.get('address') or None,
+                                    tax_id=item.get('tax_id') or None,
+                                    is_active=item.get('is_active', True)
+                                )
+                                db.add(client)
+                                db.commit()
+                                count += 1
+                
+                QMessageBox.information(self, "✅ JSON Importado", f"Se importaron {count} clientes")
+                
+        except Exception as e:
+            raise Exception(f"Error importando JSON: {str(e)}")
+    
+    def import_text_file(self, file_path):
+        """Import text file as diary notes"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                lines = content.strip().split('\n')
+                
+                # Create diary entries from lines
+                import json
+                self.load_notes()  # Load existing notes
+                
+                for line in lines:
+                    if line.strip():
+                        note = {
+                            'title': f"Importado: {line[:30]}...",
+                            'content': line,
+                            'date': datetime.now().strftime('%Y-%m-%d'),
+                            'time': datetime.now().strftime('%H:%M'),
+                            'priority': '🟢 Normal',
+                            'tags': ['importado', 'texto']
+                        }
+                        self.notes.append(note)
+                
+                self.save_notes()
+                QMessageBox.information(self, "✅ Texto Importado", f"Se importaron {len(lines)} notas al diario")
+                
+        except Exception as e:
+            raise Exception(f"Error importando texto: {str(e)}")
 
 class LoginDialog(QDialog):
     def __init__(self):

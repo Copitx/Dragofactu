@@ -17,7 +17,9 @@ class DashboardView(QWidget):
     def __init__(self):
         super().__init__()
         self.setup_ui()
-        self.refresh()
+        # Defer refresh to prevent blocking during initialization
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self.refresh)
     
     def setup_ui(self):
         """Setup dashboard UI"""

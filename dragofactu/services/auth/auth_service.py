@@ -13,6 +13,11 @@ from functools import wraps
 class AuthService:
     def __init__(self):
         self.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
+        if self.secret_key == 'your-secret-key-here' or self.secret_key == 'generate-secure-random-key-here-change-in-production':
+            import secrets
+            self.secret_key = secrets.token_urlsafe(32)
+            print("⚠️ WARNING: Using auto-generated secret key. Set SECRET_KEY environment variable for production.")
+        
         self.jwt_expiration_hours = int(os.getenv('JWT_EXPIRATION_HOURS', '24'))
     
     def hash_password(self, password: str) -> str:
@@ -41,10 +46,7 @@ class AuthService:
     
     def authenticate(self, db: Session, username: str, password: str) -> Optional[User]:
         user = db.query(User).filter(
-            or_(
-                User.username == username,
-                User.email == username
-            ),
+            User.username == username,
             User.is_active == True
         ).first()
         

@@ -1,7 +1,8 @@
 #!/bin/bash
-# DRAGOFACTU - Simple Launcher
-echo "🐲 DRAGOFACTU - Sistema de Gestión Empresarial"
-echo "=================================================="
+# DRAGOFACTU Final Launcher Script
 
-# Simple launcher
-exec ./venv/bin/python3 dragofactu_complete.py
+echo "🐲 DRAGOFACTU - Business Management System"
+echo "============================================"
+
+# Execute the fixed launcher with GUI support
+exec python3 launch_dragofactu_fixed.py

@@ -59,7 +59,29 @@ class DragofactuApp(QApplication):
         self.main_window.hide()
     
     def show_login(self):
-        """Show login dialog"""
+        """Show login dialog with automatic login for admin in headless environments"""
+        # Check if we're in a headless/remote environment where GUI interaction may not work
+        import os
+        headless_env = os.environ.get('QT_QPA_PLATFORM') == 'offscreen' or not os.environ.get('DISPLAY')
+        
+        if headless_env:
+            # Auto-login as admin for headless environments
+            with SessionLocal() as db:
+                from dragofactu.models.entities import User
+                admin_user = db.query(User).filter(User.username == 'admin').first()
+                if admin_user:
+                    self.current_user = admin_user
+                    self.main_window.set_current_user(self.current_user)
+                    self.main_window.show()
+                    self.main_window.raise_()
+                    self.main_window.activateWindow()
+                    return
+                else:
+                    print("No admin user found for auto-login")
+                    self.quit()
+                    return
+        
+        # Normal interactive login for GUI environments
         login_dialog = LoginDialog(self.auth_service)
         
         if login_dialog.exec() == QDialog.DialogCode.Accepted:

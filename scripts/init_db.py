@@ -11,26 +11,32 @@ from dragofactu.models.database import SessionLocal, engine, Base
 from dragofactu.models.entities import User, UserRole
 from dragofactu.services.auth.auth_service import AuthService
 import uuid
+import os
+import secrets
 
 def create_default_admin():
     """Crear usuario admin por defecto"""
     db = SessionLocal()
     
     try:
+        # Get credentials from environment or use secure defaults
+        admin_username = os.getenv('DEFAULT_ADMIN_USERNAME', 'admin')
+        admin_password = os.getenv('DEFAULT_ADMIN_PASSWORD', 'change-this-password-2024')
+        
         # Verificar si ya existe el usuario admin
-        admin_user = db.query(User).filter(User.username == "admin").first()
+        admin_user = db.query(User).filter(User.username == admin_username).first()
         if admin_user:
-            print("✅ El usuario admin ya existe")
+            print(f"✅ El usuario {admin_username} ya existe")
             return admin_user
         
         # Crear usuario admin
         auth_service = AuthService()
-        password_hash = auth_service.hash_password("admin123")
+        password_hash = auth_service.hash_password(admin_password)
         
         admin_user = User(
             id=uuid.uuid4(),
-            username="admin",
-            email="admin@dragofactu.com",
+            username=admin_username,
+            email=f"{admin_username}@dragofactu.com",
             password_hash=password_hash,
             full_name="Administrador del Sistema",
             role=UserRole.ADMIN,
@@ -42,9 +48,15 @@ def create_default_admin():
         db.refresh(admin_user)
         
         print("✅ Usuario admin creado exitosamente")
-        print(f"   Username: admin")
-        print(f"   Password: admin123")
+        print(f"   Username: {admin_username}")
+        print(f"   Password: {admin_password}")
         print(f"   ID: {admin_user.id}")
+        
+        # Security warning if using default credentials
+        if admin_password == "change-this-password-2024":
+            print("\n⚠️ SECURITY WARNING: Using default password!")
+            print("   Please change this immediately after first login.")
+            print("   Set DEFAULT_ADMIN_PASSWORD environment variable for security.")
         
         return admin_user
         
@@ -79,8 +91,8 @@ def main():
         print("   source venv/bin/activate")
         print("   python3 dragofactu/main.py")
         print("\n🔐 Login credentials:")
-        print("   Username: admin")
-        print("   Password: admin123")
+        print(f"   Username: {admin_user.username}")
+        print("   Password: (see above or check DEFAULT_ADMIN_PASSWORD env var)")
     else:
         print("\n❌ No se pudo completar la inicialización")
         return 1

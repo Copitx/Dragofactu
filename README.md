@@ -1,173 +1,181 @@
-# Dragofactu - Professional Business Management System
+# 🐲 DRAGOFACTU - Sistema de Gestión Profesional V1.0.0.3
 
-A comprehensive desktop business management application designed for small to medium enterprises, built with Python and PySide6.
+**Estado:** Estable - Versión 1.0.0.3
+**Objetivo:** Sistema completo y robusto de gestión empresarial con facturación, inventario, y gestión de clientes
 
-## Features
+## 🎯 Características Completas - V1.0.0.3
 
-- **User Management**: Multi-user system with role-based permissions
-- **Client Management**: Complete client database with contact information
-- **Document Management**: Quotes, delivery notes, and invoices with full history tracking
-- **Inventory Management**: Stock control with low-stock alerts
-- **Supplier Management**: Supplier information and invoice tracking
-- **Diary/Agenda**: Notion-like daily entries with attachments
-- **Worker Management**: Employee records with course tracking
-- **Payment Tracking**: Monitor payments and collections
-- **PDF Generation**: Professional document exports
-- **Email Integration**: Send documents directly from the application
+### 🏠 Dashboard Principal (Estable)
+- Resumen general con contadores en tiempo real y persistencia de UI
+- Tarjetas interactivas con estadísticas de negocio
+- Acciones rápidas funcionales para creación de entidades
+- Panel de actividad reciente con actualizaciones automáticas
+- Navegación consistente sin pérdida de elementos de interfaz
 
-## Architecture
+### 👥 Gestión de Clientes (Corregido)
+- CRUD completo sin errores de mapeo ORM
+- Ficha completa con campos correctos (tax_id vs nif)
+- Búsqueda y filtrado avanzado en tiempo real
+- Estados visuales con indicadores de color
+- Importación/Exportación de datos externos
 
-The application follows clean architecture principles:
+### 📦 Gestión de Productos (Corregido)
+- Creación y edición sin errores de campo
+- Control de stock con alertas funcionales
+- Gestión de múltiples unidades y precios
+- Integración completa con módulo de documentos
+- Persistencia de datos validada
 
-```
-dragofactu/
-├── models/          # Database models (SQLAlchemy)
-├── services/        # Business logic layer
-├── ui/              # User interface layer (PySide6)
-├── config/          # Application configuration
-├── utils/           # Utility functions
-└── tests/           # Test suite
-```
+### 💰 Gestión de Documentos (Implementado)
+- **Explorer de Documentos** - Vista tipo Excel con listado reciente
+- **Presupuestos** - Creación completa con cálculo automático
+- **Facturas** - Facturación con IVA configurable
+- **Albaranes** - Sistema de entrega completo
+- **Estados avanzados** - Borrador, Enviado, Aceptado, Pagado, Parcialmente Pagado
+- **Integración Cliente/Producto** - Selección automática desde base de datos
+- **Códigos automáticos** - PRE-*, FAC-*, ALB-*
 
-## Technology Stack
+### 📊 Gestión de Inventario (Estable)
+- Control de stock en tiempo real
+- Ajustes individuales y masivos
+- Alertas de stock bajo con indicadores visuales
+- Informes completos de valoración
+- Movimientos de stock registrados
+- Integración con módulo de productos
 
-- **Language**: Python 3.11+
-- **UI Framework**: PySide6 (Qt6)
-- **Database**: PostgreSQL
-- **ORM**: SQLAlchemy 2.0+
-- **PDF Generation**: ReportLab
-- **Authentication**: JWT with bcrypt
+### 📓 Diario Personal (Corregido)
+- Creación y persistencia de notas diarias
+- Recarga automática al cambiar fecha/selección
+- Sistema de etiquetas y prioridades
+- Búsqueda por fecha con filtrado instantáneo
+- Exportación de datos del diario
 
-## Installation
+### 🔧 Configuración Funcional (Nuevo)
+- Panel de configuración completo con múltiples secciones
+- Preferencias generales de empresa
+- Configuración de interfaz (tema, idioma, fuentes)
+- Información de base de datos y estadísticas
+- Restablecimiento a valores por defecto
+- Información de versión y sistema
 
-1. Clone the repository:
+### 📁 Gestión de Archivos Externos (Nuevo)
+- Importación de archivos CSV, JSON, y texto
+- Soporte para importación de clientes masivos
+- Exportación de datos en múltiples formatos
+- Integración con módulos existentes
+- Validación y manejo de errores
+
+### 🌍 Sistema Multi-idioma (Corregido)
+- Cambio de idioma funcional con actualización de UI
+- Traducciones consistentes en toda la aplicación
+- Persistencia de preferencia de idioma
+- Soporte completo para Español, Inglés, y Alemán
+
+## 🔍 Problemas Corregidos en V1.0.0.3
+
+### ✅ Problemas Críticos Resueltos
+1. **Persistencia de Dashboard** - Los botones no desaparecen al navegar
+2. **Mapeo ORM** - Error 'nif' corregido a 'tax_id' en Client model
+3. **Explorador de Documentos** - Reemplazada vista placeholder "En desarrollo"
+4. **Persistencia de Diario** - Las notas se recargan automáticamente
+5. **Menú Configuración** - Implementado panel funcional completo
+6. **Importación de Archivos** - Sistema completo de importación/exportación
+7. **Cambio de Idioma** - Funcional con actualización dinámica de interfaz
+
+## 🚀 Instalación V1.0.0.3
+
+### Requisitos
+- Python 3.8+
+- PySide6 
+- SQLAlchemy
+- SQLite (por defecto)
+
+### Instalación
 ```bash
-git clone https://github.com/your-org/dragofactu.git
-cd dragofactu
+# Clonar versión estable
+git clone https://github.com/Copitx/Dragofactu.git --branch v1.0.0.3
+
+# Entrar al directorio
+cd Dragofactu
+
+# Crear entorno virtual
+python3 -m venv venv
+
+# Activar entorno
+source venv/bin/activate
+
+# Instalar dependencias
+pip install -r requirements.txt
+
+# Inicializar base de datos
+python3 scripts/init_db.py
+
+# Ejecutar aplicación estable
+./start_dragofactu.sh
 ```
 
-2. Create a virtual environment:
+### 🔧 Configuración V1.0.0.3
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Base de datos SQLite
+DATABASE_URL=sqlite:///data/dragofactu.db
+
+# Idioma por defecto
+DEFAULT_LANGUAGE=es
+
+# Moneda y configuración
+DEFAULT_CURRENCY=EUR
+DEFAULT_TAX_RATE=21
 ```
 
-3. Install dependencies:
+## 🎚️ Lanzamiento de la Aplicación
+
+### Método Principal (Recomendado)
 ```bash
-pip install -e .
+# Ejecutar launcher oficial
+./start_dragofactu.sh
 ```
 
-4. Set up environment variables:
+### Alternativa para Desarrollo
 ```bash
-cp .env.example .env
-# Edit .env with your database and email configuration
+# Ejecutar directamente
+source venv/bin/activate
+python3 dragofactu_complete.py
 ```
 
-5. Run the application:
-```bash
-python -m dragofactu.main
-```
+## 📚 Documentación V1.0.0.3
 
-## Configuration
+- [Guía de Usuario](docs/user-guide-v1.0.0.3.md)
+- [Referencia de API](docs/api-v1.0.0.3.md)
+- [Esquema de Base de Datos](docs/database-v1.0.0.3.md)
+- [Guía de Despliegue](docs/deployment-v1.0.0.3.md)
 
-The application uses environment variables for configuration. Copy `.env.example` to `.env` and configure:
+## 🔐 Credenciales por Defecto
+- **Usuario:** admin
+- **Contraseña:** admin123
 
-- **Database**: PostgreSQL connection details
-- **Email**: SMTP configuration for sending documents
-- **Company**: Company information for PDF generation
-- **Security**: Secret key for JWT tokens
+## 📄 Licencia
+MIT License - Ver [LICENSE](LICENSE) para detalles completos
 
-## Database Setup
+---
 
-The application uses PostgreSQL. Create a database and update the configuration in `.env`:
+**✅ Estado Actual:** Estable - V1.0.0.3  
+**🎯 Características:** Todas las funcionalidades principales implementadas y corregidas  
+**🚀 Producción:** Lista para despliegue en entornos productivos
 
-```bash
-# PostgreSQL setup
-createdb dragofactu
-```
+## 📋 Checklist de Calidad V1.0.0.3
 
-The application will automatically create tables on first run.
+- [x] Interfaz estable sin errores de navegación
+- [x] Persistencia de datos correcta
+- [x] Mapeo ORM sin conflictos
+- [x] Gestión de archivos externos funcional
+- [x] Configuración completa y persistente
+- [x] Multi-idioma funcional
+- [x] Documentos con explorer funcional
+- [x] Diario con recarga automática
+- [x] Importación/Exportación de datos
+- [x] Launcher único y funcional
 
-## User Roles
+---
 
-The system includes predefined roles:
-
-- **Admin**: Full system access
-- **Management**: Client, supplier, and document management
-- **Warehouse**: Inventory and product management
-- **Read-only**: View-only access to all modules
-
-## Document Types
-
-Supports three main document types:
-
-1. **Quotes**: Budget estimates for clients
-2. **Delivery Notes**: Goods delivery tracking
-3. **Invoices**: Billing documents with payment tracking
-
-### Document Features
-
-- Manual conversion between document types
-- Complete audit history tracking
-- Custom tax configuration per document/line
-- Flexible line items (products or text)
-- Payment status tracking
-
-## Development
-
-### Running Tests
-
-```bash
-pytest tests/
-```
-
-### Code Style
-
-The project uses:
-- **Black** for code formatting
-- **Ruff** for linting
-- **MyPy** for type checking
-
-```bash
-black dragofactu/
-ruff check dragofactu/
-mypy dragofactu/
-```
-
-### Database Migrations
-
-When modifying models, create and apply migrations:
-
-```bash
-alembic revision --autogenerate -m "Description"
-alembic upgrade head
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Run the test suite
-6. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For support and questions:
-- Create an issue on GitHub
-- Email: support@dragofactu.com
-
-## Roadmap
-
-- [ ] Advanced reporting dashboard
-- [ ] Web application version
-- [ ] Mobile app companion
-- [ ] API integration
-- [ ] Multi-currency support
-- [ ] Advanced inventory features
-- [ ] Project management module# Dragofactu
+**Desarrollado con 🐲 por DRAGOFACTU Team**  
+**V1.0.0.3 - Sistema de Gestión Profesional Estable**

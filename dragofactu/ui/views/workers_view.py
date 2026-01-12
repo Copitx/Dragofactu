@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QDateEdit, QCheckBox, QHeaderView, QFrame,
     QTabWidget, QTextEdit, QFileDialog
 )
-from PySide6.QtCore import Qt, Signal, QDate
+from PySide6.QtCore import Qt, Signal, QDate, QTimer
 from PySide6.QtGui import QFont, QColor, QPixmap
 
 from models.database import SessionLocal
@@ -354,7 +354,8 @@ class WorkersView(QWidget):
         self.course_service = None
         
         self.setup_ui()
-        self.refresh()
+        # Defer refresh to prevent blocking during initialization
+        QTimer.singleShot(100, self.refresh)
     
     def setup_ui(self):
         """Setup workers UI"""

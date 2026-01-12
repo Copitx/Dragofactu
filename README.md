@@ -3,6 +3,10 @@
 **Estado:** Estable - Versión 1.0.0.3
 **Objetivo:** Sistema completo y robusto de gestión empresarial con facturación, inventario, y gestión de clientes
 
+## 🎯 Screenshots - V1.0.0.3
+<p align="center">
+<img src="Screenshots/panelprincipal.png" alt="Pantalla principal de mi app Python" width="600"/>
+</p>
 ## 🎯 Características Completas - V1.0.0.3
 
 ### 🏠 Dashboard Principal (Estable)

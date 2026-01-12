@@ -6,8 +6,13 @@ Fixed version with proper data persistence and full functionality
 
 import sys
 import os
+import logging
 from datetime import datetime, date
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('dragofactu')
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget, 
@@ -21,6 +26,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDate, QTime
 from PySide6.QtGui import QFont, QAction
+
+from sqlalchemy.orm import joinedload
 
 from dragofactu.models.database import SessionLocal, engine, Base
 from dragofactu.models.entities import User, Client, Product, Document, DocumentType, DocumentStatus
@@ -194,25 +201,28 @@ class Dashboard(QWidget):
         try:
             with SessionLocal() as db:
                 return db.query(Client).count()
-        except:
+        except Exception as e:
+            logger.error(f"Error getting client count: {e}")
             return 0
-    
+
     def get_product_count(self):
         """Get total products"""
         try:
             with SessionLocal() as db:
                 return db.query(Product).count()
-        except:
+        except Exception as e:
+            logger.error(f"Error getting product count: {e}")
             return 0
-    
+
     def get_document_count(self):
         """Get total documents"""
         try:
             with SessionLocal() as db:
                 return db.query(Document).count()
-        except:
+        except Exception as e:
+            logger.error(f"Error getting document count: {e}")
             return 0
-    
+
     def get_low_stock_count(self):
         """Get products with low stock"""
         try:
@@ -220,7 +230,8 @@ class Dashboard(QWidget):
                 return db.query(Product).filter(
                     Product.current_stock <= Product.minimum_stock
                 ).count()
-        except:
+        except Exception as e:
+            logger.error(f"Error getting low stock count: {e}")
             return 0
     
     def add_client(self):
@@ -248,161 +259,289 @@ class Dashboard(QWidget):
         dialog.exec()
 
 class ClientDialog(QDialog):
-    def __init__(self, parent=None):
+    """Dialog for creating and editing clients"""
+    def __init__(self, parent=None, client_id=None):
         super().__init__(parent)
-        self.setWindowTitle("👤 Nuevo Cliente")
+        self.client_id = client_id
+        self.is_edit_mode = client_id is not None
+        self.setWindowTitle("✏️ Editar Cliente" if self.is_edit_mode else "👤 Nuevo Cliente")
         self.setModal(True)
-        self.resize(500, 400)
+        self.resize(500, 450)
         self.setup_ui()
-    
+        if self.is_edit_mode:
+            self.load_client_data()
+
     def setup_ui(self):
         layout = QFormLayout(self)
-        
+
         self.code_edit = QLineEdit()
         self.code_edit.setPlaceholderText("C-001")
+        if self.is_edit_mode:
+            self.code_edit.setReadOnly(True)
+            self.code_edit.setStyleSheet("background-color: #f0f0f0;")
         layout.addRow("Código:", self.code_edit)
-        
+
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("Nombre del cliente")
-        layout.addRow("Nombre (*)", self.name_edit)
-        
+        layout.addRow("Nombre (*):", self.name_edit)
+
         self.email_edit = QLineEdit()
         self.email_edit.setPlaceholderText("email@ejemplo.com")
         layout.addRow("Email:", self.email_edit)
-        
+
         self.phone_edit = QLineEdit()
         self.phone_edit.setPlaceholderText("+34 600 000 000")
         layout.addRow("Teléfono:", self.phone_edit)
-        
+
         self.address_edit = QLineEdit()
         self.address_edit.setPlaceholderText("Dirección completa")
         layout.addRow("Dirección:", self.address_edit)
-        
+
+        self.city_edit = QLineEdit()
+        self.city_edit.setPlaceholderText("Ciudad")
+        layout.addRow("Ciudad:", self.city_edit)
+
+        self.postal_code_edit = QLineEdit()
+        self.postal_code_edit.setPlaceholderText("Código Postal")
+        layout.addRow("C. Postal:", self.postal_code_edit)
+
         self.nif_edit = QLineEdit()
         self.nif_edit.setPlaceholderText("CIF/NIF")
         layout.addRow("CIF/NIF:", self.nif_edit)
-        
+
+        self.notes_edit = QTextEdit()
+        self.notes_edit.setPlaceholderText("Notas adicionales...")
+        self.notes_edit.setMaximumHeight(80)
+        layout.addRow("Notas:", self.notes_edit)
+
         self.active_check = QCheckBox()
         self.active_check.setChecked(True)
         layout.addRow("Activo:", self.active_check)
-        
+
         # Buttons
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
-    
-    def accept(self):
-        """Save client"""
-        if not self.name_edit.text():
-            QMessageBox.warning(self, "❌ Error", "El nombre es obligatorio")
-            return
-        
+
+    def load_client_data(self):
+        """Load existing client data for editing"""
         try:
             with SessionLocal() as db:
-                client = Client(
-                    code=self.code_edit.text() or f"C-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    name=self.name_edit.text(),
-                    email=self.email_edit.text() or None,
-                    phone=self.phone_edit.text() or None,
-                    address=self.address_edit.text() or None,
-                    tax_id=self.nif_edit.text() or None,
-                    is_active=self.active_check.isChecked()
-                )
-                db.add(client)
+                client = db.query(Client).filter(Client.id == self.client_id).first()
+                if client:
+                    self.code_edit.setText(client.code or "")
+                    self.name_edit.setText(client.name or "")
+                    self.email_edit.setText(client.email or "")
+                    self.phone_edit.setText(client.phone or "")
+                    self.address_edit.setText(client.address or "")
+                    self.city_edit.setText(client.city or "")
+                    self.postal_code_edit.setText(client.postal_code or "")
+                    self.nif_edit.setText(client.tax_id or "")
+                    self.notes_edit.setPlainText(client.notes or "")
+                    self.active_check.setChecked(client.is_active)
+                else:
+                    QMessageBox.warning(self, "❌ Error", "Cliente no encontrado")
+                    self.reject()
+        except Exception as e:
+            logger.error(f"Error loading client data: {e}")
+            QMessageBox.critical(self, "❌ Error", f"Error cargando cliente: {str(e)}")
+            self.reject()
+
+    def accept(self):
+        """Save or update client"""
+        if not self.name_edit.text().strip():
+            QMessageBox.warning(self, "❌ Error", "El nombre es obligatorio")
+            return
+
+        try:
+            with SessionLocal() as db:
+                if self.is_edit_mode:
+                    # Update existing client
+                    client = db.query(Client).filter(Client.id == self.client_id).first()
+                    if not client:
+                        QMessageBox.warning(self, "❌ Error", "Cliente no encontrado")
+                        return
+                    client.name = self.name_edit.text().strip()
+                    client.email = self.email_edit.text().strip() or None
+                    client.phone = self.phone_edit.text().strip() or None
+                    client.address = self.address_edit.text().strip() or None
+                    client.city = self.city_edit.text().strip() or None
+                    client.postal_code = self.postal_code_edit.text().strip() or None
+                    client.tax_id = self.nif_edit.text().strip() or None
+                    client.notes = self.notes_edit.toPlainText().strip() or None
+                    client.is_active = self.active_check.isChecked()
+                else:
+                    # Create new client
+                    client = Client(
+                        code=self.code_edit.text().strip() or f"C-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        name=self.name_edit.text().strip(),
+                        email=self.email_edit.text().strip() or None,
+                        phone=self.phone_edit.text().strip() or None,
+                        address=self.address_edit.text().strip() or None,
+                        city=self.city_edit.text().strip() or None,
+                        postal_code=self.postal_code_edit.text().strip() or None,
+                        tax_id=self.nif_edit.text().strip() or None,
+                        notes=self.notes_edit.toPlainText().strip() or None,
+                        is_active=self.active_check.isChecked()
+                    )
+                    db.add(client)
                 db.commit()
                 super().accept()
         except Exception as e:
+            logger.error(f"Error saving client: {e}")
             QMessageBox.critical(self, "❌ Error", f"Error al guardar cliente: {str(e)}")
 
 class ProductDialog(QDialog):
-    def __init__(self, parent=None):
+    """Dialog for creating and editing products"""
+    def __init__(self, parent=None, product_id=None):
         super().__init__(parent)
-        self.setWindowTitle("📦 Nuevo Producto")
+        self.product_id = product_id
+        self.is_edit_mode = product_id is not None
+        self.setWindowTitle("✏️ Editar Producto" if self.is_edit_mode else "📦 Nuevo Producto")
         self.setModal(True)
-        self.resize(500, 450)
+        self.resize(500, 500)
         self.setup_ui()
-    
+        if self.is_edit_mode:
+            self.load_product_data()
+
     def setup_ui(self):
         layout = QFormLayout(self)
-        
+
         self.code_edit = QLineEdit()
         self.code_edit.setPlaceholderText("P-001")
+        if self.is_edit_mode:
+            self.code_edit.setReadOnly(True)
+            self.code_edit.setStyleSheet("background-color: #f0f0f0;")
         layout.addRow("Código:", self.code_edit)
-        
+
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("Nombre del producto")
-        layout.addRow("Nombre (*)", self.name_edit)
-        
-        self.description_edit = QLineEdit()
+        layout.addRow("Nombre (*):", self.name_edit)
+
+        self.description_edit = QTextEdit()
         self.description_edit.setPlaceholderText("Descripción del producto")
+        self.description_edit.setMaximumHeight(60)
         layout.addRow("Descripción:", self.description_edit)
-        
+
+        self.category_edit = QLineEdit()
+        self.category_edit.setPlaceholderText("Categoría")
+        layout.addRow("Categoría:", self.category_edit)
+
         self.cost_price_edit = QDoubleSpinBox()
         self.cost_price_edit.setRange(0, 999999)
         self.cost_price_edit.setDecimals(2)
+        self.cost_price_edit.setSuffix(" €")
         self.cost_price_edit.setValue(0)
         layout.addRow("Precio Coste:", self.cost_price_edit)
-        
+
         self.sale_price_edit = QDoubleSpinBox()
         self.sale_price_edit.setRange(0, 999999)
         self.sale_price_edit.setDecimals(2)
+        self.sale_price_edit.setSuffix(" €")
         self.sale_price_edit.setValue(0)
         layout.addRow("Precio Venta:", self.sale_price_edit)
-        
+
         self.stock_spin = QSpinBox()
         self.stock_spin.setMinimum(0)
         self.stock_spin.setMaximum(999999)
         self.stock_spin.setValue(0)
-        layout.addRow("Stock Inicial:", self.stock_spin)
-        
+        stock_label = "Stock Actual:" if self.is_edit_mode else "Stock Inicial:"
+        layout.addRow(stock_label, self.stock_spin)
+
         self.min_stock_spin = QSpinBox()
         self.min_stock_spin.setMinimum(0)
         self.min_stock_spin.setMaximum(999999)
         self.min_stock_spin.setValue(5)
         layout.addRow("Stock Mínimo:", self.min_stock_spin)
-        
+
         self.unit_combo = QComboBox()
-        self.unit_combo.addItems(["Unidades", "Kg", "Litros", "Metros", "Horas"])
+        self.unit_combo.addItems(["Unidades", "Kg", "Litros", "Metros", "Horas", "Piezas", "Cajas"])
         layout.addRow("Unidad:", self.unit_combo)
-        
+
         self.active_check = QCheckBox()
         self.active_check.setChecked(True)
         layout.addRow("Activo:", self.active_check)
-        
+
         # Buttons
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
-    
-    def accept(self):
-        """Save product"""
-        if not self.name_edit.text():
-            QMessageBox.warning(self, "❌ Error", "El nombre es obligatorio")
-            return
-        
+
+    def load_product_data(self):
+        """Load existing product data for editing"""
         try:
             with SessionLocal() as db:
-                product = Product(
-                    code=self.code_edit.text() or f"P-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    name=self.name_edit.text(),
-                    description=self.description_edit.text() or None,
-                    cost_price=self.cost_price_edit.value(),
-                    sale_price=self.sale_price_edit.value(),
-                    current_stock=self.stock_spin.value(),
-                    minimum_stock=self.min_stock_spin.value(),
-                    stock_unit=self.unit_combo.currentText(),
-                    is_active=self.active_check.isChecked()
-                )
-                db.add(product)
+                product = db.query(Product).filter(Product.id == self.product_id).first()
+                if product:
+                    self.code_edit.setText(product.code or "")
+                    self.name_edit.setText(product.name or "")
+                    self.description_edit.setPlainText(product.description or "")
+                    self.category_edit.setText(product.category or "")
+                    self.cost_price_edit.setValue(float(product.purchase_price or 0))
+                    self.sale_price_edit.setValue(float(product.sale_price or 0))
+                    self.stock_spin.setValue(product.current_stock or 0)
+                    self.min_stock_spin.setValue(product.minimum_stock or 0)
+                    # Set unit combo
+                    unit_index = self.unit_combo.findText(product.stock_unit or "Unidades")
+                    if unit_index >= 0:
+                        self.unit_combo.setCurrentIndex(unit_index)
+                    self.active_check.setChecked(product.is_active)
+                else:
+                    QMessageBox.warning(self, "❌ Error", "Producto no encontrado")
+                    self.reject()
+        except Exception as e:
+            logger.error(f"Error loading product data: {e}")
+            QMessageBox.critical(self, "❌ Error", f"Error cargando producto: {str(e)}")
+            self.reject()
+
+    def accept(self):
+        """Save or update product"""
+        if not self.name_edit.text().strip():
+            QMessageBox.warning(self, "❌ Error", "El nombre es obligatorio")
+            return
+
+        try:
+            with SessionLocal() as db:
+                if self.is_edit_mode:
+                    # Update existing product
+                    product = db.query(Product).filter(Product.id == self.product_id).first()
+                    if not product:
+                        QMessageBox.warning(self, "❌ Error", "Producto no encontrado")
+                        return
+                    product.name = self.name_edit.text().strip()
+                    product.description = self.description_edit.toPlainText().strip() or None
+                    product.category = self.category_edit.text().strip() or None
+                    product.purchase_price = self.cost_price_edit.value()
+                    product.sale_price = self.sale_price_edit.value()
+                    product.current_stock = self.stock_spin.value()
+                    product.minimum_stock = self.min_stock_spin.value()
+                    product.stock_unit = self.unit_combo.currentText()
+                    product.is_active = self.active_check.isChecked()
+                else:
+                    # Create new product
+                    product = Product(
+                        code=self.code_edit.text().strip() or f"P-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        name=self.name_edit.text().strip(),
+                        description=self.description_edit.toPlainText().strip() or None,
+                        category=self.category_edit.text().strip() or None,
+                        purchase_price=self.cost_price_edit.value(),
+                        sale_price=self.sale_price_edit.value(),
+                        current_stock=self.stock_spin.value(),
+                        minimum_stock=self.min_stock_spin.value(),
+                        stock_unit=self.unit_combo.currentText(),
+                        is_active=self.active_check.isChecked()
+                    )
+                    db.add(product)
                 db.commit()
                 super().accept()
         except Exception as e:
+            logger.error(f"Error saving product: {e}")
             QMessageBox.critical(self, "❌ Error", f"Error al guardar producto: {str(e)}")
 
 class DocumentDialog(QDialog):
@@ -535,9 +674,10 @@ class DocumentDialog(QDialog):
                 self.client_combo.addItem("Seleccione un cliente...", None)
                 for client in clients:
                     self.client_combo.addItem(f"{client.code} - {client.name}", client.id)
-        except:
-            pass
-    
+        except Exception as e:
+            logger.error(f"Error loading clients into combo: {e}")
+            self.client_combo.addItem("Error cargando clientes", None)
+
     def setup_products(self):
         """Load products into combo box"""
         try:
@@ -546,8 +686,9 @@ class DocumentDialog(QDialog):
                 self.product_combo.addItem("Seleccione un producto...", None)
                 for product in products:
                     self.product_combo.addItem(f"{product.code} - {product.name}", product.id)
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"Error loading products into combo: {e}")
+            self.product_combo.addItem("Error cargando productos", None)
     
     def add_item(self):
         """Add selected product to table"""
@@ -599,8 +740,8 @@ class DocumentDialog(QDialog):
             if total_item:
                 try:
                     subtotal += float(total_item.text().replace('€', '').strip())
-                except:
-                    pass
+                except ValueError as e:
+                    logger.warning(f"Could not parse subtotal value at row {row}: {e}")
         
         tax_text = self.tax_combo.currentText()
         tax_rate = 0.21
@@ -736,36 +877,39 @@ class ClientManagementTab(QWidget):
     
     def refresh_data(self):
         """Refresh clients data"""
+        self.client_ids = []  # Store client IDs for reference
         try:
             with SessionLocal() as db:
-                clients = db.query(Client).all()
-                
+                clients = db.query(Client).order_by(Client.name).all()
+
                 self.clients_table.setRowCount(0)
-                
+                self.client_ids = []
+
                 for row, client in enumerate(clients):
                     self.clients_table.insertRow(row)
-                    
+                    self.client_ids.append(client.id)  # Store ID
+
                     self.clients_table.setItem(row, 0, QTableWidgetItem(client.code or ""))
                     self.clients_table.setItem(row, 1, QTableWidgetItem(client.name or ""))
                     self.clients_table.setItem(row, 2, QTableWidgetItem(client.email or ""))
                     self.clients_table.setItem(row, 3, QTableWidgetItem(client.phone or ""))
                     self.clients_table.setItem(row, 4, QTableWidgetItem(client.address or ""))
-                    self.clients_table.setItem(row, 5, QTableWidgetItem(client.nif or ""))
-                    
+                    self.clients_table.setItem(row, 5, QTableWidgetItem(client.tax_id or ""))
+
                     status_text = "✅ Activo" if client.is_active else "❌ Inactivo"
                     status_item = QTableWidgetItem(status_text)
-                    status_item.setStyleSheet("color: green;" if client.is_active else "color: red;")
                     self.clients_table.setItem(row, 6, status_item)
-                
+
                 self.status_label.setText(f"📊 Mostrando {len(clients)} clientes")
-                
+
         except Exception as e:
+            logger.error(f"Error refreshing clients: {e}")
             self.status_label.setText(f"❌ Error: {str(e)}")
-    
+
     def filter_clients(self):
         """Filter clients based on search text"""
         search_text = self.search_edit.text().lower()
-        
+
         for row in range(self.clients_table.rowCount()):
             visible = False
             for col in range(self.clients_table.columnCount()):
@@ -774,36 +918,85 @@ class ClientManagementTab(QWidget):
                     visible = True
                     break
             self.clients_table.setRowHidden(row, not visible)
-    
+
     def add_client(self):
         """Add new client"""
         dialog = ClientDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh_data()
-    
+            QMessageBox.information(self, "✅ Éxito", "Cliente creado correctamente")
+
     def edit_client(self):
         """Edit selected client"""
         current_row = self.clients_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "❌ Error", "Seleccione un cliente para editar")
             return
-        QMessageBox.information(self, "ℹ️ Info", "Función de edición en desarrollo")
-    
+
+        if current_row >= len(self.client_ids):
+            QMessageBox.warning(self, "❌ Error", "Error al obtener datos del cliente")
+            return
+
+        client_id = self.client_ids[current_row]
+        dialog = ClientDialog(self, client_id=client_id)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh_data()
+            QMessageBox.information(self, "✅ Éxito", "Cliente actualizado correctamente")
+
     def delete_client(self):
         """Delete selected client"""
         current_row = self.clients_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "❌ Error", "Seleccione un cliente para eliminar")
             return
-        
+
+        if current_row >= len(self.client_ids):
+            QMessageBox.warning(self, "❌ Error", "Error al obtener datos del cliente")
+            return
+
         client_name = self.clients_table.item(current_row, 1).text()
+        client_id = self.client_ids[current_row]
+
         reply = QMessageBox.question(
-            self, "❌ Confirmar Eliminación", 
-            f"¿Está seguro de eliminar al cliente '{client_name}'?\n\nEsta acción no se puede deshacer."
+            self, "🗑️ Confirmar Eliminación",
+            f"¿Está seguro de eliminar al cliente '{client_name}'?\n\n"
+            "Se eliminarán también todos los documentos asociados.\n"
+            "Esta acción no se puede deshacer.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
-            QMessageBox.information(self, "ℹ️ Info", "Función de eliminación en desarrollo")
+            try:
+                with SessionLocal() as db:
+                    # Check for associated documents
+                    doc_count = db.query(Document).filter(Document.client_id == client_id).count()
+                    if doc_count > 0:
+                        confirm = QMessageBox.warning(
+                            self, "⚠️ Advertencia",
+                            f"Este cliente tiene {doc_count} documento(s) asociado(s).\n"
+                            "¿Desea eliminar el cliente y todos sus documentos?",
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                            QMessageBox.StandardButton.No
+                        )
+                        if confirm != QMessageBox.StandardButton.Yes:
+                            return
+                        # Delete associated documents first
+                        db.query(Document).filter(Document.client_id == client_id).delete()
+
+                    # Delete the client
+                    client = db.query(Client).filter(Client.id == client_id).first()
+                    if client:
+                        db.delete(client)
+                        db.commit()
+                        self.refresh_data()
+                        QMessageBox.information(self, "✅ Éxito", f"Cliente '{client_name}' eliminado correctamente")
+                    else:
+                        QMessageBox.warning(self, "❌ Error", "Cliente no encontrado")
+
+            except Exception as e:
+                logger.error(f"Error deleting client: {e}")
+                QMessageBox.critical(self, "❌ Error", f"Error al eliminar cliente: {str(e)}")
 
 class ProductManagementTab(QWidget):
     """Complete product management tab"""
@@ -881,42 +1074,45 @@ class ProductManagementTab(QWidget):
     
     def refresh_data(self):
         """Refresh products data"""
+        self.product_ids = []  # Store product IDs for reference
         try:
             with SessionLocal() as db:
-                products = db.query(Product).all()
-                
+                products = db.query(Product).order_by(Product.name).all()
+
                 self.products_table.setRowCount(0)
-                
+                self.product_ids = []
+
                 for row, product in enumerate(products):
                     self.products_table.insertRow(row)
-                    
+                    self.product_ids.append(product.id)  # Store ID
+
                     self.products_table.setItem(row, 0, QTableWidgetItem(product.code or ""))
                     self.products_table.setItem(row, 1, QTableWidgetItem(product.name or ""))
                     self.products_table.setItem(row, 2, QTableWidgetItem(product.description or ""))
-                    self.products_table.setItem(row, 3, QTableWidgetItem(f"{product.cost_price or 0:.2f}"))
-                    self.products_table.setItem(row, 4, QTableWidgetItem(f"{product.sale_price or 0:.2f}"))
+                    self.products_table.setItem(row, 3, QTableWidgetItem(f"{product.purchase_price or 0:.2f} €"))
+                    self.products_table.setItem(row, 4, QTableWidgetItem(f"{product.sale_price or 0:.2f} €"))
                     self.products_table.setItem(row, 5, QTableWidgetItem(str(product.current_stock or 0)))
                     self.products_table.setItem(row, 6, QTableWidgetItem(str(product.minimum_stock or 0)))
-                    
+
                     # Stock status
                     stock_text = "✅ OK"
                     if product.current_stock <= product.minimum_stock:
                         stock_text = "⚠️ BAJO"
-                    
-                    status_text = f"✅ Activo\n{stock_text}" if product.is_active else "❌ Inactivo"
+
+                    status_text = f"✅ Activo ({stock_text})" if product.is_active else "❌ Inactivo"
                     status_item = QTableWidgetItem(status_text)
-                    status_item.setStyleSheet("color: green;" if product.is_active else "color: red;")
                     self.products_table.setItem(row, 7, status_item)
-                
+
                 self.status_label.setText(f"📊 Mostrando {len(products)} productos")
-                
+
         except Exception as e:
+            logger.error(f"Error refreshing products: {e}")
             self.status_label.setText(f"❌ Error: {str(e)}")
-    
+
     def filter_products(self):
         """Filter products based on search text"""
         search_text = self.search_edit.text().lower()
-        
+
         for row in range(self.products_table.rowCount()):
             visible = False
             for col in range(self.products_table.columnCount()):
@@ -925,36 +1121,68 @@ class ProductManagementTab(QWidget):
                     visible = True
                     break
             self.products_table.setRowHidden(row, not visible)
-    
+
     def add_product(self):
         """Add new product"""
         dialog = ProductDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh_data()
-    
+            QMessageBox.information(self, "✅ Éxito", "Producto creado correctamente")
+
     def edit_product(self):
         """Edit selected product"""
         current_row = self.products_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "❌ Error", "Seleccione un producto para editar")
             return
-        QMessageBox.information(self, "ℹ️ Info", "Función de edición en desarrollo")
-    
+
+        if current_row >= len(self.product_ids):
+            QMessageBox.warning(self, "❌ Error", "Error al obtener datos del producto")
+            return
+
+        product_id = self.product_ids[current_row]
+        dialog = ProductDialog(self, product_id=product_id)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh_data()
+            QMessageBox.information(self, "✅ Éxito", "Producto actualizado correctamente")
+
     def delete_product(self):
         """Delete selected product"""
         current_row = self.products_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "❌ Error", "Seleccione un producto para eliminar")
             return
-        
+
+        if current_row >= len(self.product_ids):
+            QMessageBox.warning(self, "❌ Error", "Error al obtener datos del producto")
+            return
+
         product_name = self.products_table.item(current_row, 1).text()
+        product_id = self.product_ids[current_row]
+
         reply = QMessageBox.question(
-            self, "❌ Confirmar Eliminación", 
-            f"¿Está seguro de eliminar el producto '{product_name}'?\n\nEsta acción no se puede deshacer."
+            self, "🗑️ Confirmar Eliminación",
+            f"¿Está seguro de eliminar el producto '{product_name}'?\n\n"
+            "Esta acción no se puede deshacer.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
-            QMessageBox.information(self, "ℹ️ Info", "Función de eliminación en desarrollo")
+            try:
+                with SessionLocal() as db:
+                    product = db.query(Product).filter(Product.id == product_id).first()
+                    if product:
+                        db.delete(product)
+                        db.commit()
+                        self.refresh_data()
+                        QMessageBox.information(self, "✅ Éxito", f"Producto '{product_name}' eliminado correctamente")
+                    else:
+                        QMessageBox.warning(self, "❌ Error", "Producto no encontrado")
+
+            except Exception as e:
+                logger.error(f"Error deleting product: {e}")
+                QMessageBox.critical(self, "❌ Error", f"Error al eliminar producto: {str(e)}")
 
 # Placeholder classes for other tabs (to be implemented)
 class DocumentManagementTab(QWidget):
@@ -1062,8 +1290,8 @@ class DocumentManagementTab(QWidget):
                 # Get filter
                 filter_type = self.filter_combo.currentText()
                 
-                # Build query
-                query = db.query(Document)
+                # Build query with eager loading for client relationship
+                query = db.query(Document).options(joinedload(Document.client))
                 if filter_type != "Todos":
                     if filter_type == "Presupuestos":
                         query = query.filter(Document.type == DocumentType.QUOTE)
@@ -1071,7 +1299,7 @@ class DocumentManagementTab(QWidget):
                         query = query.filter(Document.type == DocumentType.INVOICE)
                     elif filter_type == "Albaranes":
                         query = query.filter(Document.type == DocumentType.DELIVERY_NOTE)
-                
+
                 # Get documents with most recent first
                 documents = query.order_by(Document.updated_at.desc()).limit(100).all()
                 
@@ -1105,7 +1333,8 @@ class DocumentManagementTab(QWidget):
                     # Client name (with relationship loading)
                     try:
                         client_name = doc.client.name if doc.client else "N/A"
-                    except:
+                    except Exception as e:
+                        logger.warning(f"Could not load client name for document {doc.code}: {e}")
                         client_name = "N/A"
                     self.docs_table.setItem(row, 2, QTableWidgetItem(client_name))
                     
@@ -1183,21 +1412,182 @@ class DocumentManagementTab(QWidget):
     
     def view_document(self, document):
         """View document details"""
-        QMessageBox.information(self, f"📄 Ver Documento", f"Ver documento {document.code} en desarrollo")
-    
+        try:
+            with SessionLocal() as db:
+                # Reload document with relationships
+                doc = db.query(Document).options(joinedload(Document.client)).filter(Document.id == document.id).first()
+                if not doc:
+                    QMessageBox.warning(self, "❌ Error", "Documento no encontrado")
+                    return
+
+                # Build document info
+                doc_type = "Presupuesto" if doc.type == DocumentType.QUOTE else "Factura" if doc.type == DocumentType.INVOICE else "Albarán"
+                client_name = doc.client.name if doc.client else "N/A"
+                issue_date = doc.issue_date.strftime('%d/%m/%Y') if doc.issue_date else "N/A"
+                due_date = doc.due_date.strftime('%d/%m/%Y') if doc.due_date else "N/A"
+                status_text = doc.status.value if hasattr(doc.status, 'value') else str(doc.status)
+
+                # Create view dialog
+                view_dialog = QDialog(self)
+                view_dialog.setWindowTitle(f"📄 {doc_type} - {doc.code}")
+                view_dialog.setModal(True)
+                view_dialog.resize(600, 500)
+
+                layout = QVBoxLayout(view_dialog)
+
+                # Header
+                header = QLabel(f"📄 {doc_type}: {doc.code}")
+                header.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+                layout.addWidget(header)
+
+                # Document details
+                details_group = QGroupBox("📋 Detalles del Documento")
+                details_layout = QFormLayout(details_group)
+                details_layout.addRow("Código:", QLabel(doc.code or ""))
+                details_layout.addRow("Tipo:", QLabel(doc_type))
+                details_layout.addRow("Estado:", QLabel(status_text))
+                details_layout.addRow("Cliente:", QLabel(client_name))
+                details_layout.addRow("Fecha Emisión:", QLabel(issue_date))
+                details_layout.addRow("Fecha Vencimiento:", QLabel(due_date))
+                layout.addWidget(details_group)
+
+                # Financial details
+                financial_group = QGroupBox("💰 Detalles Financieros")
+                financial_layout = QFormLayout(financial_group)
+                financial_layout.addRow("Subtotal:", QLabel(f"{doc.subtotal or 0:.2f} €"))
+                financial_layout.addRow("IVA:", QLabel(f"{doc.tax_amount or 0:.2f} €"))
+                financial_layout.addRow("Total:", QLabel(f"{doc.total or 0:.2f} €"))
+                layout.addWidget(financial_group)
+
+                # Notes
+                if doc.notes:
+                    notes_group = QGroupBox("📝 Notas")
+                    notes_layout = QVBoxLayout(notes_group)
+                    notes_text = QTextEdit()
+                    notes_text.setPlainText(doc.notes)
+                    notes_text.setReadOnly(True)
+                    notes_text.setMaximumHeight(100)
+                    notes_layout.addWidget(notes_text)
+                    layout.addWidget(notes_group)
+
+                # Close button
+                close_btn = QPushButton("❌ Cerrar")
+                close_btn.clicked.connect(view_dialog.accept)
+                layout.addWidget(close_btn)
+
+                view_dialog.exec()
+
+        except Exception as e:
+            logger.error(f"Error viewing document: {e}")
+            QMessageBox.critical(self, "❌ Error", f"Error al ver documento: {str(e)}")
+
     def edit_document(self, document):
-        """Edit document"""
-        QMessageBox.information(self, f"✏️ Editar Documento", f"Editar documento {document.code} en desarrollo")
-    
+        """Edit document - opens document dialog for editing"""
+        try:
+            with SessionLocal() as db:
+                doc = db.query(Document).filter(Document.id == document.id).first()
+                if not doc:
+                    QMessageBox.warning(self, "❌ Error", "Documento no encontrado")
+                    return
+
+                # Create edit dialog
+                edit_dialog = QDialog(self)
+                doc_type = "Presupuesto" if doc.type == DocumentType.QUOTE else "Factura" if doc.type == DocumentType.INVOICE else "Albarán"
+                edit_dialog.setWindowTitle(f"✏️ Editar {doc_type} - {doc.code}")
+                edit_dialog.setModal(True)
+                edit_dialog.resize(500, 400)
+
+                layout = QFormLayout(edit_dialog)
+
+                # Status combo
+                status_combo = QComboBox()
+                status_options = ["draft", "sent", "accepted", "rejected", "paid", "partially_paid", "cancelled"]
+                status_combo.addItems(status_options)
+                current_status = doc.status.value if hasattr(doc.status, 'value') else str(doc.status)
+                if current_status in status_options:
+                    status_combo.setCurrentText(current_status)
+                layout.addRow("Estado:", status_combo)
+
+                # Due date
+                due_date_edit = QDateEdit()
+                if doc.due_date:
+                    due_date_edit.setDate(QDate(doc.due_date.year, doc.due_date.month, doc.due_date.day))
+                else:
+                    due_date_edit.setDate(QDate.currentDate().addDays(30))
+                due_date_edit.setCalendarPopup(True)
+                layout.addRow("Fecha Vencimiento:", due_date_edit)
+
+                # Notes
+                notes_edit = QTextEdit()
+                notes_edit.setPlainText(doc.notes or "")
+                notes_edit.setMaximumHeight(100)
+                layout.addRow("Notas:", notes_edit)
+
+                # Internal notes
+                internal_notes_edit = QTextEdit()
+                internal_notes_edit.setPlainText(doc.internal_notes or "")
+                internal_notes_edit.setMaximumHeight(100)
+                layout.addRow("Notas Internas:", internal_notes_edit)
+
+                # Buttons
+                buttons = QDialogButtonBox(
+                    QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+                )
+
+                def save_changes():
+                    try:
+                        with SessionLocal() as db2:
+                            doc2 = db2.query(Document).filter(Document.id == document.id).first()
+                            if doc2:
+                                doc2.status = DocumentStatus(status_combo.currentText())
+                                qdate = due_date_edit.date()
+                                doc2.due_date = date(qdate.year(), qdate.month(), qdate.day())
+                                doc2.notes = notes_edit.toPlainText().strip() or None
+                                doc2.internal_notes = internal_notes_edit.toPlainText().strip() or None
+                                db2.commit()
+                                edit_dialog.accept()
+                                self.refresh_data()
+                                QMessageBox.information(self, "✅ Éxito", "Documento actualizado correctamente")
+                    except Exception as e:
+                        logger.error(f"Error saving document: {e}")
+                        QMessageBox.critical(self, "❌ Error", f"Error al guardar: {str(e)}")
+
+                buttons.accepted.connect(save_changes)
+                buttons.rejected.connect(edit_dialog.reject)
+                layout.addRow(buttons)
+
+                edit_dialog.exec()
+
+        except Exception as e:
+            logger.error(f"Error editing document: {e}")
+            QMessageBox.critical(self, "❌ Error", f"Error al editar documento: {str(e)}")
+
     def delete_document(self, document):
         """Delete document"""
         reply = QMessageBox.question(
-            self, "❌ Confirmar Eliminación", 
-            f"¿Está seguro de eliminar el documento '{document.code}'?\n\nEsta acción no se puede deshacer."
+            self, "🗑️ Confirmar Eliminación",
+            f"¿Está seguro de eliminar el documento '{document.code}'?\n\n"
+            "Esta acción no se puede deshacer.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
-            QMessageBox.information(self, "ℹ️ En desarrollo", "Función de eliminación en desarrollo")
+            try:
+                with SessionLocal() as db:
+                    doc = db.query(Document).filter(Document.id == document.id).first()
+                    if doc:
+                        doc_code = doc.code
+                        db.delete(doc)
+                        db.commit()
+                        self.refresh_data()
+                        QMessageBox.information(self, "✅ Éxito", f"Documento '{doc_code}' eliminado correctamente")
+                    else:
+                        QMessageBox.warning(self, "❌ Error", "Documento no encontrado")
+
+            except Exception as e:
+                logger.error(f"Error deleting document: {e}")
+                QMessageBox.critical(self, "❌ Error", f"Error al eliminar documento: {str(e)}")
 
 class InventoryManagementTab(QWidget):
     """Complete inventory management tab"""
@@ -1642,7 +2032,8 @@ class DiaryManagementTab(QWidget):
             if os.path.exists(notes_file):
                 with open(notes_file, 'r', encoding='utf-8') as f:
                     self.notes = json.load(f)
-        except:
+        except (IOError, json.JSONDecodeError) as e:
+            logger.error(f"Error loading diary notes: {e}")
             self.notes = []
     
     def save_notes(self):
@@ -1940,9 +2331,171 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "❌ Error", f"Error: {str(e)}")
     
     def export_data(self):
-        """Export application data"""
-        from PySide6.QtWidgets import QFileDialog, QMessageBox
-        QMessageBox.information(self, "Export", "Export functionality not yet implemented")
+        """Export application data to CSV/JSON"""
+        from PySide6.QtWidgets import QFileDialog
+
+        # Create export dialog
+        export_dialog = QDialog(self)
+        export_dialog.setWindowTitle("📤 Exportar Datos")
+        export_dialog.setModal(True)
+        export_dialog.resize(400, 300)
+
+        layout = QVBoxLayout(export_dialog)
+
+        # Export type selection
+        type_group = QGroupBox("📋 Seleccione qué exportar")
+        type_layout = QVBoxLayout(type_group)
+
+        self.export_clients_check = QCheckBox("👥 Clientes")
+        self.export_clients_check.setChecked(True)
+        type_layout.addWidget(self.export_clients_check)
+
+        self.export_products_check = QCheckBox("📦 Productos")
+        self.export_products_check.setChecked(True)
+        type_layout.addWidget(self.export_products_check)
+
+        self.export_documents_check = QCheckBox("📄 Documentos")
+        self.export_documents_check.setChecked(True)
+        type_layout.addWidget(self.export_documents_check)
+
+        layout.addWidget(type_group)
+
+        # Format selection
+        format_group = QGroupBox("📁 Formato de exportación")
+        format_layout = QVBoxLayout(format_group)
+
+        self.export_format_combo = QComboBox()
+        self.export_format_combo.addItems(["CSV (Hojas de cálculo)", "JSON (Datos estructurados)"])
+        format_layout.addWidget(self.export_format_combo)
+
+        layout.addWidget(format_group)
+
+        # Buttons
+        buttons_layout = QHBoxLayout()
+
+        export_btn = QPushButton("📤 Exportar")
+        export_btn.setStyleSheet("background-color: #27ae60; color: white; padding: 10px; border-radius: 5px; font-weight: bold;")
+        export_btn.clicked.connect(lambda: self.perform_export(export_dialog))
+        buttons_layout.addWidget(export_btn)
+
+        cancel_btn = QPushButton("❌ Cancelar")
+        cancel_btn.clicked.connect(export_dialog.reject)
+        buttons_layout.addWidget(cancel_btn)
+
+        layout.addLayout(buttons_layout)
+
+        export_dialog.exec()
+
+    def perform_export(self, dialog):
+        """Perform the actual export"""
+        import csv
+        import json
+        from PySide6.QtWidgets import QFileDialog
+
+        export_clients = self.export_clients_check.isChecked()
+        export_products = self.export_products_check.isChecked()
+        export_documents = self.export_documents_check.isChecked()
+        is_csv = "CSV" in self.export_format_combo.currentText()
+
+        if not any([export_clients, export_products, export_documents]):
+            QMessageBox.warning(self, "❌ Error", "Seleccione al menos un tipo de datos para exportar")
+            return
+
+        # Get export directory
+        export_dir = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta de Exportación")
+        if not export_dir:
+            return
+
+        try:
+            exported_files = []
+
+            with SessionLocal() as db:
+                # Export Clients
+                if export_clients:
+                    clients = db.query(Client).all()
+                    if clients:
+                        if is_csv:
+                            filepath = os.path.join(export_dir, "clientes.csv")
+                            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                                writer = csv.writer(f)
+                                writer.writerow(['Código', 'Nombre', 'Email', 'Teléfono', 'Dirección', 'Ciudad', 'C. Postal', 'CIF/NIF', 'Activo'])
+                                for c in clients:
+                                    writer.writerow([c.code, c.name, c.email or '', c.phone or '', c.address or '', c.city or '', c.postal_code or '', c.tax_id or '', 'Sí' if c.is_active else 'No'])
+                        else:
+                            filepath = os.path.join(export_dir, "clientes.json")
+                            data = [{'codigo': c.code, 'nombre': c.name, 'email': c.email, 'telefono': c.phone, 'direccion': c.address, 'ciudad': c.city, 'codigo_postal': c.postal_code, 'cif_nif': c.tax_id, 'activo': c.is_active} for c in clients]
+                            with open(filepath, 'w', encoding='utf-8') as f:
+                                json.dump(data, f, ensure_ascii=False, indent=2)
+                        exported_files.append(filepath)
+
+                # Export Products
+                if export_products:
+                    products = db.query(Product).all()
+                    if products:
+                        if is_csv:
+                            filepath = os.path.join(export_dir, "productos.csv")
+                            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                                writer = csv.writer(f)
+                                writer.writerow(['Código', 'Nombre', 'Descripción', 'Categoría', 'P. Coste', 'P. Venta', 'Stock', 'Stock Mín', 'Unidad', 'Activo'])
+                                for p in products:
+                                    writer.writerow([p.code, p.name, p.description or '', p.category or '', float(p.purchase_price or 0), float(p.sale_price or 0), p.current_stock or 0, p.minimum_stock or 0, p.stock_unit or '', 'Sí' if p.is_active else 'No'])
+                        else:
+                            filepath = os.path.join(export_dir, "productos.json")
+                            data = [{'codigo': p.code, 'nombre': p.name, 'descripcion': p.description, 'categoria': p.category, 'precio_coste': float(p.purchase_price or 0), 'precio_venta': float(p.sale_price or 0), 'stock': p.current_stock, 'stock_minimo': p.minimum_stock, 'unidad': p.stock_unit, 'activo': p.is_active} for p in products]
+                            with open(filepath, 'w', encoding='utf-8') as f:
+                                json.dump(data, f, ensure_ascii=False, indent=2)
+                        exported_files.append(filepath)
+
+                # Export Documents
+                if export_documents:
+                    documents = db.query(Document).options(joinedload(Document.client)).all()
+                    if documents:
+                        if is_csv:
+                            filepath = os.path.join(export_dir, "documentos.csv")
+                            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                                writer = csv.writer(f)
+                                writer.writerow(['Código', 'Tipo', 'Estado', 'Cliente', 'F. Emisión', 'F. Vencimiento', 'Subtotal', 'IVA', 'Total', 'Notas'])
+                                for d in documents:
+                                    doc_type = d.type.value if hasattr(d.type, 'value') else str(d.type)
+                                    status = d.status.value if hasattr(d.status, 'value') else str(d.status)
+                                    client_name = d.client.name if d.client else ''
+                                    issue_date = d.issue_date.strftime('%Y-%m-%d') if d.issue_date else ''
+                                    due_date = d.due_date.strftime('%Y-%m-%d') if d.due_date else ''
+                                    writer.writerow([d.code, doc_type, status, client_name, issue_date, due_date, float(d.subtotal or 0), float(d.tax_amount or 0), float(d.total or 0), d.notes or ''])
+                        else:
+                            filepath = os.path.join(export_dir, "documentos.json")
+                            data = []
+                            for d in documents:
+                                data.append({
+                                    'codigo': d.code,
+                                    'tipo': d.type.value if hasattr(d.type, 'value') else str(d.type),
+                                    'estado': d.status.value if hasattr(d.status, 'value') else str(d.status),
+                                    'cliente': d.client.name if d.client else None,
+                                    'fecha_emision': d.issue_date.strftime('%Y-%m-%d') if d.issue_date else None,
+                                    'fecha_vencimiento': d.due_date.strftime('%Y-%m-%d') if d.due_date else None,
+                                    'subtotal': float(d.subtotal or 0),
+                                    'iva': float(d.tax_amount or 0),
+                                    'total': float(d.total or 0),
+                                    'notas': d.notes
+                                })
+                            with open(filepath, 'w', encoding='utf-8') as f:
+                                json.dump(data, f, ensure_ascii=False, indent=2)
+                        exported_files.append(filepath)
+
+            dialog.accept()
+
+            if exported_files:
+                file_list = '\n'.join([f"  - {os.path.basename(f)}" for f in exported_files])
+                QMessageBox.information(
+                    self, "✅ Exportación Completada",
+                    f"Datos exportados correctamente a:\n{export_dir}\n\nArchivos creados:\n{file_list}"
+                )
+            else:
+                QMessageBox.information(self, "ℹ️ Info", "No hay datos para exportar")
+
+        except Exception as e:
+            logger.error(f"Error exporting data: {e}")
+            QMessageBox.critical(self, "❌ Error", f"Error al exportar datos: {str(e)}")
     
 
 
@@ -2026,11 +2579,12 @@ class SettingsDialog(QDialog):
                 client_count = db.query(Client).count()
                 product_count = db.query(Product).count()
                 document_count = db.query(Document).count()
-                
+
                 db_layout.addRow("Clientes:", QLabel(str(client_count)))
                 db_layout.addRow("Productos:", QLabel(str(product_count)))
                 db_layout.addRow("Documentos:", QLabel(str(document_count)))
-        except:
+        except Exception as e:
+            logger.error(f"Error getting database info for settings: {e}")
             db_layout.addRow("Estado:", QLabel("❌ Error de conexión"))
         
         layout.addWidget(db_group)

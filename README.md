@@ -7,6 +7,13 @@
 <p align="center">
 <img src="Screenshots/panelprincipal.png" alt="Pantalla principal de mi app Python" width="600"/>
 </p>
+<img src="Screenshots/login.png" alt="Login menu" width="600"/>
+</p>
+<img src="Screenshots/clientesmenu.png" alt="clients add menu" width="600"/>
+</p>
+<img src="Screenshots/documentosprincipal.png" alt="docsedit panel" width="600"/>
+</p>
+
 ## 🎯 Características Completas - V1.0.0.3
 
 ### 🏠 Dashboard Principal (Estable)

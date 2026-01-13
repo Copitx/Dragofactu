@@ -15,14 +15,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger('dragofactu')
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QWidget, 
+    QApplication, QMainWindow, QVBoxLayout, QWidget,
     QHBoxLayout, QLabel, QPushButton, QTabWidget,
     QTableWidget, QTableWidgetItem, QMessageBox,
     QLineEdit, QComboBox, QDialog, QDialogButtonBox,
     QFormLayout, QSpinBox, QMenuBar, QStatusBar,
     QHeaderView, QTextEdit, QDateEdit, QFrame,
     QDoubleSpinBox, QCheckBox, QGroupBox, QGridLayout,
-    QTimeEdit, QInputDialog
+    QTimeEdit, QInputDialog, QFileDialog, QListWidget, QListWidgetItem
 )
 from PySide6.QtCore import Qt, QDate, QTime
 from PySide6.QtGui import QFont, QAction
@@ -30,178 +30,1081 @@ from PySide6.QtGui import QFont, QAction
 from sqlalchemy.orm import joinedload
 
 from dragofactu.models.database import SessionLocal, engine, Base
-from dragofactu.models.entities import User, Client, Product, Document, DocumentType, DocumentStatus
+from dragofactu.models.entities import User, Client, Product, Document, DocumentLine, DocumentType, DocumentStatus
 from dragofactu.services.auth.auth_service import AuthService
 from dragofactu.config.translation import translator
 from dragofactu.ui.styles import apply_stylesheet
 
+
+class UIStyles:
+    """Shared UI styles for Apple-inspired design system"""
+
+    # Color palette
+    COLORS = {
+        'bg_app': '#FAFAFA',
+        'bg_card': '#FFFFFF',
+        'bg_hover': '#F5F5F7',
+        'bg_pressed': '#E8E8ED',
+        'text_primary': '#1D1D1F',
+        'text_secondary': '#6E6E73',
+        'text_tertiary': '#86868B',
+        'text_inverse': '#FFFFFF',
+        'accent': '#007AFF',
+        'accent_hover': '#0056CC',
+        'success': '#34C759',
+        'warning': '#FF9500',
+        'danger': '#FF3B30',
+        'danger_hover': '#CC2F26',
+        'border': '#D2D2D7',
+        'border_light': '#E5E5EA',
+    }
+
+    @classmethod
+    def get_panel_style(cls):
+        """Style for main panels/tabs"""
+        return f"""
+            QWidget {{
+                background-color: {cls.COLORS['bg_app']};
+            }}
+        """
+
+    @classmethod
+    def get_card_style(cls):
+        """Style for card containers"""
+        return f"""
+            QFrame {{
+                background-color: {cls.COLORS['bg_card']};
+                border: 1px solid {cls.COLORS['border_light']};
+                border-radius: 12px;
+            }}
+        """
+
+    @classmethod
+    def get_primary_button_style(cls):
+        """Style for primary action buttons"""
+        return f"""
+            QPushButton {{
+                background-color: {cls.COLORS['accent']};
+                color: {cls.COLORS['text_inverse']};
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: 500;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{
+                background-color: {cls.COLORS['accent_hover']};
+            }}
+            QPushButton:pressed {{
+                background-color: #004499;
+            }}
+        """
+
+    @classmethod
+    def get_secondary_button_style(cls):
+        """Style for secondary buttons"""
+        return f"""
+            QPushButton {{
+                background-color: {cls.COLORS['bg_card']};
+                color: {cls.COLORS['text_primary']};
+                border: 1px solid {cls.COLORS['border']};
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: 500;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{
+                background-color: {cls.COLORS['bg_hover']};
+            }}
+        """
+
+    @classmethod
+    def get_danger_button_style(cls):
+        """Style for danger/delete buttons"""
+        return f"""
+            QPushButton {{
+                background-color: {cls.COLORS['danger']};
+                color: {cls.COLORS['text_inverse']};
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: 500;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{
+                background-color: {cls.COLORS['danger_hover']};
+            }}
+        """
+
+    @classmethod
+    def get_table_style(cls):
+        """Style for data tables"""
+        return f"""
+            QTableWidget {{
+                background-color: {cls.COLORS['bg_card']};
+                border: 1px solid {cls.COLORS['border_light']};
+                border-radius: 12px;
+                gridline-color: {cls.COLORS['border_light']};
+                selection-background-color: {cls.COLORS['accent']};
+                selection-color: {cls.COLORS['text_inverse']};
+            }}
+            QTableWidget::item {{
+                padding: 8px 12px;
+                border-bottom: 1px solid {cls.COLORS['border_light']};
+            }}
+            QTableWidget::item:hover {{
+                background-color: {cls.COLORS['bg_hover']};
+            }}
+            QHeaderView::section {{
+                background-color: {cls.COLORS['bg_app']};
+                color: {cls.COLORS['text_secondary']};
+                font-weight: 600;
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                padding: 10px 12px;
+                border: none;
+                border-bottom: 1px solid {cls.COLORS['border']};
+            }}
+        """
+
+    @classmethod
+    def get_input_style(cls):
+        """Style for input fields"""
+        return f"""
+            QLineEdit, QTextEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit {{
+                background-color: {cls.COLORS['bg_card']};
+                border: 1px solid {cls.COLORS['border']};
+                border-radius: 8px;
+                padding: 10px 12px;
+                font-size: 13px;
+                color: {cls.COLORS['text_primary']};
+                min-height: 20px;
+            }}
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{
+                border-color: {cls.COLORS['accent']};
+            }}
+        """
+
+    @classmethod
+    def get_section_title_style(cls):
+        """Style for section titles"""
+        return f"""
+            font-size: 17px;
+            font-weight: 600;
+            color: {cls.COLORS['text_primary']};
+            background: transparent;
+        """
+
+    @classmethod
+    def get_label_style(cls):
+        """Style for labels"""
+        return f"""
+            color: {cls.COLORS['text_secondary']};
+            font-size: 13px;
+            background: transparent;
+        """
+
+    @classmethod
+    def get_status_label_style(cls):
+        """Style for status labels"""
+        return f"""
+            color: {cls.COLORS['text_tertiary']};
+            font-size: 12px;
+            background: transparent;
+            padding: 8px 0;
+        """
+
+    @classmethod
+    def get_group_box_style(cls):
+        """Style for group boxes"""
+        return f"""
+            QGroupBox {{
+                background-color: {cls.COLORS['bg_card']};
+                border: 1px solid {cls.COLORS['border_light']};
+                border-radius: 12px;
+                margin-top: 16px;
+                padding: 20px;
+                padding-top: 32px;
+                font-weight: 600;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 8px;
+                color: {cls.COLORS['text_primary']};
+                font-size: 13px;
+            }}
+        """
+
+    @classmethod
+    def get_dialog_style(cls):
+        """Style for dialogs"""
+        return f"""
+            QDialog {{
+                background-color: {cls.COLORS['bg_app']};
+            }}
+        """
+
+    @classmethod
+    def get_toolbar_button_style(cls):
+        """Style for small toolbar icon buttons"""
+        return f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                border-radius: 6px;
+                padding: 6px;
+                font-size: 14px;
+            }}
+            QPushButton:hover {{
+                background-color: {cls.COLORS['bg_hover']};
+            }}
+        """
+
+
+# =============================================================================
+# PDF Generation for Spanish Invoices
+# =============================================================================
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm, cm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from decimal import Decimal
+
+
+class InvoicePDFGenerator:
+    """
+    Professional Spanish Invoice PDF Generator
+
+    Generates clean, professional invoices following Spanish standards:
+    - Company header with logo (optional)
+    - Client details
+    - Invoice number and dates
+    - Line items table
+    - Subtotal, IVA (21%), and Total
+    """
+
+    # Colors matching UIStyles
+    COLORS = {
+        'primary': colors.HexColor('#1D1D1F'),
+        'secondary': colors.HexColor('#6E6E73'),
+        'accent': colors.HexColor('#007AFF'),
+        'border': colors.HexColor('#D2D2D7'),
+        'bg_light': colors.HexColor('#F5F5F7'),
+        'white': colors.white,
+    }
+
+    # Default IVA rate in Spain
+    IVA_RATE = Decimal('0.21')
+
+    def __init__(self):
+        """Initialize PDF generator with company configuration"""
+        from dragofactu.config.config import AppConfig
+
+        self.company_name = AppConfig.PDF_COMPANY_NAME
+        self.company_address = AppConfig.PDF_COMPANY_ADDRESS
+        self.company_phone = AppConfig.PDF_COMPANY_PHONE
+        self.company_email = AppConfig.PDF_COMPANY_EMAIL
+        self.company_cif = AppConfig.PDF_COMPANY_CIF
+        self.logo_path = AppConfig.PDF_LOGO_PATH
+
+        # Page dimensions
+        self.page_width, self.page_height = A4
+        self.margin = 20 * mm
+
+    def generate(self, document, lines, client, output_path):
+        """
+        Generate PDF invoice from document data
+
+        Args:
+            document: Document model instance
+            lines: List of DocumentLine model instances
+            client: Client model instance
+            output_path: Path to save the PDF
+        """
+        # Create document
+        doc = SimpleDocTemplate(
+            output_path,
+            pagesize=A4,
+            rightMargin=self.margin,
+            leftMargin=self.margin,
+            topMargin=self.margin,
+            bottomMargin=self.margin
+        )
+
+        # Build story (content)
+        story = []
+
+        # Styles
+        styles = self._get_styles()
+
+        # Header with company info and invoice details
+        story.append(self._create_header(document, styles))
+        story.append(Spacer(1, 10 * mm))
+
+        # Client information
+        story.append(self._create_client_section(client, styles))
+        story.append(Spacer(1, 8 * mm))
+
+        # Line items table
+        story.append(self._create_items_table(lines, styles))
+        story.append(Spacer(1, 6 * mm))
+
+        # Totals section
+        story.append(self._create_totals_section(document, lines, styles))
+        story.append(Spacer(1, 10 * mm))
+
+        # Notes (if any)
+        if document.notes:
+            story.append(self._create_notes_section(document.notes, styles))
+            story.append(Spacer(1, 6 * mm))
+
+        # Footer with payment info and legal text
+        story.append(self._create_footer(styles))
+
+        # Build PDF
+        doc.build(story)
+
+        return output_path
+
+    def _get_styles(self):
+        """Create custom paragraph styles"""
+        styles = getSampleStyleSheet()
+
+        # Company name style
+        styles.add(ParagraphStyle(
+            'CompanyName',
+            parent=styles['Heading1'],
+            fontSize=18,
+            textColor=self.COLORS['primary'],
+            spaceAfter=2 * mm,
+            leading=22,
+        ))
+
+        # Company info style
+        styles.add(ParagraphStyle(
+            'CompanyInfo',
+            parent=styles['Normal'],
+            fontSize=9,
+            textColor=self.COLORS['secondary'],
+            leading=12,
+        ))
+
+        # Invoice title style
+        styles.add(ParagraphStyle(
+            'InvoiceTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=self.COLORS['accent'],
+            alignment=TA_RIGHT,
+            spaceAfter=3 * mm,
+        ))
+
+        # Invoice info style
+        styles.add(ParagraphStyle(
+            'InvoiceInfo',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=self.COLORS['primary'],
+            alignment=TA_RIGHT,
+            leading=14,
+        ))
+
+        # Section header style
+        styles.add(ParagraphStyle(
+            'SectionHeader',
+            parent=styles['Heading2'],
+            fontSize=11,
+            textColor=self.COLORS['secondary'],
+            spaceBefore=3 * mm,
+            spaceAfter=2 * mm,
+            leading=14,
+        ))
+
+        # Client info style
+        styles.add(ParagraphStyle(
+            'ClientInfo',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=self.COLORS['primary'],
+            leading=14,
+        ))
+
+        # Table header style
+        styles.add(ParagraphStyle(
+            'TableHeader',
+            parent=styles['Normal'],
+            fontSize=9,
+            textColor=self.COLORS['white'],
+            alignment=TA_CENTER,
+        ))
+
+        # Notes style
+        styles.add(ParagraphStyle(
+            'Notes',
+            parent=styles['Normal'],
+            fontSize=9,
+            textColor=self.COLORS['secondary'],
+            leading=12,
+        ))
+
+        # Footer style
+        styles.add(ParagraphStyle(
+            'Footer',
+            parent=styles['Normal'],
+            fontSize=8,
+            textColor=self.COLORS['secondary'],
+            alignment=TA_CENTER,
+            leading=10,
+        ))
+
+        return styles
+
+    def _create_header(self, document, styles):
+        """Create header with company info and invoice details"""
+        # Determine document type label
+        doc_type_labels = {
+            DocumentType.INVOICE: 'FACTURA',
+            DocumentType.QUOTE: 'PRESUPUESTO',
+            DocumentType.DELIVERY_NOTE: 'ALBARAN',
+        }
+        doc_type_label = doc_type_labels.get(document.type, 'DOCUMENTO')
+
+        # Company info (left side)
+        company_info = []
+        company_info.append(Paragraph(self.company_name, styles['CompanyName']))
+
+        company_details = f"""
+        {self.company_address}<br/>
+        Tel: {self.company_phone}<br/>
+        Email: {self.company_email}<br/>
+        CIF/NIF: {self.company_cif}
+        """
+        company_info.append(Paragraph(company_details, styles['CompanyInfo']))
+
+        # Invoice info (right side)
+        invoice_info = []
+        invoice_info.append(Paragraph(doc_type_label, styles['InvoiceTitle']))
+
+        issue_date = document.issue_date.strftime('%d/%m/%Y') if document.issue_date else '-'
+        due_date = document.due_date.strftime('%d/%m/%Y') if document.due_date else '-'
+
+        invoice_details = f"""
+        <b>N:</b> {document.code}<br/>
+        <b>Fecha:</b> {issue_date}<br/>
+        <b>Vencimiento:</b> {due_date}
+        """
+        invoice_info.append(Paragraph(invoice_details, styles['InvoiceInfo']))
+
+        # Create two-column table for header
+        header_data = [[company_info, invoice_info]]
+        header_table = Table(header_data, colWidths=[95 * mm, 75 * mm])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ]))
+
+        return header_table
+
+    def _create_client_section(self, client, styles):
+        """Create client information section"""
+        elements = []
+
+        # Section header
+        elements.append(Paragraph('DATOS DEL CLIENTE', styles['SectionHeader']))
+
+        # Client details
+        client_name = client.name if client else 'Cliente no especificado'
+        client_cif = client.tax_id if client and client.tax_id else '-'
+        client_address = client.address if client and client.address else ''
+        client_city = ''
+        if client:
+            city_parts = []
+            if client.postal_code:
+                city_parts.append(client.postal_code)
+            if client.city:
+                city_parts.append(client.city)
+            if client.province:
+                city_parts.append(f'({client.province})')
+            client_city = ' '.join(city_parts)
+
+        client_contact = ''
+        if client:
+            contact_parts = []
+            if client.phone:
+                contact_parts.append(f'Tel: {client.phone}')
+            if client.email:
+                contact_parts.append(f'Email: {client.email}')
+            client_contact = ' | '.join(contact_parts)
+
+        client_info = f"""
+        <b>{client_name}</b><br/>
+        CIF/NIF: {client_cif}<br/>
+        {client_address}<br/>
+        {client_city}<br/>
+        {client_contact}
+        """
+        elements.append(Paragraph(client_info, styles['ClientInfo']))
+
+        # Create container table with border
+        container_data = [[elements]]
+        container = Table(container_data, colWidths=[170 * mm])
+        container.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 0.5, self.COLORS['border']),
+            ('BACKGROUND', (0, 0), (-1, -1), self.COLORS['bg_light']),
+            ('TOPPADDING', (0, 0), (-1, -1), 3 * mm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3 * mm),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4 * mm),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4 * mm),
+        ]))
+
+        return container
+
+    def _create_items_table(self, lines, styles):
+        """Create line items table"""
+        # Table headers
+        headers = ['DESCRIPCION', 'CANTIDAD', 'PRECIO UNIT.', 'DTO.', 'SUBTOTAL']
+
+        # Calculate column widths
+        col_widths = [85 * mm, 20 * mm, 25 * mm, 15 * mm, 25 * mm]
+
+        # Build table data
+        table_data = [headers]
+
+        for line in lines:
+            description = line.description or '-'
+            quantity = f"{float(line.quantity or 0):.2f}"
+            unit_price = f"{float(line.unit_price or 0):.2f} EUR"
+            discount = f"{float(line.discount_percent or 0):.0f}%"
+            subtotal = f"{float(line.subtotal or 0):.2f} EUR"
+
+            table_data.append([description, quantity, unit_price, discount, subtotal])
+
+        # If no lines, add empty row
+        if not lines:
+            table_data.append(['(Sin lineas)', '-', '-', '-', '-'])
+
+        # Create table
+        items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+        # Style the table
+        table_style = TableStyle([
+            # Header styling
+            ('BACKGROUND', (0, 0), (-1, 0), self.COLORS['accent']),
+            ('TEXTCOLOR', (0, 0), (-1, 0), self.COLORS['white']),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, 0), 3 * mm),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 3 * mm),
+
+            # Body styling
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),  # Description left
+            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),  # Numbers right
+            ('TOPPADDING', (0, 1), (-1, -1), 2.5 * mm),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 2.5 * mm),
+            ('LEFTPADDING', (0, 0), (-1, -1), 2 * mm),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 2 * mm),
+
+            # Alternating row colors
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [self.COLORS['white'], self.COLORS['bg_light']]),
+
+            # Borders
+            ('BOX', (0, 0), (-1, -1), 0.5, self.COLORS['border']),
+            ('LINEBELOW', (0, 0), (-1, 0), 1, self.COLORS['accent']),
+            ('LINEBELOW', (0, 1), (-1, -2), 0.25, self.COLORS['border']),
+        ])
+
+        items_table.setStyle(table_style)
+
+        return items_table
+
+    def _create_totals_section(self, document, lines, styles):
+        """Create totals section with subtotal, IVA, and total"""
+        # Calculate values
+        subtotal = Decimal(str(document.subtotal or 0))
+
+        # If subtotal is 0, calculate from lines
+        if subtotal == 0 and lines:
+            subtotal = sum(Decimal(str(line.subtotal or 0)) for line in lines)
+
+        # Use stored tax_amount or calculate
+        tax_amount = Decimal(str(document.tax_amount or 0))
+        if tax_amount == 0:
+            tax_amount = subtotal * self.IVA_RATE
+
+        total = Decimal(str(document.total or 0))
+        if total == 0:
+            total = subtotal + tax_amount
+
+        # Format values
+        subtotal_str = f"{subtotal:.2f} EUR"
+        tax_str = f"{tax_amount:.2f} EUR"
+        total_str = f"{total:.2f} EUR"
+
+        # Create totals table (right-aligned)
+        totals_data = [
+            ['', 'Base Imponible:', subtotal_str],
+            ['', f'IVA ({int(self.IVA_RATE * 100)}%):', tax_str],
+            ['', 'TOTAL:', total_str],
+        ]
+
+        col_widths = [100 * mm, 40 * mm, 30 * mm]
+        totals_table = Table(totals_data, colWidths=col_widths)
+
+        totals_table.setStyle(TableStyle([
+            # Labels
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (1, 0), (1, -1), 10),
+            ('TEXTCOLOR', (1, 0), (1, 1), self.COLORS['secondary']),
+
+            # Values
+            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+            ('FONTNAME', (2, 0), (2, 1), 'Helvetica'),
+            ('FONTSIZE', (2, 0), (2, 1), 10),
+
+            # Total row (bold and larger)
+            ('FONTNAME', (1, 2), (2, 2), 'Helvetica-Bold'),
+            ('FONTSIZE', (1, 2), (2, 2), 12),
+            ('TEXTCOLOR', (1, 2), (2, 2), self.COLORS['primary']),
+            ('LINEABOVE', (1, 2), (2, 2), 1, self.COLORS['accent']),
+            ('TOPPADDING', (1, 2), (2, 2), 3 * mm),
+
+            # Padding
+            ('TOPPADDING', (0, 0), (-1, -1), 1.5 * mm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5 * mm),
+            ('RIGHTPADDING', (2, 0), (2, -1), 3 * mm),
+        ]))
+
+        return totals_table
+
+    def _create_notes_section(self, notes, styles):
+        """Create notes section"""
+        elements = []
+        elements.append(Paragraph('OBSERVACIONES', styles['SectionHeader']))
+        elements.append(Paragraph(notes, styles['Notes']))
+
+        container_data = [[elements]]
+        container = Table(container_data, colWidths=[170 * mm])
+        container.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 0.5, self.COLORS['border']),
+            ('BACKGROUND', (0, 0), (-1, -1), self.COLORS['bg_light']),
+            ('TOPPADDING', (0, 0), (-1, -1), 2 * mm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2 * mm),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3 * mm),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3 * mm),
+        ]))
+
+        return container
+
+    def _create_footer(self, styles):
+        """Create footer with legal text"""
+        footer_text = """
+        Este documento es valido como factura segun la normativa fiscal vigente.<br/>
+        Forma de pago: Transferencia bancaria | Plazo de pago: 30 dias<br/>
+        Gracias por confiar en nosotros.
+        """
+
+        return Paragraph(footer_text, styles['Footer'])
+
+
 class Dashboard(QWidget):
+    """Modern Apple-inspired dashboard with clean design"""
+
+    # Design tokens from styles.py
+    COLORS = {
+        'bg_app': '#FAFAFA',
+        'bg_card': '#FFFFFF',
+        'bg_hover': '#F5F5F7',
+        'text_primary': '#1D1D1F',
+        'text_secondary': '#6E6E73',
+        'text_tertiary': '#86868B',
+        'accent': '#007AFF',
+        'accent_hover': '#0056CC',
+        'success': '#34C759',
+        'warning': '#FF9500',
+        'danger': '#FF3B30',
+        'border_light': '#E5E5EA',
+    }
+
     def __init__(self):
         super().__init__()
-        self.card_widgets = []  # Track card widgets for refreshing
+        self.metric_labels = {}
         self.setup_ui()
-    
+
     def setup_ui(self):
+        """Setup modern dashboard UI"""
+        # Main layout with generous margins
         layout = QVBoxLayout(self)
-        self._create_dashboard_content(layout)
-    
-    def _create_dashboard_content(self, layout):
-        """Create dashboard content without clearing existing widgets"""
-        
-        # Title
-        title = QLabel("🐲 Panel Principal - DRAGOFACTU")
-        title.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("color: #2c3e50; margin: 20px;")
-        layout.addWidget(title)
-        
-        # Summary cards
-        cards_layout = QHBoxLayout()
-        
-        # Client count
-        client_card = self.create_card("👥 Clientes", str(self.get_client_count()), "#3498db")
-        cards_layout.addWidget(client_card)
-        
-        # Product count  
-        product_card = self.create_card("📦 Productos", str(self.get_product_count()), "#27ae60")
-        cards_layout.addWidget(product_card)
-        
-        # Document count
-        doc_card = self.create_card("📄 Documentos", str(self.get_document_count()), "#e74c3c")
-        cards_layout.addWidget(doc_card)
-        
-        # Low stock count
-        low_stock_card = self.create_card("⚠️ Stock Bajo", str(self.get_low_stock_count()), "#f39c12")
-        cards_layout.addWidget(low_stock_card)
-        
-        layout.addLayout(cards_layout)
-        
-        # Quick actions section
-        actions_group = QGroupBox("Acciones Rápidas")
-        actions_layout = QGridLayout(actions_group)
-        
-        new_client_btn = QPushButton("👤 Nuevo Cliente")
-        new_client_btn.clicked.connect(self.add_client)
-        new_client_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #2980b9; }
-        """)
-        actions_layout.addWidget(new_client_btn, 0, 0)
-        
-        new_product_btn = QPushButton("📦 Nuevo Producto")
-        new_product_btn.clicked.connect(self.add_product)
-        new_product_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #229954; }
-        """)
-        actions_layout.addWidget(new_product_btn, 0, 1)
-        
-        new_quote_btn = QPushButton("💰 Nuevo Presupuesto")
-        new_quote_btn.clicked.connect(self.add_quote)
-        new_quote_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #9b59b6;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #8e44ad; }
-        """)
-        actions_layout.addWidget(new_quote_btn, 1, 0)
-        
-        new_invoice_btn = QPushButton("🧾 Nueva Factura")
-        new_invoice_btn.clicked.connect(self.add_invoice)
-        new_invoice_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e67e22;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #d35400; }
-        """)
-        actions_layout.addWidget(new_invoice_btn, 1, 1)
-        
-        layout.addWidget(actions_group)
-        
-        # Recent activity section
-        recent_group = QGroupBox("Actividad Reciente")
-        recent_layout = QVBoxLayout(recent_group)
-        
-        recent_text = QTextEdit()
-        recent_text.setMaximumHeight(150)
-        recent_text.setPlainText("• Bienvenido a DRAGOFACTU\n• Usa las pestañas para gestionar tu negocio\n• Los datos se guardan automáticamente")
-        recent_text.setReadOnly(True)
-        recent_layout.addWidget(recent_text)
-        
-        layout.addWidget(recent_group)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(24)
+
+        # Set background
+        self.setStyleSheet(f"background-color: {self.COLORS['bg_app']};")
+
+        # 1. Welcome Section
+        self._create_welcome_section(layout)
+
+        # 2. Metrics Cards
+        self._create_metrics_section(layout)
+
+        # 3. Quick Actions
+        self._create_quick_actions(layout)
+
+        # 4. Recent Documents
+        self._create_recent_documents(layout)
+
         layout.addStretch()
-    
-    def create_card(self, title, value, color):
-        """Create summary card"""
+
+    def _create_welcome_section(self, parent_layout):
+        """Create welcome header section"""
+        welcome_widget = QWidget()
+        welcome_layout = QVBoxLayout(welcome_widget)
+        welcome_layout.setContentsMargins(0, 0, 0, 0)
+        welcome_layout.setSpacing(4)
+
+        # Welcome title
+        welcome_label = QLabel("Bienvenido a Dragofactu")
+        welcome_label.setStyleSheet(f"""
+            font-size: 28px;
+            font-weight: 600;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
+        welcome_layout.addWidget(welcome_label)
+
+        # Subtitle
+        subtitle_label = QLabel("Resumen de tu negocio")
+        subtitle_label.setStyleSheet(f"""
+            font-size: 15px;
+            color: {self.COLORS['text_secondary']};
+            background: transparent;
+        """)
+        welcome_layout.addWidget(subtitle_label)
+
+        parent_layout.addWidget(welcome_widget)
+
+    def _create_metrics_section(self, parent_layout):
+        """Create metrics cards row"""
+        metrics_widget = QWidget()
+        metrics_layout = QHBoxLayout(metrics_widget)
+        metrics_layout.setContentsMargins(0, 0, 0, 0)
+        metrics_layout.setSpacing(16)
+
+        # Define metrics
+        metrics = [
+            ('clients', 'Clientes', self.get_client_count()),
+            ('products', 'Productos', self.get_product_count()),
+            ('documents', 'Documentos', self.get_document_count()),
+            ('low_stock', 'Stock Bajo', self.get_low_stock_count()),
+        ]
+
+        for key, title, value in metrics:
+            card = self._create_metric_card(key, title, value)
+            metrics_layout.addWidget(card)
+
+        parent_layout.addWidget(metrics_widget)
+
+    def _create_metric_card(self, key, title, value):
+        """Create a single metric card"""
         card = QFrame()
-        card.setFrameStyle(QFrame.Shape.Box)
         card.setStyleSheet(f"""
             QFrame {{
-                background-color: white;
-                border: 2px solid {color};
-                border-radius: 8px;
-                padding: 16px;
-                margin: 5px;
+                background-color: {self.COLORS['bg_card']};
+                border: 1px solid {self.COLORS['border_light']};
+                border-radius: 12px;
             }}
         """)
-        
+
         card_layout = QVBoxLayout(card)
-        
+        card_layout.setContentsMargins(20, 20, 20, 20)
+        card_layout.setSpacing(8)
+
+        # Title label
         title_label = QLabel(title)
-        title_label.setStyleSheet("color: #666; font-weight: bold; font-size: 14px;")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet(f"""
+            font-size: 13px;
+            font-weight: 500;
+            color: {self.COLORS['text_secondary']};
+            background: transparent;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        """)
         card_layout.addWidget(title_label)
-        
-        value_label = QLabel(value)
-        value_label.setStyleSheet(f"color: {color}; font-size: 32px; font-weight: bold;")
-        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Value label
+        value_label = QLabel(str(value))
+        value_label.setStyleSheet(f"""
+            font-size: 32px;
+            font-weight: 600;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
         card_layout.addWidget(value_label)
-        
-        # Store reference for updating
-        self.card_widgets.append({'title': title_label, 'value': value_label})
-        
+
+        # Store reference for updates
+        self.metric_labels[key] = value_label
+
         return card
-    
+
+    def _create_quick_actions(self, parent_layout):
+        """Create quick action cards"""
+        # Section title
+        section_title = QLabel("Acciones Rápidas")
+        section_title.setStyleSheet(f"""
+            font-size: 17px;
+            font-weight: 600;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+            padding-top: 8px;
+        """)
+        parent_layout.addWidget(section_title)
+
+        # Actions container
+        actions_widget = QWidget()
+        actions_layout = QHBoxLayout(actions_widget)
+        actions_layout.setContentsMargins(0, 0, 0, 0)
+        actions_layout.setSpacing(16)
+
+        # Define actions
+        actions = [
+            ('Nueva Factura', 'Crear documento de venta', self.add_invoice),
+            ('Nuevo Presupuesto', 'Crear cotización', self.add_quote),
+            ('Nuevo Cliente', 'Añadir al directorio', self.add_client),
+            ('Nuevo Producto', 'Añadir al inventario', self.add_product),
+        ]
+
+        for title, description, callback in actions:
+            action_card = self._create_action_card(title, description, callback)
+            actions_layout.addWidget(action_card)
+
+        parent_layout.addWidget(actions_widget)
+
+    def _create_action_card(self, title, description, callback):
+        """Create a clickable action card"""
+        card = QFrame()
+        card.setCursor(Qt.CursorShape.PointingHandCursor)
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.COLORS['bg_card']};
+                border: 1px solid {self.COLORS['border_light']};
+                border-radius: 12px;
+            }}
+            QFrame:hover {{
+                background-color: {self.COLORS['bg_hover']};
+                border-color: {self.COLORS['accent']};
+            }}
+        """)
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(20, 20, 20, 20)
+        card_layout.setSpacing(6)
+
+        # Plus icon
+        icon_label = QLabel("+")
+        icon_label.setStyleSheet(f"""
+            font-size: 24px;
+            font-weight: 300;
+            color: {self.COLORS['accent']};
+            background: transparent;
+        """)
+        card_layout.addWidget(icon_label)
+
+        # Title
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            font-size: 15px;
+            font-weight: 600;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
+        card_layout.addWidget(title_label)
+
+        # Description
+        desc_label = QLabel(description)
+        desc_label.setStyleSheet(f"""
+            font-size: 12px;
+            color: {self.COLORS['text_secondary']};
+            background: transparent;
+        """)
+        card_layout.addWidget(desc_label)
+
+        # Make card clickable
+        card.mousePressEvent = lambda e: callback()
+
+        return card
+
+    def _create_recent_documents(self, parent_layout):
+        """Create recent documents section"""
+        # Section title
+        section_title = QLabel("Documentos Recientes")
+        section_title.setStyleSheet(f"""
+            font-size: 17px;
+            font-weight: 600;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+            padding-top: 8px;
+        """)
+        parent_layout.addWidget(section_title)
+
+        # Documents container
+        docs_frame = QFrame()
+        docs_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.COLORS['bg_card']};
+                border: 1px solid {self.COLORS['border_light']};
+                border-radius: 12px;
+            }}
+        """)
+
+        docs_layout = QVBoxLayout(docs_frame)
+        docs_layout.setContentsMargins(0, 0, 0, 0)
+        docs_layout.setSpacing(0)
+
+        # Get recent documents
+        recent_docs = self._get_recent_documents()
+
+        if recent_docs:
+            for i, doc in enumerate(recent_docs):
+                doc_row = self._create_document_row(doc, is_last=(i == len(recent_docs) - 1))
+                docs_layout.addWidget(doc_row)
+        else:
+            # Empty state
+            empty_label = QLabel("No hay documentos recientes")
+            empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty_label.setStyleSheet(f"""
+                font-size: 14px;
+                color: {self.COLORS['text_tertiary']};
+                padding: 40px;
+                background: transparent;
+            """)
+            docs_layout.addWidget(empty_label)
+
+        parent_layout.addWidget(docs_frame)
+
+    def _create_document_row(self, doc, is_last=False):
+        """Create a single document row"""
+        row = QWidget()
+        border_style = "" if is_last else f"border-bottom: 1px solid {self.COLORS['border_light']};"
+        row.setStyleSheet(f"""
+            QWidget {{
+                background: transparent;
+                {border_style}
+            }}
+            QWidget:hover {{
+                background-color: {self.COLORS['bg_hover']};
+            }}
+        """)
+
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(20, 16, 20, 16)
+        row_layout.setSpacing(16)
+
+        # Document code
+        code_label = QLabel(doc.get('code', 'N/A'))
+        code_label.setStyleSheet(f"""
+            font-size: 14px;
+            font-weight: 600;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+            min-width: 80px;
+        """)
+        row_layout.addWidget(code_label)
+
+        # Client name
+        client_label = QLabel(doc.get('client', 'Sin cliente'))
+        client_label.setStyleSheet(f"""
+            font-size: 14px;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
+        row_layout.addWidget(client_label, 1)
+
+        # Amount
+        amount = doc.get('total', 0)
+        amount_label = QLabel(f"€{amount:,.2f}")
+        amount_label.setStyleSheet(f"""
+            font-size: 14px;
+            font-weight: 500;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+            min-width: 80px;
+        """)
+        amount_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        row_layout.addWidget(amount_label)
+
+        # Status badge
+        status = doc.get('status', 'draft')
+        status_colors = {
+            'draft': self.COLORS['text_tertiary'],
+            'sent': self.COLORS['accent'],
+            'paid': self.COLORS['success'],
+            'pending': self.COLORS['warning'],
+        }
+        status_color = status_colors.get(status.lower(), self.COLORS['text_tertiary'])
+
+        status_label = QLabel(status.capitalize())
+        status_label.setStyleSheet(f"""
+            font-size: 12px;
+            font-weight: 500;
+            color: {status_color};
+            background: transparent;
+            padding: 4px 8px;
+            min-width: 60px;
+        """)
+        status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        row_layout.addWidget(status_label)
+
+        return row
+
+    def _get_recent_documents(self):
+        """Get recent documents from database"""
+        try:
+            with SessionLocal() as db:
+                documents = db.query(Document).order_by(
+                    Document.created_at.desc()
+                ).limit(5).all()
+
+                result = []
+                for doc in documents:
+                    result.append({
+                        'code': doc.code or 'N/A',
+                        'client': doc.client.name if doc.client else 'Sin cliente',
+                        'total': float(doc.total or 0),
+                        'status': doc.status.value if doc.status else 'draft',
+                    })
+                return result
+        except Exception as e:
+            logger.error(f"Error getting recent documents: {e}")
+            return []
+
     def refresh_data(self):
-        """Refresh dashboard data without recreating UI"""
-        for card_widget in self.card_widgets:
-            if 'value' in card_widget:
-                # Update counts based on card title
-                title_text = card_widget['title'].text()
-                if "Clientes" in title_text:
-                    card_widget['value'].setText(str(self.get_client_count()))
-                elif "Productos" in title_text:
-                    card_widget['value'].setText(str(self.get_product_count()))
-                elif "Documentos" in title_text:
-                    card_widget['value'].setText(str(self.get_document_count()))
-                elif "Stock Bajo" in title_text:
-                    card_widget['value'].setText(str(self.get_low_stock_count()))
-    
+        """Refresh dashboard data"""
+        # Update metric values
+        if 'clients' in self.metric_labels:
+            self.metric_labels['clients'].setText(str(self.get_client_count()))
+        if 'products' in self.metric_labels:
+            self.metric_labels['products'].setText(str(self.get_product_count()))
+        if 'documents' in self.metric_labels:
+            self.metric_labels['documents'].setText(str(self.get_document_count()))
+        if 'low_stock' in self.metric_labels:
+            self.metric_labels['low_stock'].setText(str(self.get_low_stock_count()))
+
     def get_client_count(self):
         """Get total clients"""
         try:
             with SessionLocal() as db:
-                return db.query(Client).count()
+                return db.query(Client).filter(Client.is_active == True).count()
         except Exception as e:
             logger.error(f"Error getting client count: {e}")
             return 0
@@ -210,7 +1113,7 @@ class Dashboard(QWidget):
         """Get total products"""
         try:
             with SessionLocal() as db:
-                return db.query(Product).count()
+                return db.query(Product).filter(Product.is_active == True).count()
         except Exception as e:
             logger.error(f"Error getting product count: {e}")
             return 0
@@ -229,35 +1132,38 @@ class Dashboard(QWidget):
         try:
             with SessionLocal() as db:
                 return db.query(Product).filter(
-                    Product.current_stock <= Product.minimum_stock
+                    Product.current_stock <= Product.minimum_stock,
+                    Product.is_active == True
                 ).count()
         except Exception as e:
             logger.error(f"Error getting low stock count: {e}")
             return 0
-    
+
     def add_client(self):
         """Add new client"""
         dialog = ClientDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            QMessageBox.information(self, "✅ Éxito", "Cliente añadido correctamente")
-            self.refresh_data()  # Refresh dashboard
-    
+            QMessageBox.information(self, "Éxito", "Cliente añadido correctamente")
+            self.refresh_data()
+
     def add_product(self):
         """Add new product"""
         dialog = ProductDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            QMessageBox.information(self, "✅ Éxito", "Producto añadido correctamente")
-            self.refresh_data()  # Refresh dashboard
-    
+            QMessageBox.information(self, "Éxito", "Producto añadido correctamente")
+            self.refresh_data()
+
     def add_quote(self):
         """Add new quote"""
         dialog = DocumentDialog(self, "quote")
         dialog.exec()
-    
+        self.refresh_data()
+
     def add_invoice(self):
         """Add new invoice"""
         dialog = DocumentDialog(self, "invoice")
         dialog.exec()
+        self.refresh_data()
 
 class ClientDialog(QDialog):
     """Dialog for creating and editing clients"""
@@ -503,8 +1409,9 @@ class ProductDialog(QDialog):
 
     def accept(self):
         """Save or update product"""
+        # Validation
         if not self.name_edit.text().strip():
-            QMessageBox.warning(self, "❌ Error", "El nombre es obligatorio")
+            QMessageBox.warning(self, "Error", "El nombre es obligatorio")
             return
 
         try:
@@ -513,8 +1420,9 @@ class ProductDialog(QDialog):
                     # Update existing product
                     product = db.query(Product).filter(Product.id == self.product_id).first()
                     if not product:
-                        QMessageBox.warning(self, "❌ Error", "Producto no encontrado")
+                        QMessageBox.warning(self, "Error", "Producto no encontrado")
                         return
+
                     product.name = self.name_edit.text().strip()
                     product.description = self.description_edit.toPlainText().strip() or None
                     product.category = self.category_edit.text().strip() or None
@@ -526,8 +1434,24 @@ class ProductDialog(QDialog):
                     product.is_active = self.active_check.isChecked()
                 else:
                     # Create new product
+                    # Check for unique code constraint
+                    product_code = self.code_edit.text().strip()
+                    if not product_code:
+                        # Generate unique code with milliseconds for uniqueness
+                        from datetime import datetime
+                        product_code = f"P-{datetime.now().strftime('%Y%m%d%H%M%S%f')[:17]}"
+
+                    # Verify code doesn't exist
+                    existing = db.query(Product).filter(Product.code == product_code).first()
+                    if existing:
+                        QMessageBox.warning(
+                            self, "Error",
+                            f"Ya existe un producto con el código '{product_code}'"
+                        )
+                        return
+
                     product = Product(
-                        code=self.code_edit.text().strip() or f"P-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        code=product_code,
                         name=self.name_edit.text().strip(),
                         description=self.description_edit.toPlainText().strip() or None,
                         category=self.category_edit.text().strip() or None,
@@ -539,19 +1463,41 @@ class ProductDialog(QDialog):
                         is_active=self.active_check.isChecked()
                     )
                     db.add(product)
+                    db.flush()  # Flush to catch any constraint violations before commit
+
+                # Commit changes
                 db.commit()
-                super().accept()
+                logger.info(f"Product saved successfully: {product.code} - {product.name}")
+
+            # Only close dialog after successful commit (outside the session context)
+            super().accept()
+
         except Exception as e:
             logger.error(f"Error saving product: {e}")
-            QMessageBox.critical(self, "❌ Error", f"Error al guardar producto: {str(e)}")
+            # Provide more specific error messages
+            error_msg = str(e)
+            if "UNIQUE constraint failed" in error_msg or "unique constraint" in error_msg.lower():
+                QMessageBox.critical(
+                    self, "Error",
+                    "No se pudo guardar el producto. El código ya existe en el sistema."
+                )
+            else:
+                QMessageBox.critical(self, "Error", f"Error al guardar producto: {error_msg}")
+            # Don't close dialog on error
+            return
 
 class DocumentDialog(QDialog):
     """Document creation dialog with client/product selection"""
     def __init__(self, parent=None, doc_type="quote"):
         super().__init__(parent)
         self.doc_type = doc_type
-        self.doc_title = "Presupuesto" if doc_type == "quote" else "Factura"
-        self.setWindowTitle(f"💰 Nuevo {self.doc_title}")
+        if doc_type == "quote":
+            self.doc_title = "Presupuesto"
+        elif doc_type == "delivery":
+            self.doc_title = "Albaran"
+        else:
+            self.doc_title = "Factura"
+        self.setWindowTitle(f"Nuevo {self.doc_title}")
         self.setModal(True)
         self.resize(900, 700)
         self.items = []
@@ -761,27 +1707,50 @@ class DocumentDialog(QDialog):
         self.subtotal_label.setText(f"{subtotal:.2f} €")
         self.total_label.setText(f"{total:.2f} €")
     
+    def _get_current_user_id(self):
+        """Get current user ID from MainWindow"""
+        widget = self.parent()
+        while widget is not None:
+            if hasattr(widget, 'current_user') and widget.current_user:
+                return widget.current_user.id
+            widget = widget.parent()
+        return None
+
     def save_document(self):
         """Save document"""
         client_id = self.client_combo.currentData()
         if not client_id:
             QMessageBox.warning(self, "❌ Error", "Seleccione un cliente")
             return
-        
+
         if self.items_table.rowCount() == 0:
             QMessageBox.warning(self, "❌ Error", "Añada al menos un producto")
             return
-        
+
+        # Get current user ID
+        user_id = self._get_current_user_id()
+        if not user_id:
+            QMessageBox.warning(self, "❌ Error", "No hay usuario autenticado")
+            return
+
         try:
             with SessionLocal() as db:
                 # Calculate totals
                 total_text = self.total_label.text()
                 total = float(total_text.replace('€', '').strip())
-                
-                # Create document
-                doc_type = DocumentType.QUOTE if self.doc_type == "quote" else DocumentType.INVOICE
-                doc_code = f"{'PRE' if doc_type == DocumentType.QUOTE else 'FAC'}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                
+
+                # Create document - determine type and code prefix
+                if self.doc_type == "quote":
+                    doc_type = DocumentType.QUOTE
+                    code_prefix = "PRE"
+                elif self.doc_type == "delivery":
+                    doc_type = DocumentType.DELIVERY_NOTE
+                    code_prefix = "ALB"
+                else:
+                    doc_type = DocumentType.INVOICE
+                    code_prefix = "FAC"
+                doc_code = f"{code_prefix}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
                 document = Document(
                     code=doc_code,
                     type=doc_type,
@@ -789,7 +1758,8 @@ class DocumentDialog(QDialog):
                     issue_date=date.today(),
                     total=total,
                     status=DocumentStatus.DRAFT,
-                    notes=self.notes_edit.toPlainText()
+                    notes=self.notes_edit.toPlainText(),
+                    created_by=user_id
                 )
                 
                 db.add(document)
@@ -803,77 +1773,104 @@ class DocumentDialog(QDialog):
 
 # Continue with other classes...
 class ClientManagementTab(QWidget):
-    """Complete client management tab"""
+    """Modern client management tab with Apple-inspired design"""
+
     def __init__(self):
         super().__init__()
         self.setup_ui()
-        # Defer refresh to prevent blocking during initialization
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_data)
-    
+
     def setup_ui(self):
+        # Apply panel style
+        self.setStyleSheet(UIStyles.get_panel_style())
+
         layout = QVBoxLayout(self)
-        
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Header with title
+        header_layout = QHBoxLayout()
+        title_label = QLabel("Clientes")
+        title_label.setStyleSheet(f"""
+            font-size: 28px;
+            font-weight: 600;
+            color: {UIStyles.COLORS['text_primary']};
+            background: transparent;
+        """)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
+
         # Toolbar
         toolbar_layout = QHBoxLayout()
-        
-        add_btn = QPushButton("➕ Añadir Cliente")
+        toolbar_layout.setSpacing(12)
+
+        add_btn = QPushButton("+ Nuevo Cliente")
         add_btn.clicked.connect(self.add_client)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                padding: 8px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #2980b9; }
-        """)
+        add_btn.setStyleSheet(UIStyles.get_primary_button_style())
         toolbar_layout.addWidget(add_btn)
-        
-        edit_btn = QPushButton("✏️ Editar")
+
+        edit_btn = QPushButton("Editar")
         edit_btn.clicked.connect(self.edit_client)
+        edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(edit_btn)
-        
-        delete_btn = QPushButton("🗑️ Eliminar")
+
+        delete_btn = QPushButton("Eliminar")
         delete_btn.clicked.connect(self.delete_client)
-        delete_btn.setStyleSheet("background-color: #e74c3c; color: white; padding: 8px; border-radius: 5px;")
+        delete_btn.setStyleSheet(UIStyles.get_danger_button_style())
         toolbar_layout.addWidget(delete_btn)
-        
-        refresh_btn = QPushButton("🔄 Actualizar")
-        refresh_btn.clicked.connect(self.refresh_data)
-        toolbar_layout.addWidget(refresh_btn)
-        
+
         toolbar_layout.addStretch()
+
+        refresh_btn = QPushButton("Actualizar")
+        refresh_btn.clicked.connect(self.refresh_data)
+        refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(refresh_btn)
+
         layout.addLayout(toolbar_layout)
-        
+
         # Search
         search_layout = QHBoxLayout()
+        search_layout.setSpacing(12)
+
+        search_label = QLabel("Buscar:")
+        search_label.setStyleSheet(UIStyles.get_label_style())
+        search_layout.addWidget(search_label)
+
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("🔍 Buscar cliente...")
+        self.search_edit.setPlaceholderText("Buscar por nombre, email, teléfono...")
+        self.search_edit.setStyleSheet(UIStyles.get_input_style())
         self.search_edit.textChanged.connect(self.filter_clients)
-        search_layout.addWidget(QLabel("Buscar:"))
         search_layout.addWidget(self.search_edit)
+
         layout.addLayout(search_layout)
-        
+
         # Table
         self.clients_table = QTableWidget()
         self.clients_table.setColumnCount(7)
         self.clients_table.setHorizontalHeaderLabels([
-            "Código", "Nombre", "Email", "Teléfono", "Dirección", "CIF/NIF", "Estado"
+            "CÓDIGO", "NOMBRE", "EMAIL", "TELÉFONO", "DIRECCIÓN", "CIF/NIF", "ESTADO"
         ])
-        
-        # Set table properties
+        self.clients_table.setStyleSheet(UIStyles.get_table_style())
+        self.clients_table.setAlternatingRowColors(False)
+        self.clients_table.setShowGrid(False)
+        self.clients_table.verticalHeader().setVisible(False)
+
         header = self.clients_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
+
         layout.addWidget(self.clients_table)
-        
+
         # Status label
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: #666; font-style: italic;")
+        self.status_label.setStyleSheet(UIStyles.get_status_label_style())
         layout.addWidget(self.status_label)
     
     def refresh_data(self):
@@ -1000,77 +1997,104 @@ class ClientManagementTab(QWidget):
                 QMessageBox.critical(self, "❌ Error", f"Error al eliminar cliente: {str(e)}")
 
 class ProductManagementTab(QWidget):
-    """Complete product management tab"""
+    """Modern product management tab with Apple-inspired design"""
+
     def __init__(self):
         super().__init__()
         self.setup_ui()
-        # Defer refresh to prevent blocking during initialization
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_data)
-    
+
     def setup_ui(self):
+        self.setStyleSheet(UIStyles.get_panel_style())
+
         layout = QVBoxLayout(self)
-        
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Header
+        header_layout = QHBoxLayout()
+        title_label = QLabel("Productos")
+        title_label.setStyleSheet(f"""
+            font-size: 28px;
+            font-weight: 600;
+            color: {UIStyles.COLORS['text_primary']};
+            background: transparent;
+        """)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
+
         # Toolbar
         toolbar_layout = QHBoxLayout()
-        
-        add_btn = QPushButton("➕ Añadir Producto")
+        toolbar_layout.setSpacing(12)
+
+        add_btn = QPushButton("+ Nuevo Producto")
         add_btn.clicked.connect(self.add_product)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 8px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #229954; }
-        """)
+        add_btn.setStyleSheet(UIStyles.get_primary_button_style())
         toolbar_layout.addWidget(add_btn)
-        
-        edit_btn = QPushButton("✏️ Editar")
+
+        edit_btn = QPushButton("Editar")
         edit_btn.clicked.connect(self.edit_product)
+        edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(edit_btn)
-        
-        delete_btn = QPushButton("🗑️ Eliminar")
+
+        delete_btn = QPushButton("Eliminar")
         delete_btn.clicked.connect(self.delete_product)
-        delete_btn.setStyleSheet("background-color: #e74c3c; color: white; padding: 8px; border-radius: 5px;")
+        delete_btn.setStyleSheet(UIStyles.get_danger_button_style())
         toolbar_layout.addWidget(delete_btn)
-        
-        refresh_btn = QPushButton("🔄 Actualizar")
-        refresh_btn.clicked.connect(self.refresh_data)
-        toolbar_layout.addWidget(refresh_btn)
-        
+
         toolbar_layout.addStretch()
+
+        refresh_btn = QPushButton("Actualizar")
+        refresh_btn.clicked.connect(self.refresh_data)
+        refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(refresh_btn)
+
         layout.addLayout(toolbar_layout)
-        
+
         # Search
         search_layout = QHBoxLayout()
+        search_layout.setSpacing(12)
+
+        search_label = QLabel("Buscar:")
+        search_label.setStyleSheet(UIStyles.get_label_style())
+        search_layout.addWidget(search_label)
+
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("🔍 Buscar producto...")
+        self.search_edit.setPlaceholderText("Buscar por nombre, código, descripción...")
+        self.search_edit.setStyleSheet(UIStyles.get_input_style())
         self.search_edit.textChanged.connect(self.filter_products)
-        search_layout.addWidget(QLabel("Buscar:"))
         search_layout.addWidget(self.search_edit)
+
         layout.addLayout(search_layout)
-        
+
         # Table
         self.products_table = QTableWidget()
         self.products_table.setColumnCount(8)
         self.products_table.setHorizontalHeaderLabels([
-            "Código", "Nombre", "Descripción", "P. Coste", "P. Venta", "Stock", "Stock Mín", "Estado"
+            "CÓDIGO", "NOMBRE", "DESCRIPCIÓN", "P. COSTE", "P. VENTA", "STOCK", "STOCK MÍN", "ESTADO"
         ])
-        
-        # Set table properties
+        self.products_table.setStyleSheet(UIStyles.get_table_style())
+        self.products_table.setAlternatingRowColors(False)
+        self.products_table.setShowGrid(False)
+        self.products_table.verticalHeader().setVisible(False)
+
         header = self.products_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
+
         layout.addWidget(self.products_table)
-        
+
         # Status label
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: #666; font-style: italic;")
+        self.status_label.setStyleSheet(UIStyles.get_status_label_style())
         layout.addWidget(self.status_label)
     
     def refresh_data(self):
@@ -1185,89 +2209,91 @@ class ProductManagementTab(QWidget):
                 logger.error(f"Error deleting product: {e}")
                 QMessageBox.critical(self, "❌ Error", f"Error al eliminar producto: {str(e)}")
 
-# Placeholder classes for other tabs (to be implemented)
 class DocumentManagementTab(QWidget):
-    """Document Explorer with recent documents list"""
+    """Modern document management tab with Apple-inspired design"""
+
     def __init__(self):
         super().__init__()
         self.setup_ui()
-        # Defer refresh to prevent blocking during initialization
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_data)
-    
+
     def setup_ui(self):
+        self.setStyleSheet(UIStyles.get_panel_style())
+
         layout = QVBoxLayout(self)
-        
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Header
+        header_layout = QHBoxLayout()
+        title_label = QLabel("Documentos")
+        title_label.setStyleSheet(f"""
+            font-size: 28px;
+            font-weight: 600;
+            color: {UIStyles.COLORS['text_primary']};
+            background: transparent;
+        """)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
+
         # Toolbar
         toolbar_layout = QHBoxLayout()
-        
-        new_quote_btn = QPushButton("💰 Nuevo Presupuesto")
-        new_quote_btn.clicked.connect(lambda: self.create_document("quote"))
-        new_quote_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #9b59b6;
-                color: white;
-                padding: 8px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #8e44ad; }
-        """)
-        toolbar_layout.addWidget(new_quote_btn)
-        
-        new_invoice_btn = QPushButton("🧾 Nueva Factura")
+        toolbar_layout.setSpacing(12)
+
+        new_invoice_btn = QPushButton("+ Nueva Factura")
         new_invoice_btn.clicked.connect(lambda: self.create_document("invoice"))
-        new_invoice_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e67e22;
-                color: white;
-                padding: 8px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #d35400; }
-        """)
+        new_invoice_btn.setStyleSheet(UIStyles.get_primary_button_style())
         toolbar_layout.addWidget(new_invoice_btn)
-        
-        new_delivery_btn = QPushButton("📦 Nuevo Albarán")
+
+        new_quote_btn = QPushButton("+ Presupuesto")
+        new_quote_btn.clicked.connect(lambda: self.create_document("quote"))
+        new_quote_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(new_quote_btn)
+
+        new_delivery_btn = QPushButton("+ Albarán")
         new_delivery_btn.clicked.connect(lambda: self.create_document("delivery"))
-        new_delivery_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                padding: 8px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #2980b9; }
-        """)
+        new_delivery_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(new_delivery_btn)
-        
-        refresh_btn = QPushButton("🔄 Actualizar")
-        refresh_btn.clicked.connect(self.refresh_data)
-        toolbar_layout.addWidget(refresh_btn)
-        
+
         toolbar_layout.addStretch()
+
+        refresh_btn = QPushButton("Actualizar")
+        refresh_btn.clicked.connect(self.refresh_data)
+        refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(refresh_btn)
+
         layout.addLayout(toolbar_layout)
-        
-        # Document type filter
+
+        # Filter
         filter_layout = QHBoxLayout()
+        filter_layout.setSpacing(12)
+
+        filter_label = QLabel("Filtrar por tipo:")
+        filter_label.setStyleSheet(UIStyles.get_label_style())
+        filter_layout.addWidget(filter_label)
+
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["Todos", "Presupuestos", "Facturas", "Albaranes"])
+        self.filter_combo.setStyleSheet(UIStyles.get_input_style())
         self.filter_combo.currentTextChanged.connect(self.refresh_data)
-        filter_layout.addWidget(QLabel("Filtrar:"))
         filter_layout.addWidget(self.filter_combo)
+
         filter_layout.addStretch()
         layout.addLayout(filter_layout)
-        
+
         # Documents table
         self.docs_table = QTableWidget()
         self.docs_table.setColumnCount(8)
         self.docs_table.setHorizontalHeaderLabels([
-            "Código", "Tipo", "Cliente", "Fecha", "Estado", "Total", "Vencimiento", "Acciones"
+            "CÓDIGO", "TIPO", "CLIENTE", "FECHA", "ESTADO", "TOTAL", "VENCIMIENTO", "ACCIONES"
         ])
-        
-        # Configure table
+        self.docs_table.setStyleSheet(UIStyles.get_table_style())
+        self.docs_table.setAlternatingRowColors(False)
+        self.docs_table.setShowGrid(False)
+        self.docs_table.verticalHeader().setVisible(False)
+
         header = self.docs_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
@@ -1277,11 +2303,17 @@ class DocumentManagementTab(QWidget):
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
-        
+
+        # Enable double-click on table rows
+        self.docs_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.docs_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.docs_table.cellDoubleClicked.connect(self.on_table_double_click)
+
         layout.addWidget(self.docs_table)
-        
+
         # Status label
-        self.status_label = QLabel("📄 Gestión de Documentos - Cargando datos...")
+        self.status_label = QLabel("Cargando documentos...")
+        self.status_label.setStyleSheet(UIStyles.get_status_label_style())
         layout.addWidget(self.status_label)
     
     def refresh_data(self):
@@ -1305,12 +2337,18 @@ class DocumentManagementTab(QWidget):
                 documents = query.order_by(Document.updated_at.desc()).limit(100).all()
                 
                 self.docs_table.setRowCount(0)
-                
+                # Store document IDs for double-click lookup
+                self._document_ids = []
+
                 for row, doc in enumerate(documents):
                     self.docs_table.insertRow(row)
-                    
-                    # Document code
-                    self.docs_table.setItem(row, 0, QTableWidgetItem(doc.code or ""))
+                    # Store document ID for this row
+                    self._document_ids.append(str(doc.id))
+
+                    # Document code - store ID in item data
+                    code_item = QTableWidgetItem(doc.code or "")
+                    code_item.setData(Qt.ItemDataRole.UserRole, str(doc.id))
+                    self.docs_table.setItem(row, 0, code_item)
                     
                     # Document type
                     type_text = ""
@@ -1362,7 +2400,12 @@ class DocumentManagementTab(QWidget):
                         status_color = "purple"
                     
                     status_item = QTableWidgetItem(status_text)
-                    status_item.setStyleSheet(f"color: {status_color}; font-weight: bold;")
+                    # Use proper Qt API - QTableWidgetItem doesn't have setStyleSheet
+                    from PySide6.QtGui import QColor, QFont
+                    status_item.setForeground(QColor(status_color))
+                    font = QFont()
+                    font.setBold(True)
+                    status_item.setFont(font)
                     self.docs_table.setItem(row, 4, status_item)
                     
                     # Total
@@ -1391,7 +2434,27 @@ class DocumentManagementTab(QWidget):
                     edit_btn.setMaximumSize(30, 25)
                     edit_btn.clicked.connect(lambda checked, d=doc: self.edit_document(d))
                     actions_layout.addWidget(edit_btn)
-                    
+
+                    pdf_btn = QPushButton("PDF")
+                    pdf_btn.setToolTip("Generar PDF")
+                    pdf_btn.setMaximumSize(35, 25)
+                    pdf_btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: {UIStyles.COLORS['accent']};
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            font-size: 10px;
+                            font-weight: bold;
+                            padding: 2px 4px;
+                        }}
+                        QPushButton:hover {{
+                            background-color: {UIStyles.COLORS['accent_hover']};
+                        }}
+                    """)
+                    pdf_btn.clicked.connect(lambda checked, d=doc: self.generate_pdf(d))
+                    actions_layout.addWidget(pdf_btn)
+
                     delete_btn = QPushButton("🗑️")
                     delete_btn.setToolTip("Eliminar Documento")
                     delete_btn.setMaximumSize(30, 25)
@@ -1409,8 +2472,24 @@ class DocumentManagementTab(QWidget):
     def create_document(self, doc_type):
         """Create new document"""
         dialog = DocumentDialog(self, doc_type)
-        dialog.exec()
-    
+        if dialog.exec():
+            self.refresh_data()
+
+    def on_table_double_click(self, row, column):
+        """Handle double-click on table row - opens edit dialog"""
+        if not hasattr(self, '_document_ids') or row >= len(self._document_ids):
+            return
+
+        doc_id = self._document_ids[row]
+        try:
+            with SessionLocal() as db:
+                doc = db.query(Document).filter(Document.id == doc_id).first()
+                if doc:
+                    self.edit_document(doc)
+        except Exception as e:
+            logger.error(f"Error on double-click: {e}")
+            QMessageBox.critical(self, "Error", f"Error al abrir documento: {str(e)}")
+
     def view_document(self, document):
         """View document details"""
         try:
@@ -1471,10 +2550,28 @@ class DocumentManagementTab(QWidget):
                     notes_layout.addWidget(notes_text)
                     layout.addWidget(notes_group)
 
+                # Buttons layout
+                buttons_layout = QHBoxLayout()
+
+                # PDF button
+                pdf_btn = QPushButton("Exportar PDF")
+                pdf_btn.setStyleSheet(UIStyles.get_primary_button_style())
+                pdf_btn.clicked.connect(lambda: (view_dialog.accept(), self.generate_pdf(doc)))
+                buttons_layout.addWidget(pdf_btn)
+
+                # Edit button
+                edit_btn = QPushButton("Editar")
+                edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+                edit_btn.clicked.connect(lambda: (view_dialog.accept(), self.edit_document(doc)))
+                buttons_layout.addWidget(edit_btn)
+
                 # Close button
-                close_btn = QPushButton("❌ Cerrar")
+                close_btn = QPushButton("Cerrar")
+                close_btn.setStyleSheet(UIStyles.get_secondary_button_style())
                 close_btn.clicked.connect(view_dialog.accept)
-                layout.addWidget(close_btn)
+                buttons_layout.addWidget(close_btn)
+
+                layout.addLayout(buttons_layout)
 
                 view_dialog.exec()
 
@@ -1590,112 +2687,219 @@ class DocumentManagementTab(QWidget):
                 logger.error(f"Error deleting document: {e}")
                 QMessageBox.critical(self, "❌ Error", f"Error al eliminar documento: {str(e)}")
 
+    def generate_pdf(self, document):
+        """Generate PDF for document"""
+        try:
+            with SessionLocal() as db:
+                # Reload document with all relationships
+                doc = db.query(Document).options(
+                    joinedload(Document.client),
+                    joinedload(Document.lines)
+                ).filter(Document.id == document.id).first()
+
+                if not doc:
+                    QMessageBox.warning(self, "Error", "Documento no encontrado")
+                    return
+
+                # Determine default filename
+                doc_type_prefix = {
+                    DocumentType.INVOICE: 'Factura',
+                    DocumentType.QUOTE: 'Presupuesto',
+                    DocumentType.DELIVERY_NOTE: 'Albaran',
+                }.get(doc.type, 'Documento')
+
+                default_filename = f"{doc_type_prefix}_{doc.code}.pdf"
+
+                # Show save dialog
+                file_path, _ = QFileDialog.getSaveFileName(
+                    self,
+                    "Guardar PDF",
+                    default_filename,
+                    "Archivos PDF (*.pdf)"
+                )
+
+                if not file_path:
+                    return  # User cancelled
+
+                # Ensure .pdf extension
+                if not file_path.lower().endswith('.pdf'):
+                    file_path += '.pdf'
+
+                # Get document lines
+                lines = list(doc.lines) if doc.lines else []
+
+                # Generate PDF
+                generator = InvoicePDFGenerator()
+                generator.generate(doc, lines, doc.client, file_path)
+
+                # Show success message
+                QMessageBox.information(
+                    self,
+                    "PDF Generado",
+                    f"El documento se ha guardado correctamente:\n\n{file_path}"
+                )
+
+                logger.info(f"PDF generated successfully: {file_path}")
+
+        except Exception as e:
+            logger.error(f"Error generating PDF: {e}")
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error al generar el PDF:\n\n{str(e)}"
+            )
+
+
 class InventoryManagementTab(QWidget):
-    """Complete inventory management tab"""
+    """Modern inventory management tab with Apple-inspired design"""
+
     def __init__(self):
         super().__init__()
         self.setup_ui()
-        # Defer refresh to prevent blocking during initialization
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_data)
-    
+
     def setup_ui(self):
+        self.setStyleSheet(UIStyles.get_panel_style())
+
         layout = QVBoxLayout(self)
-        
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Header
+        header_layout = QHBoxLayout()
+        title_label = QLabel("Inventario")
+        title_label.setStyleSheet(f"""
+            font-size: 28px;
+            font-weight: 600;
+            color: {UIStyles.COLORS['text_primary']};
+            background: transparent;
+        """)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
+
         # Toolbar
         toolbar_layout = QHBoxLayout()
-        
-        add_btn = QPushButton("➕ Añadir Producto")
+        toolbar_layout.setSpacing(12)
+
+        add_btn = QPushButton("+ Nuevo Producto")
         add_btn.clicked.connect(self.add_product)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 8px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #229954; }
-        """)
+        add_btn.setStyleSheet(UIStyles.get_primary_button_style())
         toolbar_layout.addWidget(add_btn)
-        
-        adjust_stock_btn = QPushButton("📊 Ajustar Stock")
+
+        adjust_stock_btn = QPushButton("Ajustar Stock")
         adjust_stock_btn.clicked.connect(self.adjust_stock)
-        adjust_stock_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f39c12;
-                color: white;
-                padding: 8px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #e67e22; }
-        """)
+        adjust_stock_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(adjust_stock_btn)
-        
-        generate_report_btn = QPushButton("📈 Informe Stock")
+
+        generate_report_btn = QPushButton("Informe")
         generate_report_btn.clicked.connect(self.generate_report)
+        generate_report_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(generate_report_btn)
-        
-        refresh_btn = QPushButton("🔄 Actualizar")
-        refresh_btn.clicked.connect(self.refresh_data)
-        toolbar_layout.addWidget(refresh_btn)
-        
+
         toolbar_layout.addStretch()
+
+        refresh_btn = QPushButton("Actualizar")
+        refresh_btn.clicked.connect(self.refresh_data)
+        refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(refresh_btn)
+
         layout.addLayout(toolbar_layout)
-        
+
         # Search and filter
         search_layout = QHBoxLayout()
+        search_layout.setSpacing(12)
+
+        search_label = QLabel("Buscar:")
+        search_label.setStyleSheet(UIStyles.get_label_style())
+        search_layout.addWidget(search_label)
+
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("🔍 Buscar producto...")
+        self.search_edit.setPlaceholderText("Buscar producto...")
+        self.search_edit.setStyleSheet(UIStyles.get_input_style())
         self.search_edit.textChanged.connect(self.filter_products)
-        search_layout.addWidget(QLabel("Buscar:"))
         search_layout.addWidget(self.search_edit)
-        
+
+        filter_label = QLabel("Filtro:")
+        filter_label.setStyleSheet(UIStyles.get_label_style())
+        search_layout.addWidget(filter_label)
+
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["Todos", "Con Stock", "Stock Bajo", "Sin Stock", "Activos", "Inactivos"])
+        self.filter_combo.setStyleSheet(UIStyles.get_input_style())
         self.filter_combo.currentTextChanged.connect(self.filter_products)
-        search_layout.addWidget(QLabel("Filtro:"))
         search_layout.addWidget(self.filter_combo)
-        
+
         layout.addLayout(search_layout)
-        
-        # Statistics
+
+        # Statistics cards
         stats_layout = QHBoxLayout()
-        
-        self.total_products_label = QLabel("📦 Total: 0")
+        stats_layout.setSpacing(16)
+
+        self.total_products_label = QLabel("Total: 0")
+        self.total_products_label.setStyleSheet(f"""
+            background-color: {UIStyles.COLORS['bg_card']};
+            border: 1px solid {UIStyles.COLORS['border_light']};
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 500;
+            color: {UIStyles.COLORS['text_primary']};
+        """)
         stats_layout.addWidget(self.total_products_label)
-        
-        self.low_stock_label = QLabel("⚠️ Stock Bajo: 0")
-        self.low_stock_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+
+        self.low_stock_label = QLabel("Stock Bajo: 0")
+        self.low_stock_label.setStyleSheet(f"""
+            background-color: {UIStyles.COLORS['bg_card']};
+            border: 1px solid {UIStyles.COLORS['warning']};
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 500;
+            color: {UIStyles.COLORS['warning']};
+        """)
         stats_layout.addWidget(self.low_stock_label)
-        
-        self.total_value_label = QLabel("💰 Valor Total: 0.00 €")
+
+        self.total_value_label = QLabel("Valor Total: 0.00 €")
+        self.total_value_label.setStyleSheet(f"""
+            background-color: {UIStyles.COLORS['bg_card']};
+            border: 1px solid {UIStyles.COLORS['success']};
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 500;
+            color: {UIStyles.COLORS['success']};
+        """)
         stats_layout.addWidget(self.total_value_label)
-        
+
         stats_layout.addStretch()
         layout.addLayout(stats_layout)
-        
+
         # Table
         self.inventory_table = QTableWidget()
         self.inventory_table.setColumnCount(9)
         self.inventory_table.setHorizontalHeaderLabels([
-            "Código", "Producto", "Descripción", "Stock Actual", "Stock Mínimo", "Estado", "Valor Total", "Acciones", "Último Mov."
+            "CÓDIGO", "PRODUCTO", "DESCRIPCIÓN", "STOCK ACTUAL", "STOCK MÍN", "ESTADO", "VALOR TOTAL", "ACCIONES", "ÚLTIMO MOV."
         ])
-        
-        # Set table properties
+        self.inventory_table.setStyleSheet(UIStyles.get_table_style())
+        self.inventory_table.setAlternatingRowColors(False)
+        self.inventory_table.setShowGrid(False)
+        self.inventory_table.verticalHeader().setVisible(False)
+
         header = self.inventory_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
-        
+        header.setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)
+
         layout.addWidget(self.inventory_table)
-        
+
         # Status label
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: #666; font-style: italic;")
+        self.status_label.setStyleSheet(UIStyles.get_status_label_style())
         layout.addWidget(self.status_label)
     
     def refresh_data(self):
@@ -1729,7 +2933,12 @@ class InventoryManagementTab(QWidget):
                         low_stock_count += 1
                     
                     status_item = QTableWidgetItem(stock_status)
-                    status_item.setStyleSheet(f"color: {stock_color}; font-weight: bold;")
+                    # Use proper Qt API - QTableWidgetItem doesn't have setStyleSheet
+                    from PySide6.QtGui import QColor, QFont
+                    status_item.setForeground(QColor(stock_color))
+                    font = QFont()
+                    font.setBold(True)
+                    status_item.setFont(font)
                     self.inventory_table.setItem(row, 5, status_item)
                     
                     # Total value
@@ -1823,43 +3032,140 @@ class InventoryManagementTab(QWidget):
             self.refresh_data()
     
     def adjust_stock(self):
-        """General stock adjustment dialog"""
-        QMessageBox.information(self, "ℹ️ Ajustar Stock", "Seleccione un producto y use el botón 📊 en la tabla para ajustar su stock")
+        """General stock adjustment dialog - improved UX"""
+        current_row = self.inventory_table.currentRow()
+
+        # If no row selected, show product picker dialog
+        if current_row < 0:
+            self.show_product_picker_for_adjustment()
+            return
+
+        # If row selected, adjust that product directly
+        try:
+            with SessionLocal() as db:
+                product_code = self.inventory_table.item(current_row, 0).text()
+                product = db.query(Product).filter(Product.code == product_code).first()
+                if product:
+                    self.adjust_product_stock(product)
+                else:
+                    QMessageBox.warning(self, "Error", "Producto no encontrado")
+        except Exception as e:
+            logger.error(f"Error getting product for stock adjustment: {e}")
+            QMessageBox.critical(self, "Error", f"Error al obtener producto: {str(e)}")
+
+    def show_product_picker_for_adjustment(self):
+        """Show a dialog to pick a product for stock adjustment"""
+        try:
+            with SessionLocal() as db:
+                products = db.query(Product).filter(Product.is_active == True).order_by(Product.name).all()
+
+                if not products:
+                    QMessageBox.information(self, "Info", "No hay productos activos en el inventario")
+                    return
+
+                # Create product selection dialog
+                from PySide6.QtWidgets import QInputDialog
+
+                # Build list of products with current stock info
+                product_list = [
+                    f"{p.code} - {p.name} (Stock: {p.current_stock or 0})"
+                    for p in products
+                ]
+
+                product_name, ok = QInputDialog.getItem(
+                    self,
+                    "Seleccionar Producto",
+                    "Seleccione el producto para ajustar stock:",
+                    product_list,
+                    0,
+                    False
+                )
+
+                if ok and product_name:
+                    # Extract product code from selection
+                    product_code = product_name.split(" - ")[0]
+                    # Get fresh product from DB
+                    product = db.query(Product).filter(Product.code == product_code).first()
+                    if product:
+                        self.adjust_product_stock(product)
+
+        except Exception as e:
+            logger.error(f"Error showing product picker: {e}")
+            QMessageBox.critical(self, "Error", f"Error al mostrar selector de productos: {str(e)}")
     
     def adjust_product_stock(self, product):
-        """Adjust stock for specific product"""
+        """Adjust stock for specific product - improved with better validation"""
         from PySide6.QtWidgets import QInputDialog
-        
+
+        # Store product info to avoid detached session issues
+        product_id = product.id
+        product_name = product.name
+        current_stock = product.current_stock or 0
+
+        # Show current stock and ask for adjustment
         quantity, ok = QInputDialog.getInt(
-            self, 
-            "📊 Ajustar Stock", 
-            f"Cantidad para {product.name}:\n\n(positivo = entrada, negativo = salida)",
-            0, -999, 999, 1
+            self,
+            "Ajustar Stock",
+            f"Producto: {product_name}\n"
+            f"Stock actual: {current_stock} unidades\n\n"
+            f"Ajuste de cantidad:\n"
+            f"  - Positivo para entrada (añadir stock)\n"
+            f"  - Negativo para salida (retirar stock)\n",
+            0, -9999, 9999, 1
         )
-        
-        if ok:
+
+        if ok and quantity != 0:  # Only proceed if user confirmed and quantity is not zero
             try:
                 with SessionLocal() as db:
-                    db_product = db.query(Product).filter(Product.id == product.id).first()
-                    if db_product:
-                        old_stock = db_product.current_stock or 0
-                        new_stock = max(0, old_stock + quantity)
-                        db_product.current_stock = new_stock
-                        db.commit()
-                        
-                        movement_type = "Entrada" if quantity > 0 else "Salida"
-                        QMessageBox.information(
-                            self, "✅ Éxito", 
-                            f"Stock ajustado para {product.name}:\n"
-                            f"{old_stock} → {new_stock} ({movement_type}: {abs(quantity)})"
+                    db_product = db.query(Product).filter(Product.id == product_id).first()
+                    if not db_product:
+                        QMessageBox.warning(self, "Error", "Producto no encontrado")
+                        return
+
+                    old_stock = db_product.current_stock or 0
+                    new_stock = max(0, old_stock + quantity)
+
+                    # Validate the operation
+                    if quantity < 0 and abs(quantity) > old_stock:
+                        reply = QMessageBox.question(
+                            self,
+                            "Confirmar Operacion",
+                            f"La cantidad a retirar ({abs(quantity)}) es mayor que el stock actual ({old_stock}).\n"
+                            f"El stock resultante sera 0.\n\n"
+                            f"¿Desea continuar?",
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                            QMessageBox.StandardButton.No
                         )
-                        self.refresh_data()
+                        if reply != QMessageBox.StandardButton.Yes:
+                            return
+
+                    db_product.current_stock = new_stock
+                    db.commit()
+
+                    movement_type = "Entrada" if quantity > 0 else "Salida"
+                    QMessageBox.information(
+                        self, "Exito",
+                        f"Stock ajustado correctamente\n\n"
+                        f"Producto: {product_name}\n"
+                        f"Stock anterior: {old_stock}\n"
+                        f"Stock nuevo: {new_stock}\n"
+                        f"Operacion: {movement_type} de {abs(quantity)} unidades"
+                    )
+                    logger.info(f"Stock adjusted: {product_name} from {old_stock} to {new_stock} ({quantity:+d})")
+                    self.refresh_data()
+
             except Exception as e:
-                QMessageBox.critical(self, "❌ Error", f"Error ajustando stock: {str(e)}")
+                logger.error(f"Error adjusting stock: {e}")
+                QMessageBox.critical(self, "Error", f"Error al ajustar stock: {str(e)}")
+        elif ok and quantity == 0:
+            QMessageBox.information(self, "Info", "No se realizaron cambios (cantidad = 0)")
     
     def edit_product(self, product):
-        """Edit product details"""
-        QMessageBox.information(self, "ℹ️ Editar Producto", f"Función de edición para {product.name} en desarrollo")
+        """Edit product details using ProductDialog"""
+        dialog = ProductDialog(self, product_id=product.id)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh_data()
+            QMessageBox.information(self, "Exito", f"Producto '{product.name}' actualizado correctamente")
     
     def generate_report(self):
         """Generate inventory report"""
@@ -1911,86 +3217,146 @@ class InventoryManagementTab(QWidget):
             QMessageBox.critical(self, "❌ Error", f"Error generando informe: {str(e)}")
 
 class DiaryManagementTab(QWidget):
-    """Complete diary management with calendar functionality"""
+    """Modern diary management tab with Apple-inspired design"""
+
     def __init__(self):
         super().__init__()
         self.notes = []
         self.setup_ui()
         self.load_notes()
-    
+        # Display notes immediately after loading
+        self.refresh_notes()
+
     def setup_ui(self):
+        self.setStyleSheet(UIStyles.get_panel_style())
+
         layout = QVBoxLayout(self)
-        
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Header
+        header_layout = QHBoxLayout()
+        title_label = QLabel("Diario")
+        title_label.setStyleSheet(f"""
+            font-size: 28px;
+            font-weight: 600;
+            color: {UIStyles.COLORS['text_primary']};
+            background: transparent;
+        """)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
+
         # Toolbar
         toolbar_layout = QHBoxLayout()
-        
-        add_entry_btn = QPushButton("➕ Nueva Nota")
+        toolbar_layout.setSpacing(12)
+
+        add_entry_btn = QPushButton("+ Nueva Nota")
         add_entry_btn.clicked.connect(self.add_entry)
-        add_entry_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                padding: 8px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #2980b9; }
-        """)
+        add_entry_btn.setStyleSheet(UIStyles.get_primary_button_style())
         toolbar_layout.addWidget(add_entry_btn)
-        
-        view_calendar_btn = QPushButton("📅 Ver Calendario")
+
+        view_calendar_btn = QPushButton("Ver Calendario")
         view_calendar_btn.clicked.connect(self.view_calendar)
+        view_calendar_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(view_calendar_btn)
-        
-        clear_all_btn = QPushButton("🗑️ Limpiar Todo")
-        clear_all_btn.clicked.connect(self.clear_all)
-        clear_all_btn.setStyleSheet("background-color: #e74c3c; color: white; padding: 8px; border-radius: 5px;")
-        toolbar_layout.addWidget(clear_all_btn)
-        
+
         toolbar_layout.addStretch()
+
+        clear_all_btn = QPushButton("Limpiar Todo")
+        clear_all_btn.clicked.connect(self.clear_all)
+        clear_all_btn.setStyleSheet(UIStyles.get_danger_button_style())
+        toolbar_layout.addWidget(clear_all_btn)
+
         layout.addLayout(toolbar_layout)
-        
+
         # Date selector
         date_layout = QHBoxLayout()
+        date_layout.setSpacing(12)
+
+        date_label = QLabel("Fecha:")
+        date_label.setStyleSheet(UIStyles.get_label_style())
+        date_layout.addWidget(date_label)
+
         self.date_edit = QDateEdit()
         self.date_edit.setDate(QDate.currentDate())
         self.date_edit.setCalendarPopup(True)
+        self.date_edit.setStyleSheet(UIStyles.get_input_style())
         self.date_edit.dateChanged.connect(self.filter_notes_by_date)
-        date_layout.addWidget(QLabel("📅 Fecha:"))
         date_layout.addWidget(self.date_edit)
-        
-        today_btn = QPushButton("📍 Hoy")
+
+        today_btn = QPushButton("Hoy")
         today_btn.clicked.connect(lambda: self.date_edit.setDate(QDate.currentDate()))
+        today_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         date_layout.addWidget(today_btn)
-        
+
         date_layout.addStretch()
         layout.addLayout(date_layout)
-        
-        # Notes list
-        notes_group = QGroupBox("📝 Notas del Diario")
-        notes_layout = QVBoxLayout(notes_group)
-        
+
+        # Notes container
+        notes_frame = QFrame()
+        notes_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {UIStyles.COLORS['bg_card']};
+                border: 1px solid {UIStyles.COLORS['border_light']};
+                border-radius: 12px;
+            }}
+        """)
+        notes_frame_layout = QVBoxLayout(notes_frame)
+        notes_frame_layout.setContentsMargins(20, 20, 20, 20)
+
+        notes_title = QLabel("Notas del Diario")
+        notes_title.setStyleSheet(UIStyles.get_section_title_style())
+        notes_frame_layout.addWidget(notes_title)
+
         self.notes_list = QTextEdit()
         self.notes_list.setReadOnly(True)
         self.notes_list.setPlaceholderText("Las notas del diario aparecerán aquí...")
-        notes_layout.addWidget(self.notes_list)
-        
-        layout.addWidget(notes_group)
-        
+        self.notes_list.setStyleSheet(f"""
+            QTextEdit {{
+                border: none;
+                background: transparent;
+                color: {UIStyles.COLORS['text_primary']};
+                font-size: 14px;
+                line-height: 1.6;
+            }}
+        """)
+        notes_frame_layout.addWidget(self.notes_list)
+
+        layout.addWidget(notes_frame)
+
         # Statistics
         stats_layout = QHBoxLayout()
-        
-        self.total_notes_label = QLabel("📊 Total Notas: 0")
+        stats_layout.setSpacing(16)
+
+        self.total_notes_label = QLabel("Total Notas: 0")
+        self.total_notes_label.setStyleSheet(f"""
+            background-color: {UIStyles.COLORS['bg_card']};
+            border: 1px solid {UIStyles.COLORS['border_light']};
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 500;
+            color: {UIStyles.COLORS['text_primary']};
+        """)
         stats_layout.addWidget(self.total_notes_label)
-        
-        self.today_notes_label = QLabel("📅 Notas Hoy: 0")
+
+        self.today_notes_label = QLabel("Notas Hoy: 0")
+        self.today_notes_label.setStyleSheet(f"""
+            background-color: {UIStyles.COLORS['bg_card']};
+            border: 1px solid {UIStyles.COLORS['accent']};
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 500;
+            color: {UIStyles.COLORS['accent']};
+        """)
         stats_layout.addWidget(self.today_notes_label)
-        
+
         stats_layout.addStretch()
         layout.addLayout(stats_layout)
-        
+
         # Status label
-        self.status_label = QLabel("📝 Diario personal - Haz clic en 'Nueva Nota' para añadir apuntes")
+        self.status_label = QLabel("Haz clic en 'Nueva Nota' para añadir apuntes")
+        self.status_label.setStyleSheet(UIStyles.get_status_label_style())
         layout.addWidget(self.status_label)
     
     def add_entry(self):
@@ -2006,7 +3372,54 @@ class DiaryManagementTab(QWidget):
     
     def view_calendar(self):
         """View calendar with notes"""
-        QMessageBox.information(self, "📅 Calendario", "Calendario de notas en desarrollo...")
+        from PySide6.QtWidgets import QCalendarWidget
+
+        # Create calendar dialog
+        calendar_dialog = QDialog(self)
+        calendar_dialog.setWindowTitle("📅 Calendario de Notas")
+        calendar_dialog.setModal(True)
+        calendar_dialog.resize(600, 500)
+
+        layout = QVBoxLayout(calendar_dialog)
+
+        # Calendar widget
+        calendar = QCalendarWidget()
+        calendar.setGridVisible(True)
+
+        # Highlight dates with notes
+        from PySide6.QtGui import QTextCharFormat, QColor
+        highlight_format = QTextCharFormat()
+        highlight_format.setBackground(QColor(0, 122, 255, 50))  # Light blue
+
+        for note in self.notes:
+            try:
+                note_date = QDate.fromString(note['date'], 'yyyy-MM-dd')
+                if note_date.isValid():
+                    calendar.setDateTextFormat(note_date, highlight_format)
+            except:
+                pass
+
+        # Connect date selection to jump to that date
+        def on_date_selected(date):
+            self.date_edit.setDate(date)
+            calendar_dialog.accept()
+
+        calendar.clicked.connect(on_date_selected)
+        layout.addWidget(calendar)
+
+        # Info label
+        info_label = QLabel("Las fechas resaltadas tienen notas. Haga clic en una fecha para ver sus notas.")
+        info_label.setStyleSheet(UIStyles.get_status_label_style())
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
+
+        # Close button
+        close_btn = QPushButton("Cerrar")
+        close_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        close_btn.clicked.connect(calendar_dialog.accept)
+        layout.addWidget(close_btn)
+
+        calendar_dialog.exec()
     
     def clear_all(self):
         """Clear all notes"""
@@ -2182,62 +3595,142 @@ from PySide6.QtWidgets import QTimeEdit
 from PySide6.QtCore import QTime
 
 class MainWindow(QMainWindow):
+    """Modern Apple-inspired main window"""
+
     def __init__(self):
         super().__init__()
         self.current_user = None
         self.setup_ui()
-    
+
     def set_current_user(self, user):
         """Set current user"""
         self.current_user = user
         username = user.username
         full_name = user.full_name
         role = user.role.value if hasattr(user.role, 'value') else str(user.role)
-        
-        self.statusBar().showMessage(f"👤 {full_name} ({role})")
-    
+
+        self.user_label.setText(f"{full_name} ({role})")
+        self.statusBar().showMessage("Listo")
+
     def setup_ui(self):
-        """Setup main window"""
-        self.setWindowTitle("🐲 DRAGOFACTU - Sistema de Gestión Profesional")
+        """Setup modern main window"""
+        self.setWindowTitle("Dragofactu - Sistema de Gestión")
         self.setGeometry(100, 100, 1400, 900)
-        
+
+        # Apply main window style
+        self.setStyleSheet(f"""
+            QMainWindow {{
+                background-color: {UIStyles.COLORS['bg_app']};
+            }}
+            QMenuBar {{
+                background-color: {UIStyles.COLORS['bg_card']};
+                border-bottom: 1px solid {UIStyles.COLORS['border_light']};
+                padding: 4px 8px;
+                font-size: 13px;
+            }}
+            QMenuBar::item {{
+                background-color: transparent;
+                padding: 6px 12px;
+                border-radius: 4px;
+                color: {UIStyles.COLORS['text_primary']};
+            }}
+            QMenuBar::item:selected {{
+                background-color: {UIStyles.COLORS['bg_hover']};
+            }}
+            QMenu {{
+                background-color: {UIStyles.COLORS['bg_card']};
+                border: 1px solid {UIStyles.COLORS['border']};
+                border-radius: 8px;
+                padding: 4px 0;
+            }}
+            QMenu::item {{
+                padding: 8px 24px;
+                color: {UIStyles.COLORS['text_primary']};
+            }}
+            QMenu::item:selected {{
+                background-color: {UIStyles.COLORS['accent']};
+                color: {UIStyles.COLORS['text_inverse']};
+            }}
+            QMenu::separator {{
+                height: 1px;
+                background-color: {UIStyles.COLORS['border_light']};
+                margin: 4px 8px;
+            }}
+            QStatusBar {{
+                background-color: {UIStyles.COLORS['bg_card']};
+                border-top: 1px solid {UIStyles.COLORS['border_light']};
+                padding: 4px 12px;
+                font-size: 12px;
+                color: {UIStyles.COLORS['text_secondary']};
+            }}
+            QTabWidget::pane {{
+                background-color: transparent;
+                border: none;
+            }}
+            QTabBar {{
+                background-color: transparent;
+            }}
+            QTabBar::tab {{
+                background-color: transparent;
+                border: none;
+                padding: 12px 20px;
+                margin-right: 4px;
+                color: {UIStyles.COLORS['text_secondary']};
+                font-weight: 500;
+                font-size: 13px;
+            }}
+            QTabBar::tab:selected {{
+                color: {UIStyles.COLORS['accent']};
+                border-bottom: 2px solid {UIStyles.COLORS['accent']};
+            }}
+            QTabBar::tab:hover:!selected {{
+                color: {UIStyles.COLORS['text_primary']};
+            }}
+        """)
+
         # Create menu bar
         self.create_menu()
-        
+
         # Create central widget with tabs
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        
+
         layout = QVBoxLayout(central_widget)
-        
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
         # Tab widget
         self.tabs = QTabWidget()
-        
+
         # Dashboard tab
         self.dashboard = Dashboard()
-        self.tabs.addTab(self.dashboard, "🏠 Panel Principal")
-        
+        self.tabs.addTab(self.dashboard, "Panel Principal")
+
         # Add functional tabs
         self.clients_tab = ClientManagementTab()
-        self.tabs.addTab(self.clients_tab, "👥 Clientes")
-        
+        self.tabs.addTab(self.clients_tab, "Clientes")
+
         self.products_tab = ProductManagementTab()
-        self.tabs.addTab(self.products_tab, "📦 Productos")
-        
+        self.tabs.addTab(self.products_tab, "Productos")
+
         self.documents_tab = DocumentManagementTab()
-        self.tabs.addTab(self.documents_tab, "📄 Documentos")
-        
+        self.tabs.addTab(self.documents_tab, "Documentos")
+
         self.inventory_tab = InventoryManagementTab()
-        self.tabs.addTab(self.inventory_tab, "📊 Inventario")
-        
+        self.tabs.addTab(self.inventory_tab, "Inventario")
+
         self.diary_tab = DiaryManagementTab()
-        self.tabs.addTab(self.diary_tab, "📓 Diario")
-        
+        self.tabs.addTab(self.diary_tab, "Diario")
+
         layout.addWidget(self.tabs)
-        
-        # Create status bar
-        self.statusBar().showMessage("🚀 Listo")
-        
+
+        # Create status bar with user info
+        status_bar = self.statusBar()
+        self.user_label = QLabel("No conectado")
+        self.user_label.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; padding-right: 16px;")
+        status_bar.addPermanentWidget(self.user_label)
+        status_bar.showMessage("Listo")
+
         # Connect tab changes to refresh data
         self.tabs.currentChanged.connect(self.on_tab_changed)
     
@@ -2258,46 +3751,57 @@ class MainWindow(QMainWindow):
                 tab_widget.refresh_data()
     
     def create_menu(self):
-        """Create menu bar"""
+        """Create clean menu bar"""
         menubar = self.menuBar()
-        
+
         # File menu
-        file_menu = menubar.addMenu("📁 Archivo")
-        
-        new_quote_action = QAction("💰 Nuevo Presupuesto", self)
+        file_menu = menubar.addMenu("Archivo")
+
+        new_quote_action = QAction("Nuevo Presupuesto", self)
+        new_quote_action.setShortcut("Ctrl+Shift+P")
         new_quote_action.triggered.connect(self.new_quote)
         file_menu.addAction(new_quote_action)
-        
-        new_invoice_action = QAction("🧾 Nueva Factura", self)
+
+        new_invoice_action = QAction("Nueva Factura", self)
+        new_invoice_action.setShortcut("Ctrl+Shift+F")
         new_invoice_action.triggered.connect(self.new_invoice)
         file_menu.addAction(new_invoice_action)
-        
+
         file_menu.addSeparator()
-        
-        import_file_action = QAction("📂 Importar Archivo", self)
+
+        import_file_action = QAction("Importar...", self)
+        import_file_action.setShortcut("Ctrl+I")
         import_file_action.triggered.connect(self.import_external_file)
         file_menu.addAction(import_file_action)
-        
-        export_data_action = QAction("📤 Exportar Datos", self)
+
+        export_data_action = QAction("Exportar...", self)
+        export_data_action.setShortcut("Ctrl+E")
         export_data_action.triggered.connect(self.export_data)
         file_menu.addAction(export_data_action)
-        
+
+        export_pdf_action = QAction("Exportar a PDF...", self)
+        export_pdf_action.setShortcut("Ctrl+P")
+        export_pdf_action.triggered.connect(self.export_document_to_pdf)
+        file_menu.addAction(export_pdf_action)
+
         file_menu.addSeparator()
-        
-        exit_action = QAction("🚪 Salir", self)
+
+        exit_action = QAction("Salir", self)
+        exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
-        
+
         # Tools menu
-        tools_menu = menubar.addMenu("🔧 Herramientas")
-        
-        settings_action = QAction("⚙️ Ajustes", self)
+        tools_menu = menubar.addMenu("Herramientas")
+
+        settings_action = QAction("Preferencias...", self)
+        settings_action.setShortcut("Ctrl+,")
         settings_action.triggered.connect(self.show_settings)
         tools_menu.addAction(settings_action)
-        
+
         # Language menu
-        language_menu = menubar.addMenu("🌍 Idioma")
-        
+        language_menu = menubar.addMenu("Idioma")
+
         for lang_code, lang_name in translator.get_available_languages().items():
             lang_action = QAction(lang_name, self)
             lang_action.triggered.connect(lambda checked, code=lang_code: self.change_language(code))
@@ -2312,12 +3816,111 @@ class MainWindow(QMainWindow):
         """Create new invoice"""
         dialog = DocumentDialog(self, "invoice")
         dialog.exec()
-    
+
+    def export_document_to_pdf(self):
+        """Export selected document to PDF - shows document selection dialog"""
+        try:
+            # Create document selection dialog
+            pdf_dialog = QDialog(self)
+            pdf_dialog.setWindowTitle("Exportar a PDF")
+            pdf_dialog.setModal(True)
+            pdf_dialog.resize(500, 400)
+
+            layout = QVBoxLayout(pdf_dialog)
+
+            # Header
+            header_label = QLabel("Seleccione un documento para exportar a PDF")
+            header_label.setStyleSheet(f"""
+                font-size: 14px;
+                font-weight: 500;
+                color: {UIStyles.COLORS['text_primary']};
+                margin-bottom: 12px;
+            """)
+            layout.addWidget(header_label)
+
+            # Document list
+            doc_list = QListWidget()
+            doc_list.setStyleSheet(UIStyles.get_input_style())
+
+            with SessionLocal() as db:
+                documents = db.query(Document).options(
+                    joinedload(Document.client)
+                ).order_by(Document.updated_at.desc()).limit(50).all()
+
+                for doc in documents:
+                    doc_type_text = {
+                        DocumentType.INVOICE: "Factura",
+                        DocumentType.QUOTE: "Presupuesto",
+                        DocumentType.DELIVERY_NOTE: "Albaran"
+                    }.get(doc.type, "Documento")
+
+                    client_name = doc.client.name if doc.client else "Sin cliente"
+                    date_str = doc.issue_date.strftime('%d/%m/%Y') if doc.issue_date else ""
+
+                    item_text = f"{doc_type_text} {doc.code} - {client_name} - {date_str} ({doc.total or 0:.2f} EUR)"
+                    item = QListWidgetItem(item_text)
+                    item.setData(Qt.ItemDataRole.UserRole, str(doc.id))
+                    doc_list.addItem(item)
+
+            layout.addWidget(doc_list)
+
+            # Buttons
+            button_layout = QHBoxLayout()
+
+            export_btn = QPushButton("Exportar PDF")
+            export_btn.setStyleSheet(UIStyles.get_primary_button_style())
+
+            def do_export():
+                current_item = doc_list.currentItem()
+                if not current_item:
+                    QMessageBox.warning(pdf_dialog, "Aviso", "Seleccione un documento")
+                    return
+
+                doc_id = current_item.data(Qt.ItemDataRole.UserRole)
+                pdf_dialog.accept()
+
+                # Generate PDF using documents tab method
+                with SessionLocal() as db:
+                    doc = db.query(Document).filter(Document.id == doc_id).first()
+                    if doc:
+                        self.documents_tab.generate_pdf(doc)
+
+            export_btn.clicked.connect(do_export)
+            button_layout.addWidget(export_btn)
+
+            cancel_btn = QPushButton("Cancelar")
+            cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+            cancel_btn.clicked.connect(pdf_dialog.reject)
+            button_layout.addWidget(cancel_btn)
+
+            layout.addLayout(button_layout)
+
+            # Double-click to export directly
+            doc_list.itemDoubleClicked.connect(lambda: do_export())
+
+            pdf_dialog.exec()
+
+        except Exception as e:
+            logger.error(f"Error exporting to PDF: {e}")
+            QMessageBox.critical(self, "Error", f"Error al exportar a PDF: {str(e)}")
+
     def show_settings(self):
         """Show settings dialog"""
         dialog = SettingsDialog(self)
         dialog.exec()
 
+    def change_language(self, lang_code):
+        """Change application language"""
+        try:
+            translator.set_language(lang_code)
+            QMessageBox.information(
+                self,
+                "Idioma Cambiado",
+                "El idioma ha sido cambiado. Por favor reinicie la aplicación para aplicar los cambios completamente."
+            )
+        except Exception as e:
+            logger.error(f"Error changing language: {e}")
+            QMessageBox.warning(self, "Error", f"No se pudo cambiar el idioma: {str(e)}")
 
     def import_external_file(self):
         """"Import external files - Fixed QAction/slot mismatch"""
@@ -2538,6 +4141,7 @@ class SettingsDialog(QDialog):
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["Claro", "Oscuro", "Auto"])
         self.theme_combo.setCurrentText("Auto")
+        self.theme_combo.currentTextChanged.connect(self.preview_theme)
         ui_layout.addRow("Tema:", self.theme_combo)
         
         self.language_combo = QComboBox()
@@ -2611,8 +4215,10 @@ class SettingsDialog(QDialog):
                 background-color: #27ae60;
                 color: white;
                 padding: 10px;
+                border: none;
                 border-radius: 5px;
                 font-weight: bold;
+                min-width: 120px;
             }
             QPushButton:hover { background-color: #229954; }
         """)
@@ -2630,7 +4236,13 @@ class SettingsDialog(QDialog):
         
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
-    
+
+    def preview_theme(self, theme_name):
+        """Preview theme change (for now just show a message)"""
+        # In a full implementation, you would apply the theme here
+        # For now, we just inform the user
+        pass
+
     def save_settings(self):
         """Save settings"""
         try:
@@ -2645,12 +4257,16 @@ class SettingsDialog(QDialog):
                 'currency': self.currency_combo.currentText(),
                 'tax_rate': self.tax_rate_spin.value()
             }
-            
+
             # Here you would save to a config file or database
-            # For now, just show success message
-            QMessageBox.information(self, "✅ Guardado", "Configuración guardada correctamente")
+            # For now, just show success message with info about restart
+            message = "Configuración guardada correctamente"
+            if settings['theme'] != "Auto" or settings['language'] != "Español":
+                message += "\n\nNota: Algunos cambios (tema e idioma) requerirán reiniciar la aplicación para aplicarse completamente."
+
+            QMessageBox.information(self, "✅ Guardado", message)
             self.accept()
-            
+
         except Exception as e:
             QMessageBox.critical(self, "❌ Error", f"Error guardando configuración: {str(e)}")
     
@@ -2787,65 +4403,133 @@ class SettingsDialog(QDialog):
             raise Exception(f"Error importando texto: {str(e)}")
 
 class LoginDialog(QDialog):
+    """Modern login dialog with Apple-inspired design"""
+
     def __init__(self):
         super().__init__()
         self.user = None
         self.user_data = None
         self.setup_ui()
-    
+
     def setup_ui(self):
-        """Setup login dialog"""
-        self.setWindowTitle("🐲 Login - DRAGOFACTU")
+        """Setup modern login dialog"""
+        self.setWindowTitle("Dragofactu - Iniciar Sesión")
         self.setModal(True)
-        self.resize(400, 300)
-        
+        self.setFixedSize(400, 420)
+
+        # Apply dialog style
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {UIStyles.COLORS['bg_app']};
+            }}
+        """)
+
         layout = QVBoxLayout(self)
-        
-        # Title
-        title = QLabel("🐲 DRAGOFACTU")
-        title.setFont(QFont("Arial", 20, QFont.Weight.Bold))
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(16)
+
+        # Logo/Title area
+        title = QLabel("Dragofactu")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("color: #2c3e50; margin: 20px;")
+        title.setStyleSheet(f"""
+            font-size: 32px;
+            font-weight: 600;
+            color: {UIStyles.COLORS['text_primary']};
+            background: transparent;
+            padding: 20px 0;
+        """)
         layout.addWidget(title)
-        
-        subtitle = QLabel("Sistema de Gestión Profesional")
-        subtitle.setFont(QFont("Arial", 12))
+
+        subtitle = QLabel("Sistema de Gestión Empresarial")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle.setStyleSheet("color: #7f8c8d; margin-bottom: 30px;")
+        subtitle.setStyleSheet(f"""
+            font-size: 14px;
+            color: {UIStyles.COLORS['text_secondary']};
+            background: transparent;
+            margin-bottom: 24px;
+        """)
         layout.addWidget(subtitle)
-        
+
+        # Form container
+        form_frame = QFrame()
+        form_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {UIStyles.COLORS['bg_card']};
+                border: 1px solid {UIStyles.COLORS['border_light']};
+                border-radius: 12px;
+            }}
+        """)
+        form_layout = QVBoxLayout(form_frame)
+        form_layout.setContentsMargins(24, 24, 24, 24)
+        form_layout.setSpacing(16)
+
         # Username
+        username_label = QLabel("Usuario")
+        username_label.setStyleSheet(f"""
+            font-size: 13px;
+            font-weight: 500;
+            color: {UIStyles.COLORS['text_primary']};
+            background: transparent;
+        """)
+        form_layout.addWidget(username_label)
+
         self.username_edit = QLineEdit()
-        self.username_edit.setPlaceholderText("👤 Usuario")
-        layout.addWidget(self.username_edit)
-        
+        self.username_edit.setPlaceholderText("Ingrese su usuario")
+        self.username_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addWidget(self.username_edit)
+
         # Password
+        password_label = QLabel("Contraseña")
+        password_label.setStyleSheet(f"""
+            font-size: 13px;
+            font-weight: 500;
+            color: {UIStyles.COLORS['text_primary']};
+            background: transparent;
+        """)
+        form_layout.addWidget(password_label)
+
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_edit.setPlaceholderText("🔒 Contraseña")
-        layout.addWidget(self.password_edit)
-        
+        self.password_edit.setPlaceholderText("Ingrese su contraseña")
+        self.password_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addWidget(self.password_edit)
+
         # Login button
-        login_btn = QPushButton("🚀 Iniciar Sesión")
+        login_btn = QPushButton("Iniciar Sesión")
         login_btn.clicked.connect(self.handle_login)
-        login_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                padding: 12px;
-                border-radius: 5px;
-                font-weight: bold;
+        login_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {UIStyles.COLORS['accent']};
+                color: {UIStyles.COLORS['text_inverse']};
+                border: none;
+                border-radius: 8px;
+                padding: 14px 24px;
+                font-weight: 600;
                 font-size: 14px;
-            }
-            QPushButton:hover { background-color: #2980b9; }
+            }}
+            QPushButton:hover {{
+                background-color: {UIStyles.COLORS['accent_hover']};
+            }}
+            QPushButton:pressed {{
+                background-color: #004499;
+            }}
         """)
-        layout.addWidget(login_btn)
-        
-        # Default credentials hint
-        hint = QLabel("Credenciales por defecto: admin / admin123")
-        hint.setStyleSheet("color: #95a5a6; font-size: 10px; margin-top: 20px;")
+        form_layout.addWidget(login_btn)
+
+        layout.addWidget(form_frame)
+
+        # Hint
+        hint = QLabel("Credenciales: admin / admin123")
+        hint.setStyleSheet(f"""
+            color: {UIStyles.COLORS['text_tertiary']};
+            font-size: 11px;
+            background: transparent;
+            padding-top: 8px;
+        """)
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint)
+
+        layout.addStretch()
     
     def handle_login(self):
         """Handle login"""

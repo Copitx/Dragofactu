@@ -8,9 +8,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QDate, QTimer
 from PySide6.QtGui import QFont, QColor, QPixmap
 
-from models.database import SessionLocal
-from services.workers.worker_service import WorkerService, CourseService
-from services.auth.auth_service import PermissionService
+from dragofactu.models.database import SessionLocal
+from dragofactu.services.workers.worker_service import WorkerService, CourseService
+from dragofactu.services.auth.auth_service import PermissionService
+from dragofactu.ui.styles import get_primary_button_style, get_secondary_button_style, get_danger_button_style
 from datetime import datetime, timedelta
 import os
 
@@ -35,45 +36,60 @@ class WorkerDialog(QDialog):
     
     def setup_ui(self):
         """Setup dialog UI"""
-        layout = QVBoxLayout()
-        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(20)
+
         # Form layout
         form_layout = QFormLayout()
-        
+        form_layout.setSpacing(16)
+        form_layout.setHorizontalSpacing(12)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
         # Code
         self.code_edit = QLineEdit()
+        self.code_edit.setMinimumHeight(36)
         form_layout.addRow("Code *:", self.code_edit)
         
         # Personal Information
         self.first_name_edit = QLineEdit()
+        self.first_name_edit.setMinimumHeight(36)
         form_layout.addRow("First Name *:", self.first_name_edit)
-        
+
         self.last_name_edit = QLineEdit()
+        self.last_name_edit.setMinimumHeight(36)
         form_layout.addRow("Last Name *:", self.last_name_edit)
-        
+
         # Contact Information
         self.phone_edit = QLineEdit()
+        self.phone_edit.setMinimumHeight(36)
         form_layout.addRow("Phone:", self.phone_edit)
-        
+
         self.email_edit = QLineEdit()
+        self.email_edit.setMinimumHeight(36)
         form_layout.addRow("Email:", self.email_edit)
-        
+
         self.address_edit = QLineEdit()
+        self.address_edit.setMinimumHeight(36)
         form_layout.addRow("Address:", self.address_edit)
-        
+
         # Employment Information
         self.position_edit = QLineEdit()
+        self.position_edit.setMinimumHeight(36)
         form_layout.addRow("Position:", self.position_edit)
-        
+
         self.department_edit = QLineEdit()
+        self.department_edit.setMinimumHeight(36)
         form_layout.addRow("Department:", self.department_edit)
-        
+
         self.hire_date_edit = QDateEdit()
         self.hire_date_edit.setCalendarPopup(True)
         self.hire_date_edit.setDate(QDate.currentDate())
+        self.hire_date_edit.setMinimumHeight(36)
         form_layout.addRow("Hire Date:", self.hire_date_edit)
-        
+
         self.salary_edit = QLineEdit()
+        self.salary_edit.setMinimumHeight(36)
         form_layout.addRow("Salary:", self.salary_edit)
         
         # Status
@@ -85,14 +101,18 @@ class WorkerDialog(QDialog):
         
         # Buttons
         button_layout = QHBoxLayout()
-        
-        self.save_button = QPushButton("Save")
-        self.save_button.clicked.connect(self.save_worker)
-        
+        button_layout.setSpacing(12)
+
         self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setStyleSheet(get_secondary_button_style())
         self.cancel_button.clicked.connect(self.reject)
-        
+
+        self.save_button = QPushButton("Save")
+        self.save_button.setStyleSheet(get_primary_button_style())
+        self.save_button.clicked.connect(self.save_worker)
+
         button_layout.addWidget(self.cancel_button)
+        button_layout.addStretch()
         button_layout.addWidget(self.save_button)
         
         layout.addLayout(button_layout)
@@ -210,30 +230,40 @@ class CourseDialog(QDialog):
     
     def setup_ui(self):
         """Setup dialog UI"""
-        layout = QVBoxLayout()
-        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(20)
+
         # Form layout
         form_layout = QFormLayout()
-        
+        form_layout.setSpacing(16)
+        form_layout.setHorizontalSpacing(12)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
         # Course Information
         self.name_edit = QLineEdit()
+        self.name_edit.setMinimumHeight(36)
         form_layout.addRow("Course Name *:", self.name_edit)
-        
+
         self.description_edit = QTextEdit()
-        self.description_edit.setMaximumHeight(80)
+        self.description_edit.setMaximumHeight(100)
+        self.description_edit.setMinimumHeight(80)
         form_layout.addRow("Description:", self.description_edit)
-        
+
         self.provider_edit = QLineEdit()
+        self.provider_edit.setMinimumHeight(36)
         form_layout.addRow("Provider:", self.provider_edit)
-        
+
         # Dates
         self.issue_date_edit = QDateEdit()
         self.issue_date_edit.setCalendarPopup(True)
         self.issue_date_edit.setDate(QDate.currentDate())
+        self.issue_date_edit.setMinimumHeight(36)
         form_layout.addRow("Issue Date:", self.issue_date_edit)
-        
+
         self.expiration_date_edit = QDateEdit()
         self.expiration_date_edit.setCalendarPopup(True)
+        self.expiration_date_edit.setMinimumHeight(36)
         form_layout.addRow("Expiration Date:", self.expiration_date_edit)
         
         # Certificate
@@ -252,14 +282,18 @@ class CourseDialog(QDialog):
         
         # Buttons
         button_layout = QHBoxLayout()
-        
-        self.save_button = QPushButton("Save")
-        self.save_button.clicked.connect(self.save_course)
-        
+        button_layout.setSpacing(12)
+
         self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setStyleSheet(get_secondary_button_style())
         self.cancel_button.clicked.connect(self.reject)
-        
+
+        self.save_button = QPushButton("Save")
+        self.save_button.setStyleSheet(get_primary_button_style())
+        self.save_button.clicked.connect(self.save_course)
+
         button_layout.addWidget(self.cancel_button)
+        button_layout.addStretch()
         button_layout.addWidget(self.save_button)
         
         layout.addLayout(button_layout)

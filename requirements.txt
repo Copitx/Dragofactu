@@ -1,0 +1,30 @@
+# Dragofactu - Business Management System
+# Python 3.8+ required
+
+# GUI Framework
+PySide6>=6.4.0
+
+# Database
+SQLAlchemy>=2.0.0
+alembic>=1.12.0
+
+# PostgreSQL support (optional)
+psycopg2-binary>=2.9.0
+
+# Authentication & Security
+bcrypt>=4.0.0
+PyJWT>=2.8.0
+
+# PDF Generation
+reportlab>=4.0.0
+Pillow>=10.0.0
+
+# Environment & Configuration
+python-dotenv>=1.0.0
+
+# Date & Time utilities
+python-dateutil>=2.8.0
+
+# Email (optional)
+# Uncomment if email functionality is needed
+# email-validator>=2.0.0

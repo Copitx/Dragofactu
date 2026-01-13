@@ -11,6 +11,7 @@ from dragofactu.models.database import SessionLocal
 from dragofactu.services.inventory.inventory_service import InventoryService
 from dragofactu.services.business.entity_services import ProductService
 from dragofactu.services.auth.auth_service import PermissionService
+from dragofactu.ui.styles import get_card_style, get_primary_button_style, get_secondary_button_style
 
 
 class StockAdjustmentDialog(QDialog):
@@ -33,46 +34,55 @@ class StockAdjustmentDialog(QDialog):
     
     def setup_ui(self):
         """Setup dialog UI"""
-        layout = QVBoxLayout()
-        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(20)
+
         # Form layout
         form_layout = QFormLayout()
-        
+        form_layout.setSpacing(16)
+        form_layout.setHorizontalSpacing(12)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
         # Product info
         self.product_label = QLabel("Select a product")
         form_layout.addRow("Product:", self.product_label)
-        
+
         # Current stock
         self.current_stock_label = QLabel("-")
         form_layout.addRow("Current Stock:", self.current_stock_label)
-        
+
         # New stock
         self.new_stock_spin = QSpinBox()
         self.new_stock_spin.setRange(0, 99999)
+        self.new_stock_spin.setMinimumHeight(36)
         form_layout.addRow("New Stock:", self.new_stock_spin)
-        
+
         # Reason
         self.reason_edit = QLineEdit()
         self.reason_edit.setPlaceholderText("Reason for adjustment...")
+        self.reason_edit.setMinimumHeight(36)
         form_layout.addRow("Reason:", self.reason_edit)
-        
+
         layout.addLayout(form_layout)
-        
+
         # Buttons
         button_layout = QHBoxLayout()
-        
-        self.adjust_button = QPushButton("Adjust Stock")
-        self.adjust_button.clicked.connect(self.perform_adjustment)
-        
+        button_layout.setSpacing(12)
+
         self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setStyleSheet(get_secondary_button_style())
         self.cancel_button.clicked.connect(self.reject)
-        
+
+        self.adjust_button = QPushButton("Adjust Stock")
+        self.adjust_button.setStyleSheet(get_primary_button_style())
+        self.adjust_button.clicked.connect(self.perform_adjustment)
+
         button_layout.addWidget(self.cancel_button)
+        button_layout.addStretch()
         button_layout.addWidget(self.adjust_button)
-        
+
         layout.addLayout(button_layout)
-        
-        self.setLayout(layout)
     
     def load_product(self, product):
         """Load product data"""
@@ -130,11 +140,14 @@ class InventoryView(QWidget):
         QTimer.singleShot(100, self.refresh)
     
     def setup_ui(self):
-        """Setup inventory UI"""
+        """Setup inventory UI with Apple-style spacing"""
         layout = QVBoxLayout()
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(20)
         
         # Toolbar
         toolbar_layout = QHBoxLayout()
+        toolbar_layout.setSpacing(12)
         
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search products...")
@@ -206,35 +219,70 @@ class InventoryView(QWidget):
         self.apply_styles()
     
     def apply_styles(self):
-        """Apply custom styles"""
-        self.setStyleSheet("""
+        """Apply Apple-inspired styles using UIStyles"""
+        # Apply styles to key components
+        self.refresh_button.setStyleSheet(get_primary_button_style())
+        self.adjust_button.setStyleSheet(get_secondary_button_style())
+        
+        # Table styling
+        self.table.setStyleSheet("""
             QTableWidget {
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                gridline-color: #f0f0f0;
+                background-color: #FFFFFF;
+                border: 1px solid #E5E5EA;
+                border-radius: 12px;
+                gridline-color: #E5E5EA;
+                selection-background-color: #007AFF;
+                selection-color: #FFFFFF;
+                font-size: 13px;
             }
             QTableWidget::item {
-                padding: 5px;
+                padding: 12px;
+                border-bottom: 1px solid #E5E5EA;
+            }
+            QTableWidget::item:hover {
+                background-color: #F5F5F7;
             }
             QHeaderView::section {
-                background-color: #f8f8f8;
-                padding: 5px;
-                border: 1px solid #ddd;
-                font-weight: bold;
+                background-color: #FAFAFA;
+                color: #6E6E73;
+                font-weight: 600;
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                padding: 12px;
+                border: none;
+                border-bottom: 1px solid #D2D2D7;
             }
-            QPushButton {
-                padding: 6px 12px;
-                border: 1px solid #0078d4;
-                background-color: #0078d4;
-                color: white;
-                border-radius: 4px;
+        """)
+        
+        # Input styling
+        self.search_edit.setStyleSheet("""
+            QLineEdit {
+                background-color: #FFFFFF;
+                border: 1px solid #D2D2D7;
+                border-radius: 8px;
+                padding: 10px 12px;
+                font-size: 13px;
+                color: #1D1D1F;
+                min-height: 20px;
             }
-            QPushButton:hover {
-                background-color: #106ebe;
+            QLineEdit:focus {
+                border-color: #007AFF;
             }
-            QPushButton:disabled {
-                background-color: #ccc;
-                border-color: #999;
+        """)
+        
+        self.category_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #FFFFFF;
+                border: 1px solid #D2D2D7;
+                border-radius: 8px;
+                padding: 10px 12px;
+                font-size: 13px;
+                color: #1D1D1F;
+                min-height: 20px;
+            }
+            QComboBox:focus {
+                border-color: #007AFF;
             }
         """)
     

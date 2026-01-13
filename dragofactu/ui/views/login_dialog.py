@@ -1,7 +1,6 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, 
-    QPushButton, QLabel, QMessageBox, QFormLayout,
-    QFrame
+    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit,
+    QPushButton, QLabel, QMessageBox, QFrame
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QIntValidator
@@ -9,6 +8,7 @@ from PySide6.QtGui import QFont, QIntValidator
 from dragofactu.models.database import SessionLocal
 from dragofactu.services.auth.auth_service import AuthService
 from dragofactu.models.entities import User
+from dragofactu.ui.styles import get_card_style, get_primary_button_style, get_secondary_button_style
 
 
 class LoginDialog(QDialog):
@@ -22,7 +22,7 @@ class LoginDialog(QDialog):
         self.user = None
         
         self.setWindowTitle("Login - Dragofactu")
-        self.setFixedSize(400, 300)
+        self.setFixedSize(420, 480)  # Increased size for proper spacing
         self.setModal(True)
         
         # Center on screen
@@ -39,71 +39,147 @@ class LoginDialog(QDialog):
         self.move(x, y)
     
     def setup_ui(self):
-        """Setup dialog UI"""
-        layout = QVBoxLayout()
-        layout.setSpacing(20)
+        """Setup dialog UI with Apple-style card layout"""
+        # Main layout with 32px margins
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(32, 32, 32, 32)
+        main_layout.setSpacing(24)
         
-        # Title
+        # Card container
+        card = QFrame()
+        card.setFrameShape(QFrame.Shape.StyledPanel)
+        card.setStyleSheet(get_card_style())
+        
+        # Card layout
+        card_layout = QVBoxLayout(card)
+        card_layout.setSpacing(24)
+        card_layout.setContentsMargins(32, 32, 32, 32)
+        
+        # Title section
+        title_section = QVBoxLayout()
+        title_section.setSpacing(8)
+        title_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Main title
         title_label = QLabel("Dragofactu")
-        title_label.setAlignment(Qt.AlignCenter)
-        title_font = QFont("Arial", 18, QFont.Bold)
-        title_label.setFont(title_font)
-        layout.addWidget(title_label)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet(f"""
+            font-family: system-ui, -apple-system, "SF Pro Display", "Segoe UI", sans-serif;
+            font-size: 28px;
+            font-weight: 600;
+            color: #1D1D1F;
+            margin-bottom: 4px;
+        """)
         
         # Subtitle
         subtitle_label = QLabel("Business Management System")
-        subtitle_label.setAlignment(Qt.AlignCenter)
-        subtitle_font = QFont("Arial", 10)
-        subtitle_label.setFont(subtitle_font)
-        layout.addWidget(subtitle_label)
+        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        subtitle_label.setStyleSheet(f"""
+            font-family: system-ui, -apple-system, "SF Pro Display", "Segoe UI", sans-serif;
+            font-size: 15px;
+            color: #6E6E73;
+            margin-bottom: 8px;
+        """)
         
-        # Separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.HLine)
-        separator.setFrameShadow(QFrame.Sunken)
-        layout.addWidget(separator)
+        title_section.addWidget(title_label)
+        title_section.addWidget(subtitle_label)
+        card_layout.addLayout(title_section)
         
-        # Login form
-        form_layout = QFormLayout()
-        
-        # Username field
+        # Form section - using vertical layout for labels ABOVE inputs
+        form_section = QVBoxLayout()
+        form_section.setSpacing(16)
+        form_section.setContentsMargins(0, 8, 0, 8)
+
+        # Shared input style
+        input_style = """
+            QLineEdit {
+                background-color: #FFFFFF;
+                border: 1px solid #D2D2D7;
+                border-radius: 8px;
+                padding: 10px 12px;
+                font-size: 13px;
+                color: #1D1D1F;
+                font-family: system-ui, -apple-system, "SF Pro Display", "Segoe UI", sans-serif;
+            }
+            QLineEdit:focus {
+                border-color: #007AFF;
+            }
+        """
+
+        # Shared label style
+        label_style = """
+            font-family: system-ui, -apple-system, "SF Pro Display", "Segoe UI", sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: #1D1D1F;
+            padding: 0px;
+            margin: 0px;
+        """
+
+        # Username field group (label above input)
+        username_group = QVBoxLayout()
+        username_group.setSpacing(6)
+
+        username_label = QLabel("Username")
+        username_label.setStyleSheet(label_style)
+        username_group.addWidget(username_label)
+
         self.username_edit = QLineEdit()
-        self.username_edit.setPlaceholderText("Username or Email")
-        self.username_edit.setMinimumHeight(35)
-        form_layout.addRow("Username:", self.username_edit)
-        
-        # Password field
+        self.username_edit.setMinimumHeight(40)
+        self.username_edit.setStyleSheet(input_style)
+        username_group.addWidget(self.username_edit)
+
+        form_section.addLayout(username_group)
+
+        # Password field group (label above input)
+        password_group = QVBoxLayout()
+        password_group.setSpacing(6)
+
+        password_label = QLabel("Password")
+        password_label.setStyleSheet(label_style)
+        password_group.addWidget(password_label)
+
         self.password_edit = QLineEdit()
-        self.password_edit.setEchoMode(QLineEdit.Password)
-        self.password_edit.setPlaceholderText("Password")
-        self.password_edit.setMinimumHeight(35)
-        form_layout.addRow("Password:", self.password_edit)
+        self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_edit.setMinimumHeight(40)
+        self.password_edit.setStyleSheet(input_style)
+        password_group.addWidget(self.password_edit)
+
+        form_section.addLayout(password_group)
+
+        card_layout.addLayout(form_section)
         
-        layout.addLayout(form_layout)
-        
-        # Buttons
+        # Buttons section
         button_layout = QHBoxLayout()
-        
-        self.login_button = QPushButton("Login")
-        self.login_button.setMinimumHeight(40)
-        self.login_button.clicked.connect(self.handle_login)
+        button_layout.setSpacing(12)
         
         self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.setMinimumHeight(40)
+        self.cancel_button.setStyleSheet(get_secondary_button_style())
         self.cancel_button.clicked.connect(self.reject)
         
+        self.login_button = QPushButton("Login")
+        self.login_button.setStyleSheet(get_primary_button_style())
+        self.login_button.clicked.connect(self.handle_login)
+        
         button_layout.addWidget(self.cancel_button)
+        button_layout.addStretch()
         button_layout.addWidget(self.login_button)
         
-        layout.addLayout(button_layout)
+        card_layout.addLayout(button_layout)
         
         # Status label
         self.status_label = QLabel("")
-        self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setStyleSheet("color: red;")
-        layout.addWidget(self.status_label)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet("""
+            font-family: system-ui, -apple-system, "SF Pro Display", "Segoe UI", sans-serif;
+            font-size: 12px;
+            color: #FF3B30;
+            padding: 8px 0px;
+        """)
+        card_layout.addWidget(self.status_label)
         
-        self.setLayout(layout)
+        # Add card to main layout
+        main_layout.addWidget(card)
         
         # Set default focus and Enter key
         self.username_edit.setFocus()

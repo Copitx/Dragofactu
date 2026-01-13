@@ -32,6 +32,8 @@ class MainWindow(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
         
         # Setup UI components
         self.setup_menu_bar()
@@ -167,7 +169,7 @@ class MainWindow(QMainWindow):
     def setup_main_tabs(self):
         """Setup main tab widget"""
         self.tab_widget = QTabWidget()
-        self.tab_widget.setTabPosition(QTabWidget.North)
+        self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
         
         # Dashboard tab (always visible)
         self.dashboard_view = DashboardView()
@@ -194,7 +196,35 @@ class MainWindow(QMainWindow):
         self.diary_view.setObjectName("diary")
         self.tab_widget.addTab(self.diary_view, "Diary")
         
+        # Add tab widget with proper margins
         self.main_layout.addWidget(self.tab_widget)
+        
+        # Set tab widget margins for Apple-style spacing
+        self.tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                border: none;
+                background-color: #FAFAFA;
+            }
+            QTabWidget::tab-bar {
+                left: 24px;
+            }
+            QTabBar::tab {
+                background-color: transparent;
+                border: none;
+                padding: 12px 16px;
+                margin-right: 8px;
+                color: #6E6E73;
+                font-weight: 500;
+                font-size: 13px;
+            }
+            QTabBar::tab:selected {
+                color: #007AFF;
+                border-bottom: 2px solid #007AFF;
+            }
+            QTabBar::tab:hover:!selected {
+                color: #1D1D1F;
+            }
+        """)
         
         # Connect tab change signal
         self.tab_widget.currentChanged.connect(self.on_tab_changed)

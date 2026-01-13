@@ -80,6 +80,24 @@
     "confirm_delete": "Are you sure you want to delete this item?",
     "save_success": "Saved successfully",
     "delete_success": "Deleted successfully",
-    "error_occurred": "An error has occurred"
+    "error_occurred": "An error has occurred",
+    "language_changed": "Language Changed",
+    "language_applied": "Language changed to"
+  },
+  "file_menu": {
+    "title": "File",
+    "new_quote": "New Quote",
+    "new_invoice": "New Invoice",
+    "import": "Import File",
+    "export": "Export Data",
+    "export_pdf": "Export to PDF",
+    "exit": "Exit"
+  },
+  "tools_menu": {
+    "title": "Tools",
+    "preferences": "Preferences"
+  },
+  "language_menu": {
+    "title": "Language"
   }
 }

@@ -7,6 +7,7 @@ from PySide6.QtGui import QFont
 from dragofactu.config.translation import t
 
 from dragofactu.models.database import SessionLocal
+from dragofactu.models.entities import Client, Document
 from dragofactu.services.business.entity_services import ClientService, SupplierService, ProductService
 from dragofactu.services.documents.document_service import DocumentService
 
@@ -71,7 +72,7 @@ class DashboardView(QWidget):
     def create_summary_card(self, title, value, color):
         """Create a single summary card"""
         card = QFrame()
-        card.setFrameStyle(QFrame.Box)
+        card.setFrameStyle(QFrame.Shape.Box)
         card.setStyleSheet(f"""
             QFrame {{
                 background-color: white;
@@ -107,7 +108,7 @@ class DashboardView(QWidget):
     def create_recent_activity_section(self, layout):
         """Create recent activity section"""
         section_frame = QFrame()
-        section_frame.setFrameStyle(QFrame.Box)
+        section_frame.setFrameStyle(QFrame.Shape.Box)
         section_frame.setStyleSheet("""
             QFrame {
                 background-color: white;
@@ -191,26 +192,91 @@ class DashboardView(QWidget):
                 item.widget().deleteLater()
     
     def update_recent_activity(self, db):
-        """Update recent activity section"""
-        # TODO: Implement activity logging and retrieval
-        # For now, show placeholder content
-        
-        placeholder_label = QLabel("Recent activity will appear here")
-        placeholder_label.setStyleSheet("color: #666; padding: 8px;")
-        self.activity_layout.addWidget(placeholder_label)
-        
-        # Example activity items (would come from database in real implementation)
-        # activities = [
-        #     "New client 'ABC Corp' added by John Doe",
-        #     "Invoice INV2024001 created by Jane Smith",
-        #     "Product 'Widget A' stock updated to 50 units",
-        #     "Quote QT2024001 converted to invoice",
-        # ]
-        
-        # for activity in activities:
-        #     activity_item = QLabel(f"• {activity}")
-        #     activity_item.setStyleSheet("padding: 4px; border-bottom: 1px solid #f0f0f0;")
-        #     self.activity_layout.addWidget(activity_item)
-        
-        # Add stretch at bottom
-        self.activity_layout.addStretch()
+        """Update recent activity section with real data"""
+        try:
+            # Clear existing activity items
+            while self.activity_layout.count():
+                child = self.activity_layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+            
+            # Get recent documents
+            recent_docs = db.query(Document).filter(Document.is_active == True).order_by(Document.created_at.desc()).limit(5).all()
+            
+            # Get recent clients
+            recent_clients = db.query(Client).filter(Client.is_active == True).order_by(Client.created_at.desc()).limit(3).all()
+            
+            # Create activity items
+            activities = []
+            
+            # Add recent documents
+            for doc in recent_docs:
+                client_name = doc.client.name if doc.client else "Unknown"
+                doc_type = doc.document_type.value if hasattr(doc.document_type, 'value') else str(doc.document_type)
+                activities.append({
+                    'text': f"{doc_type} {doc.code} created for {client_name}",
+                    'type': 'document',
+                    'date': doc.created_at
+                })
+            
+            # Add recent clients
+            for client in recent_clients:
+                activities.append({
+                    'text': f"New client '{client.name}' added",
+                    'type': 'client',
+                    'date': client.created_at
+                })
+            
+            # Sort by date
+            activities.sort(key=lambda x: x['date'], reverse=True)
+            
+            # Display activities
+            if activities:
+                for i, activity in enumerate(activities[:10]):  # Show max 10 activities
+                    activity_item = QLabel(f"• {activity['text']}")
+                    activity_item.setStyleSheet("""
+                        QLabel {
+                            padding: 8px 12px;
+                            border-bottom: 1px solid #E5E5EA;
+                            font-size: 13px;
+                            color: #1D1D1F;
+                        }
+                        QLabel:hover {
+                            background-color: #F5F5F7;
+                        }
+                    """)
+                    
+                    # Add date info
+                    date_str = activity['date'].strftime("%b %d, %Y") if activity['date'] else ""
+                    activity_date = QLabel(date_str)
+                    activity_date.setStyleSheet("""
+                        QLabel {
+                            font-size: 11px;
+                            color: #86868B;
+                            padding: 8px 12px 8px 40px;
+                        }
+                    """)
+                    
+                    self.activity_layout.addWidget(activity_item)
+                    self.activity_layout.addWidget(activity_date)
+            else:
+                placeholder_label = QLabel("No recent activity")
+                placeholder_label.setStyleSheet("""
+                    QLabel {
+                        color: #86868B;
+                        padding: 20px;
+                        font-style: italic;
+                        text-align: center;
+                    }
+                """)
+                self.activity_layout.addWidget(placeholder_label)
+            
+            # Add stretch at bottom
+            self.activity_layout.addStretch()
+            
+        except Exception as e:
+            # Fallback to error message
+            error_label = QLabel("Error loading activity")
+            error_label.setStyleSheet("color: #FF3B30; padding: 20px;")
+            self.activity_layout.addWidget(error_label)
+            self.activity_layout.addStretch()

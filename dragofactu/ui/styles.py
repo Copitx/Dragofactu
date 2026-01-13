@@ -1,6 +1,6 @@
 """
 Dragofactu UI Design System Stylesheet
-Apple-inspired, clean, minimal
+Apple-inspired, clean, minimal with Light and Dark theme support.
 
 Design tokens from CLAUDE.md:
 - Backgrounds: #FAFAFA (app), white cards
@@ -10,9 +10,15 @@ Design tokens from CLAUDE.md:
 - Border radius: 8px standard, 12px cards
 - Spacing: 4px grid, 16px card gaps
 """
+import json
+import os
+from typing import Dict, Optional
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QApplication
 
-# Color palette
-COLORS = {
+
+# Light theme color palette
+LIGHT_COLORS = {
     'bg_app': '#FAFAFA',
     'bg_card': '#FFFFFF',
     'bg_hover': '#F5F5F7',
@@ -37,6 +43,36 @@ COLORS = {
     'border_light': '#E5E5EA',
     'divider': '#C6C6C8',
 }
+
+# Dark theme color palette
+DARK_COLORS = {
+    'bg_app': '#1C1C1E',
+    'bg_card': '#2C2C2E',
+    'bg_hover': '#3A3A3C',
+    'bg_pressed': '#48484A',
+
+    'text_primary': '#FFFFFF',
+    'text_secondary': '#EBEBF5',
+    'text_tertiary': '#8E8E93',
+    'text_inverse': '#1D1D1F',
+
+    'accent': '#0A84FF',
+    'accent_hover': '#409CFF',
+    'accent_pressed': '#0056CC',
+
+    'danger': '#FF453A',
+    'danger_hover': '#FF6961',
+
+    'success': '#30D158',
+    'warning': '#FF9F0A',
+
+    'border': '#48484A',
+    'border_light': '#3A3A3C',
+    'divider': '#545456',
+}
+
+# Default to light colors (will be updated by ThemeManager)
+COLORS = LIGHT_COLORS.copy()
 
 # Typography
 FONTS = {
@@ -71,27 +107,172 @@ RADIUS = {
 }
 
 
+class ThemeManager(QObject):
+    """
+    Theme manager with dynamic theme switching support.
+    Emits theme_changed signal when theme is changed so UI can update.
+    """
+    # Signal emitted when theme changes
+    theme_changed = Signal(str)
+
+    # Theme constants
+    LIGHT = 'light'
+    DARK = 'dark'
+    AUTO = 'auto'
+
+    def __init__(self):
+        super().__init__()
+        self._current_theme = self.LIGHT
+        self._app: Optional[QApplication] = None
+        self._settings_file = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            'config', 'user_settings.json'
+        )
+        self._load_saved_theme()
+
+    @property
+    def current_theme(self) -> str:
+        return self._current_theme
+
+    def _load_saved_theme(self):
+        """Load saved theme preference from settings file"""
+        try:
+            if os.path.exists(self._settings_file):
+                with open(self._settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    saved_theme = settings.get('theme', self.LIGHT)
+                    if saved_theme in [self.LIGHT, self.DARK, self.AUTO]:
+                        self._current_theme = saved_theme
+        except Exception:
+            pass  # Use default theme if loading fails
+
+    def _save_theme(self):
+        """Save current theme to settings file"""
+        try:
+            settings = {}
+            if os.path.exists(self._settings_file):
+                with open(self._settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+
+            settings['theme'] = self._current_theme
+
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(self._settings_file), exist_ok=True)
+
+            with open(self._settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, indent=2)
+        except Exception:
+            pass  # Silently fail if saving fails
+
+    def set_app(self, app: QApplication):
+        """Set the QApplication instance for stylesheet updates"""
+        self._app = app
+
+    def get_effective_theme(self) -> str:
+        """Get the effective theme (resolves AUTO to actual theme)"""
+        if self._current_theme == self.AUTO:
+            # Try to detect system theme
+            try:
+                from PySide6.QtGui import QPalette
+                if self._app:
+                    palette = self._app.palette()
+                    bg_color = palette.color(QPalette.ColorRole.Window)
+                    # If background is dark, use dark theme
+                    if bg_color.lightness() < 128:
+                        return self.DARK
+            except Exception:
+                pass
+            return self.LIGHT
+        return self._current_theme
+
+    def set_theme(self, theme: str) -> bool:
+        """
+        Set current theme and emit signal for UI updates.
+        Returns True if theme was changed successfully.
+        """
+        if theme not in [self.LIGHT, self.DARK, self.AUTO]:
+            return False
+
+        old_theme = self._current_theme
+        self._current_theme = theme
+        self._save_theme()
+
+        # Update global COLORS
+        global COLORS
+        effective_theme = self.get_effective_theme()
+        if effective_theme == self.DARK:
+            COLORS.clear()
+            COLORS.update(DARK_COLORS)
+        else:
+            COLORS.clear()
+            COLORS.update(LIGHT_COLORS)
+
+        # Apply stylesheet immediately
+        if self._app:
+            self._app.setStyleSheet(get_base_stylesheet())
+
+        if old_theme != theme:
+            self.theme_changed.emit(theme)
+
+        return True
+
+    def get_colors(self) -> Dict[str, str]:
+        """Get current color palette based on theme"""
+        if self.get_effective_theme() == self.DARK:
+            return DARK_COLORS.copy()
+        return LIGHT_COLORS.copy()
+
+    def get_available_themes(self) -> Dict[str, str]:
+        """Get available themes with display names"""
+        return {
+            self.LIGHT: 'Claro',
+            self.DARK: 'Oscuro',
+            self.AUTO: 'Auto'
+        }
+
+    def get_theme_code_from_name(self, name: str) -> Optional[str]:
+        """Get theme code from display name"""
+        name_to_code = {
+            'Claro': self.LIGHT,
+            'Oscuro': self.DARK,
+            'Auto': self.AUTO
+        }
+        return name_to_code.get(name)
+
+    def get_theme_name_from_code(self, code: str) -> str:
+        """Get display name from theme code"""
+        return self.get_available_themes().get(code, 'Claro')
+
+
+# Global theme manager instance
+theme_manager = ThemeManager()
+
+
 def get_base_stylesheet() -> str:
     """
     Returns the global Qt stylesheet implementing the design system.
     Apply this to QApplication for app-wide styling.
+    Uses current theme colors.
     """
+    # Use current colors from theme manager
+    colors = theme_manager.get_colors()
+
     return f"""
     /* ========================================
        GLOBAL APPLICATION STYLES
        ======================================== */
 
     QMainWindow, QDialog {{
-        background-color: {COLORS['bg_app']};
+        background-color: {colors['bg_app']};
         font-family: {FONTS['family']};
         font-size: {FONTS['size_base']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
     }}
 
     QWidget {{
         font-family: {FONTS['family']};
         font-size: {FONTS['size_base']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
     }}
 
     /* ========================================
@@ -99,8 +280,8 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QMenuBar {{
-        background-color: {COLORS['bg_card']};
-        border-bottom: 1px solid {COLORS['border_light']};
+        background-color: {colors['bg_card']};
+        border-bottom: 1px solid {colors['border_light']};
         padding: {SPACING['xs']} {SPACING['sm']};
         font-size: {FONTS['size_base']};
     }}
@@ -109,37 +290,37 @@ def get_base_stylesheet() -> str:
         background-color: transparent;
         padding: {SPACING['xs']} {SPACING['sm']};
         border-radius: {RADIUS['sm']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
     }}
 
     QMenuBar::item:selected {{
-        background-color: {COLORS['bg_hover']};
+        background-color: {colors['bg_hover']};
     }}
 
     QMenuBar::item:pressed {{
-        background-color: {COLORS['bg_pressed']};
+        background-color: {colors['bg_pressed']};
     }}
 
     QMenu {{
-        background-color: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border']};
+        background-color: {colors['bg_card']};
+        border: 1px solid {colors['border']};
         border-radius: {RADIUS['md']};
         padding: {SPACING['xs']} 0;
     }}
 
     QMenu::item {{
         padding: {SPACING['sm']} {SPACING['lg']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
     }}
 
     QMenu::item:selected {{
-        background-color: {COLORS['accent']};
-        color: {COLORS['text_inverse']};
+        background-color: {colors['accent']};
+        color: {colors['text_inverse']};
     }}
 
     QMenu::separator {{
         height: 1px;
-        background-color: {COLORS['border_light']};
+        background-color: {colors['border_light']};
         margin: {SPACING['xs']} {SPACING['sm']};
     }}
 
@@ -148,15 +329,15 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QToolBar {{
-        background-color: {COLORS['bg_card']};
-        border-bottom: 1px solid {COLORS['border_light']};
+        background-color: {colors['bg_card']};
+        border-bottom: 1px solid {colors['border_light']};
         spacing: {SPACING['sm']};
         padding: {SPACING['sm']} {SPACING['md']};
     }}
 
     QToolBar::separator {{
         width: 1px;
-        background-color: {COLORS['border_light']};
+        background-color: {colors['border_light']};
         margin: {SPACING['xs']} {SPACING['sm']};
     }}
 
@@ -165,15 +346,15 @@ def get_base_stylesheet() -> str:
         border: none;
         border-radius: {RADIUS['sm']};
         padding: {SPACING['sm']} {SPACING['md']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
     }}
 
     QToolButton:hover {{
-        background-color: {COLORS['bg_hover']};
+        background-color: {colors['bg_hover']};
     }}
 
     QToolButton:pressed {{
-        background-color: {COLORS['bg_pressed']};
+        background-color: {colors['bg_pressed']};
     }}
 
     /* ========================================
@@ -181,8 +362,8 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QTabWidget::pane {{
-        background-color: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border_light']};
+        background-color: {colors['bg_card']};
+        border: 1px solid {colors['border_light']};
         border-radius: {RADIUS['lg']};
         margin-top: -{SPACING['xs']};
     }}
@@ -196,17 +377,17 @@ def get_base_stylesheet() -> str:
         border: none;
         padding: {SPACING['sm']} {SPACING['lg']};
         margin-right: {SPACING['xs']};
-        color: {COLORS['text_secondary']};
+        color: {colors['text_secondary']};
         font-weight: 500;
     }}
 
     QTabBar::tab:selected {{
-        color: {COLORS['accent']};
-        border-bottom: 2px solid {COLORS['accent']};
+        color: {colors['accent']};
+        border-bottom: 2px solid {colors['accent']};
     }}
 
     QTabBar::tab:hover:!selected {{
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
     }}
 
     /* ========================================
@@ -214,11 +395,11 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QStatusBar {{
-        background-color: {COLORS['bg_card']};
-        border-top: 1px solid {COLORS['border_light']};
+        background-color: {colors['bg_card']};
+        border-top: 1px solid {colors['border_light']};
         padding: {SPACING['xs']} {SPACING['md']};
         font-size: {FONTS['size_sm']};
-        color: {COLORS['text_secondary']};
+        color: {colors['text_secondary']};
     }}
 
     QStatusBar::item {{
@@ -231,8 +412,8 @@ def get_base_stylesheet() -> str:
 
     /* Primary Button */
     QPushButton {{
-        background-color: {COLORS['accent']};
-        color: {COLORS['text_inverse']};
+        background-color: {colors['accent']};
+        color: {colors['text_inverse']};
         border: none;
         border-radius: {RADIUS['md']};
         padding: {SPACING['sm']} {SPACING['lg']};
@@ -242,38 +423,38 @@ def get_base_stylesheet() -> str:
     }}
 
     QPushButton:hover {{
-        background-color: {COLORS['accent_hover']};
+        background-color: {colors['accent_hover']};
     }}
 
     QPushButton:pressed {{
-        background-color: {COLORS['accent_pressed']};
+        background-color: {colors['accent_pressed']};
     }}
 
     QPushButton:disabled {{
-        background-color: {COLORS['bg_pressed']};
-        color: {COLORS['text_tertiary']};
+        background-color: {colors['bg_pressed']};
+        color: {colors['text_tertiary']};
     }}
 
     /* Secondary Button (object name: secondary) */
     QPushButton[secondary="true"] {{
         background-color: transparent;
-        color: {COLORS['accent']};
-        border: 1px solid {COLORS['accent']};
+        color: {colors['accent']};
+        border: 1px solid {colors['accent']};
     }}
 
     QPushButton[secondary="true"]:hover {{
-        background-color: {COLORS['bg_hover']};
+        background-color: {colors['bg_hover']};
     }}
 
     /* Danger Button (object name: danger) */
     QPushButton[danger="true"] {{
-        background-color: {COLORS['danger']};
-        color: {COLORS['text_inverse']};
+        background-color: {colors['danger']};
+        color: {colors['text_inverse']};
         border: none;
     }}
 
     QPushButton[danger="true"]:hover {{
-        background-color: {COLORS['danger_hover']};
+        background-color: {colors['danger_hover']};
     }}
 
     /* ========================================
@@ -281,28 +462,28 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QDateEdit, QTimeEdit {{
-        background-color: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border']};
+        background-color: {colors['bg_card']};
+        border: 1px solid {colors['border']};
         border-radius: {RADIUS['md']};
         padding: {SPACING['sm']} {SPACING['md']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
         font-size: {FONTS['size_base']};
         min-height: 20px;
     }}
 
     QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus,
     QSpinBox:focus, QDoubleSpinBox:focus, QDateEdit:focus, QTimeEdit:focus {{
-        border-color: {COLORS['accent']};
+        border-color: {colors['accent']};
         outline: none;
     }}
 
     QLineEdit:disabled, QTextEdit:disabled {{
-        background-color: {COLORS['bg_app']};
-        color: {COLORS['text_tertiary']};
+        background-color: {colors['bg_app']};
+        color: {colors['text_tertiary']};
     }}
 
     QLineEdit::placeholder {{
-        color: {COLORS['text_tertiary']};
+        color: {colors['text_tertiary']};
     }}
 
     /* ========================================
@@ -310,16 +491,16 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QComboBox {{
-        background-color: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border']};
+        background-color: {colors['bg_card']};
+        border: 1px solid {colors['border']};
         border-radius: {RADIUS['md']};
         padding: {SPACING['sm']} {SPACING['md']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
         min-height: 20px;
     }}
 
     QComboBox:focus {{
-        border-color: {COLORS['accent']};
+        border-color: {colors['accent']};
     }}
 
     QComboBox::drop-down {{
@@ -328,11 +509,11 @@ def get_base_stylesheet() -> str:
     }}
 
     QComboBox QAbstractItemView {{
-        background-color: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border']};
+        background-color: {colors['bg_card']};
+        border: 1px solid {colors['border']};
         border-radius: {RADIUS['md']};
-        selection-background-color: {COLORS['accent']};
-        selection-color: {COLORS['text_inverse']};
+        selection-background-color: {colors['accent']};
+        selection-color: {colors['text_inverse']};
     }}
 
     /* ========================================
@@ -340,33 +521,33 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QTableWidget, QTableView {{
-        background-color: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border_light']};
+        background-color: {colors['bg_card']};
+        border: 1px solid {colors['border_light']};
         border-radius: {RADIUS['md']};
-        gridline-color: {COLORS['border_light']};
-        selection-background-color: {COLORS['accent']};
-        selection-color: {COLORS['text_inverse']};
+        gridline-color: {colors['border_light']};
+        selection-background-color: {colors['accent']};
+        selection-color: {colors['text_inverse']};
     }}
 
     QTableWidget::item, QTableView::item {{
         padding: {SPACING['sm']} {SPACING['md']};
-        border-bottom: 1px solid {COLORS['border_light']};
+        border-bottom: 1px solid {colors['border_light']};
     }}
 
     QTableWidget::item:hover, QTableView::item:hover {{
-        background-color: {COLORS['bg_hover']};
+        background-color: {colors['bg_hover']};
     }}
 
     QHeaderView::section {{
-        background-color: {COLORS['bg_app']};
-        color: {COLORS['text_secondary']};
+        background-color: {colors['bg_app']};
+        color: {colors['text_secondary']};
         font-weight: 600;
         font-size: {FONTS['size_xs']};
         text-transform: uppercase;
         letter-spacing: 0.5px;
         padding: {SPACING['sm']} {SPACING['md']};
         border: none;
-        border-bottom: 1px solid {COLORS['border']};
+        border-bottom: 1px solid {colors['border']};
     }}
 
     /* ========================================
@@ -374,8 +555,8 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QFrame[frameShape="1"] {{
-        background-color: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border_light']};
+        background-color: {colors['bg_card']};
+        border: 1px solid {colors['border_light']};
         border-radius: {RADIUS['lg']};
         padding: {SPACING['lg']};
     }}
@@ -385,8 +566,8 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QGroupBox {{
-        background-color: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border_light']};
+        background-color: {colors['bg_card']};
+        border: 1px solid {colors['border_light']};
         border-radius: {RADIUS['lg']};
         margin-top: {SPACING['lg']};
         padding: {SPACING['lg']};
@@ -398,7 +579,7 @@ def get_base_stylesheet() -> str:
         subcontrol-origin: margin;
         subcontrol-position: top left;
         padding: 0 {SPACING['sm']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
         font-size: {FONTS['size_sm']};
     }}
 
@@ -407,11 +588,11 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QLabel {{
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
     }}
 
     QLabel[secondary="true"] {{
-        color: {COLORS['text_secondary']};
+        color: {colors['text_secondary']};
         font-size: {FONTS['size_sm']};
     }}
 
@@ -426,13 +607,13 @@ def get_base_stylesheet() -> str:
     }}
 
     QScrollBar::handle:vertical {{
-        background-color: {COLORS['border']};
+        background-color: {colors['border']};
         border-radius: 4px;
         min-height: 20px;
     }}
 
     QScrollBar::handle:vertical:hover {{
-        background-color: {COLORS['text_tertiary']};
+        background-color: {colors['text_tertiary']};
     }}
 
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
@@ -446,13 +627,13 @@ def get_base_stylesheet() -> str:
     }}
 
     QScrollBar::handle:horizontal {{
-        background-color: {COLORS['border']};
+        background-color: {colors['border']};
         border-radius: 4px;
         min-width: 20px;
     }}
 
     QScrollBar::handle:horizontal:hover {{
-        background-color: {COLORS['text_tertiary']};
+        background-color: {colors['text_tertiary']};
     }}
 
     QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
@@ -465,39 +646,39 @@ def get_base_stylesheet() -> str:
 
     QCheckBox {{
         spacing: {SPACING['sm']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
     }}
 
     QCheckBox::indicator {{
         width: 18px;
         height: 18px;
-        border: 1px solid {COLORS['border']};
+        border: 1px solid {colors['border']};
         border-radius: {RADIUS['sm']};
-        background-color: {COLORS['bg_card']};
+        background-color: {colors['bg_card']};
     }}
 
     QCheckBox::indicator:checked {{
-        background-color: {COLORS['accent']};
-        border-color: {COLORS['accent']};
+        background-color: {colors['accent']};
+        border-color: {colors['accent']};
     }}
 
     QRadioButton {{
         spacing: {SPACING['sm']};
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
     }}
 
     QRadioButton::indicator {{
         width: 18px;
         height: 18px;
-        border: 1px solid {COLORS['border']};
+        border: 1px solid {colors['border']};
         border-radius: 9px;
-        background-color: {COLORS['bg_card']};
+        background-color: {colors['bg_card']};
     }}
 
     QRadioButton::indicator:checked {{
-        background-color: {COLORS['accent']};
-        border: 4px solid {COLORS['bg_card']};
-        border-color: {COLORS['accent']};
+        background-color: {colors['accent']};
+        border: 4px solid {colors['bg_card']};
+        border-color: {colors['accent']};
     }}
 
     /* ========================================
@@ -505,11 +686,11 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QMessageBox {{
-        background-color: {COLORS['bg_card']};
+        background-color: {colors['bg_card']};
     }}
 
     QMessageBox QLabel {{
-        color: {COLORS['text_primary']};
+        color: {colors['text_primary']};
         font-size: {FONTS['size_base']};
     }}
 
@@ -518,12 +699,37 @@ def get_base_stylesheet() -> str:
        ======================================== */
 
     QToolTip {{
-        background-color: {COLORS['text_primary']};
-        color: {COLORS['text_inverse']};
+        background-color: {colors['text_primary']};
+        color: {colors['text_inverse']};
         border: none;
         border-radius: {RADIUS['sm']};
         padding: {SPACING['xs']} {SPACING['sm']};
         font-size: {FONTS['size_sm']};
+    }}
+
+    /* ========================================
+       LIST WIDGET
+       ======================================== */
+
+    QListWidget {{
+        background-color: {colors['bg_card']};
+        border: 1px solid {colors['border_light']};
+        border-radius: {RADIUS['md']};
+        color: {colors['text_primary']};
+    }}
+
+    QListWidget::item {{
+        padding: {SPACING['sm']} {SPACING['md']};
+        border-bottom: 1px solid {colors['border_light']};
+    }}
+
+    QListWidget::item:hover {{
+        background-color: {colors['bg_hover']};
+    }}
+
+    QListWidget::item:selected {{
+        background-color: {colors['accent']};
+        color: {colors['text_inverse']};
     }}
     """
 
@@ -536,10 +742,11 @@ def get_card_style(accent_color: str = None) -> str:
     Args:
         accent_color: Optional accent color for the card border
     """
-    border_color = accent_color if accent_color else COLORS['border_light']
+    colors = theme_manager.get_colors()
+    border_color = accent_color if accent_color else colors['border_light']
     return f"""
         QFrame {{
-            background-color: {COLORS['bg_card']};
+            background-color: {colors['bg_card']};
             border: 1px solid {border_color};
             border-radius: {RADIUS['lg']};
             padding: {SPACING['lg']};
@@ -549,10 +756,11 @@ def get_card_style(accent_color: str = None) -> str:
 
 def get_primary_button_style() -> str:
     """Primary action button style"""
+    colors = theme_manager.get_colors()
     return f"""
         QPushButton {{
-            background-color: {COLORS['accent']};
-            color: {COLORS['text_inverse']};
+            background-color: {colors['accent']};
+            color: {colors['text_inverse']};
             border: none;
             border-radius: {RADIUS['md']};
             padding: {SPACING['sm']} {SPACING['lg']};
@@ -560,41 +768,68 @@ def get_primary_button_style() -> str:
             min-height: 36px;
         }}
         QPushButton:hover {{
-            background-color: {COLORS['accent_hover']};
+            background-color: {colors['accent_hover']};
         }}
         QPushButton:pressed {{
-            background-color: {COLORS['accent_pressed']};
+            background-color: {colors['accent_pressed']};
         }}
     """
 
 
 def get_secondary_button_style() -> str:
     """Secondary/outline button style"""
+    colors = theme_manager.get_colors()
     return f"""
         QPushButton {{
             background-color: transparent;
-            color: {COLORS['accent']};
-            border: 1px solid {COLORS['accent']};
+            color: {colors['accent']};
+            border: 1px solid {colors['accent']};
             border-radius: {RADIUS['md']};
             padding: {SPACING['sm']} {SPACING['lg']};
             font-weight: 500;
             min-height: 36px;
         }}
         QPushButton:hover {{
-            background-color: {COLORS['bg_hover']};
+            background-color: {colors['bg_hover']};
         }}
         QPushButton:pressed {{
-            background-color: {COLORS['bg_pressed']};
+            background-color: {colors['bg_pressed']};
+        }}
+    """
+
+
+def get_subtle_button_style() -> str:
+    """Subtle but visible button style (for save buttons, etc.)"""
+    colors = theme_manager.get_colors()
+    return f"""
+        QPushButton {{
+            background-color: {colors['bg_hover']};
+            color: {colors['text_primary']};
+            border: 1px solid {colors['border']};
+            border-radius: {RADIUS['md']};
+            padding: {SPACING['sm']} {SPACING['lg']};
+            font-weight: 500;
+            min-height: 36px;
+        }}
+        QPushButton:hover {{
+            background-color: {colors['bg_pressed']};
+            border-color: {colors['accent']};
+        }}
+        QPushButton:pressed {{
+            background-color: {colors['accent']};
+            color: {colors['text_inverse']};
+            border-color: {colors['accent']};
         }}
     """
 
 
 def get_danger_button_style() -> str:
     """Danger/destructive action button style"""
+    colors = theme_manager.get_colors()
     return f"""
         QPushButton {{
-            background-color: {COLORS['danger']};
-            color: {COLORS['text_inverse']};
+            background-color: {colors['danger']};
+            color: {colors['text_inverse']};
             border: none;
             border-radius: {RADIUS['md']};
             padding: {SPACING['sm']} {SPACING['lg']};
@@ -602,7 +837,7 @@ def get_danger_button_style() -> str:
             min-height: 36px;
         }}
         QPushButton:hover {{
-            background-color: {COLORS['danger_hover']};
+            background-color: {colors['danger_hover']};
         }}
     """
 
@@ -611,6 +846,7 @@ def get_danger_button_style() -> str:
 def apply_stylesheet(app) -> None:
     """
     Apply the design system stylesheet to a QApplication.
+    Also registers the app with theme_manager for dynamic updates.
 
     Usage:
         from dragofactu.ui.styles import apply_stylesheet
@@ -618,4 +854,6 @@ def apply_stylesheet(app) -> None:
         app = QApplication(sys.argv)
         apply_stylesheet(app)
     """
-    app.setStyleSheet(get_base_stylesheet())
+    theme_manager.set_app(app)
+    # Initialize theme from saved settings
+    theme_manager.set_theme(theme_manager.current_theme)

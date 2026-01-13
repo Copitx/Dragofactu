@@ -77,9 +77,27 @@
     "stock_adjustment": "Bestandsanpassung"
   },
   "messages": {
-    "confirm_delete": "Sind Sie sicher, dass Sie dieses Element löschen möchten?",
+    "confirm_delete": "Sind Sie sicher, dass Sie dieses Element loschen mochten?",
     "save_success": "Erfolgreich gespeichert",
-    "delete_success": "Erfolgreich gelöscht",
-    "error_occurred": "Ein Fehler ist aufgetreten"
+    "delete_success": "Erfolgreich geloscht",
+    "error_occurred": "Ein Fehler ist aufgetreten",
+    "language_changed": "Sprache Geandert",
+    "language_applied": "Sprache geandert zu"
+  },
+  "file_menu": {
+    "title": "Datei",
+    "new_quote": "Neues Angebot",
+    "new_invoice": "Neue Rechnung",
+    "import": "Datei Importieren",
+    "export": "Daten Exportieren",
+    "export_pdf": "Als PDF Exportieren",
+    "exit": "Beenden"
+  },
+  "tools_menu": {
+    "title": "Werkzeuge",
+    "preferences": "Einstellungen"
+  },
+  "language_menu": {
+    "title": "Sprache"
   }
 }

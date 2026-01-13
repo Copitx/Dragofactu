@@ -32,8 +32,8 @@ from sqlalchemy.orm import joinedload
 from dragofactu.models.database import SessionLocal, engine, Base
 from dragofactu.models.entities import User, Client, Product, Document, DocumentLine, DocumentType, DocumentStatus
 from dragofactu.services.auth.auth_service import AuthService
-from dragofactu.config.translation import translator
-from dragofactu.ui.styles import apply_stylesheet
+from dragofactu.config.translation import translator, t
+from dragofactu.ui.styles import apply_stylesheet, theme_manager
 
 
 class UIStyles:
@@ -115,6 +115,30 @@ class UIStyles:
             }}
             QPushButton:hover {{
                 background-color: {cls.COLORS['bg_hover']};
+            }}
+        """
+
+    @classmethod
+    def get_subtle_button_style(cls):
+        """Subtle but visible button style (for save buttons, etc.)"""
+        return f"""
+            QPushButton {{
+                background-color: {cls.COLORS['bg_hover']};
+                color: {cls.COLORS['text_primary']};
+                border: 1px solid {cls.COLORS['border']};
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: 500;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{
+                background-color: {cls.COLORS['bg_pressed']};
+                border-color: {cls.COLORS['accent']};
+            }}
+            QPushButton:pressed {{
+                background-color: {cls.COLORS['accent']};
+                color: {cls.COLORS['text_inverse']};
+                border-color: {cls.COLORS['accent']};
             }}
         """
 
@@ -1590,22 +1614,14 @@ class DocumentDialog(QDialog):
         # Buttons
         button_layout = QHBoxLayout()
         
-        save_btn = QPushButton(f"💾 Guardar {self.doc_title}")
+        save_btn = QPushButton(f"Guardar {self.doc_title}")
         save_btn.clicked.connect(self.save_document)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #229954; }
-        """)
+        save_btn.setStyleSheet(UIStyles.get_subtle_button_style())
         button_layout.addWidget(save_btn)
         
-        cancel_btn = QPushButton("❌ Cancelar")
+        cancel_btn = QPushButton("Cancelar")
         cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         button_layout.addWidget(cancel_btn)
         
         layout.addLayout(button_layout)
@@ -3555,22 +3571,14 @@ class DiaryEntryDialog(QDialog):
         # Buttons
         buttons_layout = QHBoxLayout()
         
-        save_btn = QPushButton("💾 Guardar Nota")
+        save_btn = QPushButton("Guardar Nota")
         save_btn.clicked.connect(self.accept)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #229954; }
-        """)
+        save_btn.setStyleSheet(UIStyles.get_subtle_button_style())
         buttons_layout.addWidget(save_btn)
         
-        cancel_btn = QPushButton("❌ Cancelar")
+        cancel_btn = QPushButton("Cancelar")
         cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         buttons_layout.addWidget(cancel_btn)
         
         layout.addLayout(buttons_layout)
@@ -3910,17 +3918,63 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def change_language(self, lang_code):
-        """Change application language"""
+        """Change application language - applies immediately"""
         try:
+            old_lang = translator.current_language
             translator.set_language(lang_code)
-            QMessageBox.information(
-                self,
-                "Idioma Cambiado",
-                "El idioma ha sido cambiado. Por favor reinicie la aplicación para aplicar los cambios completamente."
-            )
+
+            if old_lang != lang_code:
+                # Refresh all UI elements
+                self.refresh_ui_texts()
+
+                # Show confirmation in the new language
+                lang_name = translator.get_language_name_from_code(lang_code)
+                QMessageBox.information(
+                    self,
+                    t("messages.language_changed") if t("messages.language_changed") != "messages.language_changed" else "Language Changed",
+                    f"{t('messages.language_applied') if t('messages.language_applied') != 'messages.language_applied' else 'Language changed to'} {lang_name}"
+                )
         except Exception as e:
             logger.error(f"Error changing language: {e}")
-            QMessageBox.warning(self, "Error", f"No se pudo cambiar el idioma: {str(e)}")
+            QMessageBox.warning(self, "Error", f"Could not change language: {str(e)}")
+
+    def refresh_ui_texts(self):
+        """Refresh all UI texts after language change"""
+        # Update window title
+        self.setWindowTitle(f"DRAGOFACTU - {t('app.subtitle')}")
+
+        # Update tab titles
+        self.tabs.setTabText(0, t("menu.dashboard"))
+        self.tabs.setTabText(1, t("menu.clients"))
+        self.tabs.setTabText(2, t("menu.products"))
+        self.tabs.setTabText(3, t("menu.documents"))
+        self.tabs.setTabText(4, t("menu.inventory"))
+        self.tabs.setTabText(5, t("menu.diary"))
+
+        # Update menu bar - rebuild menus
+        self.rebuild_menu_bar()
+
+        # Refresh current tab data
+        current_index = self.tabs.currentIndex()
+        if current_index == 0:  # Dashboard
+            self.refresh_dashboard()
+        elif current_index == 1:  # Clients
+            self.refresh_clients()
+        elif current_index == 2:  # Products
+            self.refresh_products()
+        elif current_index == 3:  # Documents
+            self.refresh_documents()
+        elif current_index == 4:  # Inventory
+            self.refresh_inventory()
+        elif current_index == 5:  # Diary
+            self.load_diary_notes()
+
+    def rebuild_menu_bar(self):
+        """Rebuild menu bar with updated translations"""
+        # Clear existing menu bar
+        self.menuBar().clear()
+        # Rebuild menus
+        self.setup_menu_bar()
 
     def import_external_file(self):
         """"Import external files - Fixed QAction/slot mismatch"""
@@ -4104,49 +4158,50 @@ class MainWindow(QMainWindow):
 
 
 class SettingsDialog(QDialog):
-    """Functional Settings dialog"""
+    """Functional Settings dialog with dynamic theme and language switching"""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("⚙️ Configuración - DRAGOFACTU")
+        self.parent_window = parent
+        self.setWindowTitle("Configuracion - DRAGOFACTU")
         self.setModal(True)
         self.resize(500, 600)
         self.setup_ui()
-    
+        self.load_current_settings()
+
     def setup_ui(self):
         layout = QVBoxLayout(self)
-        
+
         # General settings
-        general_group = QGroupBox("🔧 Configuración General")
+        general_group = QGroupBox("Configuracion General")
         general_layout = QFormLayout(general_group)
-        
+
         # Company info
         self.company_name_edit = QLineEdit()
         self.company_name_edit.setText("DRAGOFACTU Software")
         general_layout.addRow("Nombre Empresa:", self.company_name_edit)
-        
+
         self.company_email_edit = QLineEdit()
         self.company_email_edit.setText("info@dragofactu.com")
         general_layout.addRow("Email Empresa:", self.company_email_edit)
-        
+
         self.company_phone_edit = QLineEdit()
         self.company_phone_edit.setText("+34 900 000 000")
-        general_layout.addRow("Teléfono Empresa:", self.company_phone_edit)
-        
+        general_layout.addRow("Telefono Empresa:", self.company_phone_edit)
+
         layout.addWidget(general_group)
-        
+
         # UI settings
-        ui_group = QGroupBox("🎨 Apariencia")
+        ui_group = QGroupBox("Apariencia")
         ui_layout = QFormLayout(ui_group)
-        
+
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["Claro", "Oscuro", "Auto"])
-        self.theme_combo.setCurrentText("Auto")
-        self.theme_combo.currentTextChanged.connect(self.preview_theme)
+        self.theme_combo.currentTextChanged.connect(self.apply_theme_immediately)
         ui_layout.addRow("Tema:", self.theme_combo)
-        
+
         self.language_combo = QComboBox()
-        self.language_combo.addItems(["Español", "English", "Deutsch"])
-        self.language_combo.setCurrentText("Español")
+        self.language_combo.addItems(["Espanol", "English", "Deutsch"])
+        self.language_combo.currentTextChanged.connect(self.apply_language_immediately)
         ui_layout.addRow("Idioma:", self.language_combo)
         
         self.font_size_spin = QSpinBox()
@@ -4208,43 +4263,55 @@ class SettingsDialog(QDialog):
         # Buttons
         buttons_layout = QHBoxLayout()
         
-        save_btn = QPushButton("💾 Guardar Configuración")
+        save_btn = QPushButton("Guardar Configuración")
         save_btn.clicked.connect(self.save_settings)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 10px;
-                border: none;
-                border-radius: 5px;
-                font-weight: bold;
-                min-width: 120px;
-            }
-            QPushButton:hover { background-color: #229954; }
-        """)
+        save_btn.setStyleSheet(UIStyles.get_subtle_button_style())
         buttons_layout.addWidget(save_btn)
         
-        reset_btn = QPushButton("🔄 Restablecer")
+        reset_btn = QPushButton("Restablecer")
         reset_btn.clicked.connect(self.reset_settings)
-        reset_btn.setStyleSheet("background-color: #f39c12; color: white; padding: 10px; border-radius: 5px;")
+        reset_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         buttons_layout.addWidget(reset_btn)
         
-        cancel_btn = QPushButton("❌ Cancelar")
+        cancel_btn = QPushButton("Cancelar")
         cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setStyleSheet("background-color: #95a5a6; color: white; padding: 10px; border-radius: 5px;")
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         buttons_layout.addWidget(cancel_btn)
         
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
 
-    def preview_theme(self, theme_name):
-        """Preview theme change (for now just show a message)"""
-        # In a full implementation, you would apply the theme here
-        # For now, we just inform the user
-        pass
+    def load_current_settings(self):
+        """Load current theme and language settings"""
+        # Set current theme
+        current_theme = theme_manager.current_theme
+        theme_name = theme_manager.get_theme_name_from_code(current_theme)
+        # Block signals to prevent triggering apply during load
+        self.theme_combo.blockSignals(True)
+        self.theme_combo.setCurrentText(theme_name)
+        self.theme_combo.blockSignals(False)
+
+        # Set current language
+        current_lang = translator.current_language
+        lang_name = translator.get_language_name_from_code(current_lang)
+        self.language_combo.blockSignals(True)
+        self.language_combo.setCurrentText(lang_name)
+        self.language_combo.blockSignals(False)
+
+    def apply_theme_immediately(self, theme_name):
+        """Apply theme change immediately"""
+        theme_code = theme_manager.get_theme_code_from_name(theme_name)
+        if theme_code:
+            theme_manager.set_theme(theme_code)
+
+    def apply_language_immediately(self, lang_name):
+        """Apply language change immediately"""
+        lang_code = translator.get_language_code_from_name(lang_name)
+        if lang_code and self.parent_window:
+            self.parent_window.change_language(lang_code)
 
     def save_settings(self):
-        """Save settings"""
+        """Save settings - theme and language are already applied"""
         try:
             # Get all values
             settings = {
@@ -4258,36 +4325,32 @@ class SettingsDialog(QDialog):
                 'tax_rate': self.tax_rate_spin.value()
             }
 
-            # Here you would save to a config file or database
-            # For now, just show success message with info about restart
-            message = "Configuración guardada correctamente"
-            if settings['theme'] != "Auto" or settings['language'] != "Español":
-                message += "\n\nNota: Algunos cambios (tema e idioma) requerirán reiniciar la aplicación para aplicarse completamente."
-
-            QMessageBox.information(self, "✅ Guardado", message)
+            # Theme and language are already saved by their respective managers
+            # Just show success message
+            QMessageBox.information(self, "Guardado", "Configuracion guardada correctamente")
             self.accept()
 
         except Exception as e:
-            QMessageBox.critical(self, "❌ Error", f"Error guardando configuración: {str(e)}")
-    
+            QMessageBox.critical(self, "Error", f"Error guardando configuracion: {str(e)}")
+
     def reset_settings(self):
         """Reset settings to defaults"""
         reply = QMessageBox.question(
-            self, "🔄 Restablecer", 
-            "¿Está seguro de restablecer la configuración a valores por defecto?"
+            self, "Restablecer",
+            "Esta seguro de restablecer la configuracion a valores por defecto?"
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
             self.company_name_edit.setText("DRAGOFACTU Software")
             self.company_email_edit.setText("info@dragofactu.com")
             self.company_phone_edit.setText("+34 900 000 000")
-            self.theme_combo.setCurrentText("Auto")
-            self.language_combo.setCurrentText("Español")
+            self.theme_combo.setCurrentText("Claro")
+            self.language_combo.setCurrentText("Espanol")
             self.font_size_spin.setValue(12)
-            self.currency_combo.setCurrentText("EUR - Euro €")
+            self.currency_combo.setCurrentText("EUR - Euro")
             self.tax_rate_spin.setValue(21)
-            
-            QMessageBox.information(self, "✅ Restablecido", "Configuración restablecida a valores por defecto")
+
+            QMessageBox.information(self, "Restablecido", "Configuracion restablecida a valores por defecto")
     
     def import_external_file(self):
         """Import external files"""
@@ -4474,9 +4537,12 @@ class LoginDialog(QDialog):
         form_layout.addWidget(username_label)
 
         self.username_edit = QLineEdit()
-        self.username_edit.setPlaceholderText("Ingrese su usuario")
         self.username_edit.setStyleSheet(UIStyles.get_input_style())
+        self.username_edit.setMinimumHeight(40)
         form_layout.addWidget(self.username_edit)
+
+        # Add spacing between username and password fields
+        form_layout.addSpacing(8)
 
         # Password
         password_label = QLabel("Contraseña")
@@ -4490,8 +4556,8 @@ class LoginDialog(QDialog):
 
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_edit.setPlaceholderText("Ingrese su contraseña")
         self.password_edit.setStyleSheet(UIStyles.get_input_style())
+        self.password_edit.setMinimumHeight(40)
         form_layout.addWidget(self.password_edit)
 
         # Login button

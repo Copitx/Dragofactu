@@ -11,6 +11,7 @@ from PySide6.QtGui import QFont, QTextCharFormat, QColor
 from dragofactu.models.database import SessionLocal
 from dragofactu.services.diary.diary_service import DiaryService
 from dragofactu.services.auth.auth_service import PermissionService
+from dragofactu.ui.styles import get_primary_button_style, get_secondary_button_style
 
 
 class DiaryEntryDialog(QDialog):
@@ -33,49 +34,70 @@ class DiaryEntryDialog(QDialog):
     
     def setup_ui(self):
         """Setup dialog UI"""
-        layout = QVBoxLayout()
-        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(20)
+
         # Form layout
         form_layout = QFormLayout()
-        
+        form_layout.setSpacing(16)
+        form_layout.setHorizontalSpacing(12)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
         # Title
         self.title_edit = QLineEdit()
         self.title_edit.setPlaceholderText("Entry title...")
+        self.title_edit.setMinimumHeight(36)
         form_layout.addRow("Title:", self.title_edit)
-        
+
         # Date
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setDate(QDate.currentDate())
+        self.date_edit.setMinimumHeight(36)
         form_layout.addRow("Date:", self.date_edit)
-        
+
         # Tags
         self.tags_edit = QLineEdit()
         self.tags_edit.setPlaceholderText("Comma-separated tags...")
+        self.tags_edit.setMinimumHeight(36)
         form_layout.addRow("Tags:", self.tags_edit)
-        
+
         # Pinned checkbox
         self.pinned_checkbox = QCheckBox("Pin this entry")
         form_layout.addRow("", self.pinned_checkbox)
-        
+
         layout.addLayout(form_layout)
-        
+
         # Content editor
+        content_label = QLabel("Content:")
+        content_label.setStyleSheet("""
+            font-family: system-ui, -apple-system, "SF Pro Display", "Segoe UI", sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: #1D1D1F;
+        """)
+        layout.addWidget(content_label)
+
         self.content_edit = QTextEdit()
         self.content_edit.setPlaceholderText("Write your entry here...")
-        layout.addWidget(QLabel("Content:"))
+        self.content_edit.setMinimumHeight(150)
         layout.addWidget(self.content_edit)
         
         # Buttons
         button_layout = QHBoxLayout()
-        
-        self.save_button = QPushButton("Save")
-        self.save_button.clicked.connect(self.save_entry)
-        
+        button_layout.setSpacing(12)
+
         self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setStyleSheet(get_secondary_button_style())
         self.cancel_button.clicked.connect(self.reject)
-        
+
+        self.save_button = QPushButton("Save")
+        self.save_button.setStyleSheet(get_primary_button_style())
+        self.save_button.clicked.connect(self.save_entry)
+
         button_layout.addWidget(self.cancel_button)
+        button_layout.addStretch()
         button_layout.addWidget(self.save_button)
         
         layout.addLayout(button_layout)

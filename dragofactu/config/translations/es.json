@@ -77,9 +77,27 @@
     "stock_adjustment": "Ajuste de Stock"
   },
   "messages": {
-    "confirm_delete": "¿Está seguro de que desea eliminar este elemento?",
+    "confirm_delete": "Esta seguro de que desea eliminar este elemento?",
     "save_success": "Guardado exitosamente",
     "delete_success": "Eliminado exitosamente",
-    "error_occurred": "Ha ocurrido un error"
+    "error_occurred": "Ha ocurrido un error",
+    "language_changed": "Idioma Cambiado",
+    "language_applied": "Idioma cambiado a"
+  },
+  "file_menu": {
+    "title": "Archivo",
+    "new_quote": "Nuevo Presupuesto",
+    "new_invoice": "Nueva Factura",
+    "import": "Importar Archivo",
+    "export": "Exportar Datos",
+    "export_pdf": "Exportar a PDF",
+    "exit": "Salir"
+  },
+  "tools_menu": {
+    "title": "Herramientas",
+    "preferences": "Preferencias"
+  },
+  "language_menu": {
+    "title": "Idioma"
   }
 }

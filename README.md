@@ -1,192 +1,285 @@
-# 🐲 DRAGOFACTU - Sistema de Gestión Profesional V1.0.0.3
+# Dragofactu - Business Management System
 
-**Estado:** Estable - Versión 1.0.0.3
-**Objetivo:** Sistema completo y robusto de gestión empresarial con facturación, inventario, y gestión de clientes
+A modern, desktop-based Enterprise Resource Planning (ERP) application built with Python and PySide6. Dragofactu provides comprehensive business management tools including invoicing, inventory control, client management, and document generation.
 
-## 🎯 Screenshots - V1.0.0.3
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)](https://wiki.qt.io/Qt_for_Python)
+
+## Screenshots
+
 <p align="center">
-<img src="Screenshots/panelprincipal.png" alt="Pantalla principal de mi app Python" width="600"/>
-</p>
-<img src="Screenshots/login.png" alt="Login menu" width="600"/>
-</p>
-<img src="Screenshots/clientesmenu.png" alt="clients add menu" width="600"/>
-</p>
-<img src="Screenshots/documentosprincipal.png" alt="docsedit panel" width="600"/>
+  <img src="Screenshots/panelprincipal.png" alt="Main Dashboard" width="600"/>
+  <br><em>Main Dashboard with business metrics and quick actions</em>
 </p>
 
-## 🎯 Características Completas - V1.0.0.3
+<p align="center">
+  <img src="Screenshots/login.png" alt="Login Screen" width="600"/>
+  <br><em>Secure login interface</em>
+</p>
 
-### 🏠 Dashboard Principal (Estable)
-- Resumen general con contadores en tiempo real y persistencia de UI
-- Tarjetas interactivas con estadísticas de negocio
-- Acciones rápidas funcionales para creación de entidades
-- Panel de actividad reciente con actualizaciones automáticas
-- Navegación consistente sin pérdida de elementos de interfaz
+<p align="center">
+  <img src="Screenshots/clientesmenu.png" alt="Client Management" width="600"/>
+  <br><em>Client management with complete CRUD operations</em>
+</p>
 
-### 👥 Gestión de Clientes (Corregido)
-- CRUD completo sin errores de mapeo ORM
-- Ficha completa con campos correctos (tax_id vs nif)
-- Búsqueda y filtrado avanzado en tiempo real
-- Estados visuales con indicadores de color
-- Importación/Exportación de datos externos
+<p align="center">
+  <img src="Screenshots/documentosprincipal.png" alt="Document Management" width="600"/>
+  <br><em>Document management - Invoices, quotes, and delivery notes</em>
+</p>
 
-### 📦 Gestión de Productos (Corregido)
-- Creación y edición sin errores de campo
-- Control de stock con alertas funcionales
-- Gestión de múltiples unidades y precios
-- Integración completa con módulo de documentos
-- Persistencia de datos validada
+## Features
 
-### 💰 Gestión de Documentos (Implementado)
-- **Explorer de Documentos** - Vista tipo Excel con listado reciente
-- **Presupuestos** - Creación completa con cálculo automático
-- **Facturas** - Facturación con IVA configurable
-- **Albaranes** - Sistema de entrega completo
-- **Estados avanzados** - Borrador, Enviado, Aceptado, Pagado, Parcialmente Pagado
-- **Integración Cliente/Producto** - Selección automática desde base de datos
-- **Códigos automáticos** - PRE-*, FAC-*, ALB-*
+### Core Business Management
+- **Dashboard** - Real-time business metrics, recent activity, and quick actions
+- **Client Management** - Complete CRUD operations with search and filtering
+- **Product/Inventory Management** - Stock control with low-stock alerts
+- **Document Management** - Create and manage quotes, invoices, and delivery notes
+- **Worker Management** - Employee records and role-based access control
 
-### 📊 Gestión de Inventario (Estable)
-- Control de stock en tiempo real
-- Ajustes individuales y masivos
-- Alertas de stock bajo con indicadores visuales
-- Informes completos de valoración
-- Movimientos de stock registrados
-- Integración con módulo de productos
+### Document System
+- **Quotes (Presupuestos)** - PRE-* automatic numbering
+- **Invoices (Facturas)** - FAC-* automatic numbering with tax calculations
+- **Delivery Notes (Albaranes)** - ALB-* automatic numbering
+- **Document States** - Draft, Sent, Accepted, Paid, Partially Paid
+- **PDF Generation** - Professional PDF output with company branding
 
-### 📓 Diario Personal (Corregido)
-- Creación y persistencia de notas diarias
-- Recarga automática al cambiar fecha/selección
-- Sistema de etiquetas y prioridades
-- Búsqueda por fecha con filtrado instantáneo
-- Exportación de datos del diario
+### Additional Features
+- **Multi-language Support** - Spanish, English, German
+- **Personal Diary** - Notes and task management with date-based organization
+- **Import/Export** - CSV and JSON data import/export capabilities
+- **Modern UI** - Clean, professional interface with consistent design system
+- **Role-based Access Control** - User permissions and authentication
 
-### 🔧 Configuración Funcional (Nuevo)
-- Panel de configuración completo con múltiples secciones
-- Preferencias generales de empresa
-- Configuración de interfaz (tema, idioma, fuentes)
-- Información de base de datos y estadísticas
-- Restablecimiento a valores por defecto
-- Información de versión y sistema
+## Technology Stack
 
-### 📁 Gestión de Archivos Externos (Nuevo)
-- Importación de archivos CSV, JSON, y texto
-- Soporte para importación de clientes masivos
-- Exportación de datos en múltiples formatos
-- Integración con módulos existentes
-- Validación y manejo de errores
+- **Frontend:** PySide6 (Qt for Python)
+- **Backend:** Python 3.8+
+- **Database:** SQLAlchemy ORM (SQLite default, PostgreSQL support)
+- **PDF Generation:** ReportLab
+- **Authentication:** bcrypt, PyJWT
+- **Configuration:** python-dotenv
 
-### 🌍 Sistema Multi-idioma (Corregido)
-- Cambio de idioma funcional con actualización de UI
-- Traducciones consistentes en toda la aplicación
-- Persistencia de preferencia de idioma
-- Soporte completo para Español, Inglés, y Alemán
+## Installation
 
-## 🔍 Problemas Corregidos en V1.0.0.3
+### Requirements
+- Python 3.8 or higher
+- pip (Python package manager)
+- Git
 
-### ✅ Problemas Críticos Resueltos
-1. **Persistencia de Dashboard** - Los botones no desaparecen al navegar
-2. **Mapeo ORM** - Error 'nif' corregido a 'tax_id' en Client model
-3. **Explorador de Documentos** - Reemplazada vista placeholder "En desarrollo"
-4. **Persistencia de Diario** - Las notas se recargan automáticamente
-5. **Menú Configuración** - Implementado panel funcional completo
-6. **Importación de Archivos** - Sistema completo de importación/exportación
-7. **Cambio de Idioma** - Funcional con actualización dinámica de interfaz
+### Quick Start
 
-## 🚀 Instalación V1.0.0.3
-
-### Requisitos
-- Python 3.8+
-- PySide6 
-- SQLAlchemy
-- SQLite (por defecto)
-
-### Instalación
 ```bash
-# Clonar versión estable
-git clone https://github.com/Copitx/Dragofactu.git --branch v1.0.0.3
-
-# Entrar al directorio
+# Clone the repository
+git clone https://github.com/yourusername/Dragofactu.git
 cd Dragofactu
 
-# Crear entorno virtual
+# Create virtual environment
 python3 -m venv venv
 
-# Activar entorno
+# Activate virtual environment
+# On Linux/Mac:
 source venv/bin/activate
+# On Windows:
+# venv\Scripts\activate
 
-# Instalar dependencias
+# Install dependencies
 pip install -r requirements.txt
 
-# Inicializar base de datos
+# Initialize database with default admin user
 python3 scripts/init_db.py
 
-# Ejecutar aplicación estable
+# Launch application
 ./start_dragofactu.sh
 ```
 
-### 🔧 Configuración V1.0.0.3
+### Alternative Launch Methods
+
 ```bash
-# Base de datos SQLite
-DATABASE_URL=sqlite:///data/dragofactu.db
+# Direct execution (for development)
+python3 dragofactu_complete.py
 
-# Idioma por defecto
-DEFAULT_LANGUAGE=es
-
-# Moneda y configuración
-DEFAULT_CURRENCY=EUR
-DEFAULT_TAX_RATE=21
+# Using the modular package entry point
+python3 -m dragofactu.main
 ```
 
-## 🎚️ Lanzamiento de la Aplicación
+## Configuration
 
-### Método Principal (Recomendado)
-```bash
-# Ejecutar launcher oficial
-./start_dragofactu.sh
+Create a `.env` file in the root directory (or copy from `.env.example`):
+
+```env
+# Database Configuration
+DATABASE_URL=sqlite:///dragofactu.db
+# For PostgreSQL:
+# DATABASE_URL=postgresql://user:password@localhost:5432/dragofactu
+
+# Application Settings
+APP_NAME=Dragofactu
+DEBUG=false
+DEFAULT_LANGUAGE=es  # es, en, or de
+
+# Security
+SECRET_KEY=your-secret-key-here
+JWT_EXPIRE_HOURS=24
+
+# UI Settings
+WINDOW_WIDTH=1200
+WINDOW_HEIGHT=800
 ```
 
-### Alternativa para Desarrollo
+### Default Credentials
+
+**Important:** Change these credentials after first login.
+
+- **Username:** `admin`
+- **Password:** `admin123`
+
+## Project Structure
+
+```
+Dragofactu/
+├── dragofactu/              # Main application package
+│   ├── models/              # SQLAlchemy ORM models
+│   │   ├── entities.py      # Business entities (User, Client, Product, etc.)
+│   │   ├── database.py      # Database configuration
+│   │   └── base.py          # SQLAlchemy Base
+│   ├── services/            # Business logic layer
+│   │   ├── auth/            # Authentication service
+│   │   ├── business/        # CRUD services with permissions
+│   │   ├── documents/       # Document management
+│   │   ├── inventory/       # Stock management
+│   │   ├── pdf/             # PDF generation
+│   │   └── diary/           # Personal notes/diary
+│   ├── ui/                  # PySide6 UI components
+│   │   ├── views/           # Individual view modules
+│   │   └── styles.py        # Centralized design system
+│   ├── config/              # Configuration and translations
+│   │   ├── config.py        # Environment configuration
+│   │   ├── translation.py   # Multi-language support
+│   │   └── translations/    # Language files (es/en/de)
+│   └── main.py             # Modular entry point
+├── scripts/                 # Utility scripts
+│   └── init_db.py          # Database initialization
+├── Screenshots/             # Application screenshots
+├── dragofactu_complete.py  # Monolithic entry point (development)
+├── launch_dragofactu_fixed.py  # GUI launcher
+├── start_dragofactu.sh     # Primary launch script
+├── requirements.txt         # Python dependencies
+├── .env.example            # Environment configuration template
+├── CLAUDE.md               # AI assistant development guide
+└── README.md               # This file
+```
+
+## Database
+
+### SQLite (Default)
+The application uses SQLite by default, creating `dragofactu.db` in the root directory. This is suitable for single-user installations and development.
+
+### PostgreSQL (Production)
+For multi-user environments, configure PostgreSQL in your `.env` file:
+
+```env
+DATABASE_URL=postgresql://username:password@localhost:5432/dragofactu
+```
+
+### Database Initialization
+
 ```bash
-# Ejecutar directamente
-source venv/bin/activate
+# Create tables and default admin user
+python3 scripts/init_db.py
+
+# The script will create:
+# - All necessary database tables
+# - Default admin user (admin/admin123)
+# - Required initial data
+```
+
+## Development
+
+### Architecture
+
+The application follows a layered architecture:
+
+1. **Models Layer** - SQLAlchemy ORM entities with relationships
+2. **Services Layer** - Business logic with `@require_permission` decorators
+3. **UI Layer** - PySide6 views with centralized styling
+4. **Configuration Layer** - Environment-based settings and translations
+
+### Key Patterns
+
+- **Permission-based Authorization** - Services use decorators for access control
+- **Session Management** - Context managers for database sessions
+- **Soft Deletes** - `is_active` flag instead of hard deletes
+- **Document Workflow** - State machine for document status transitions
+- **Automatic Codes** - Sequential document numbering (PRE-*, FAC-*, ALB-*)
+
+### Testing
+
+```bash
+# Run with virtual environment activated
 python3 dragofactu_complete.py
 ```
 
-## 📚 Documentación V1.0.0.3
+## Contributing
 
-- [Guía de Usuario](docs/user-guide-v1.0.0.3.md)
-- [Referencia de API](docs/api-v1.0.0.3.md)
-- [Esquema de Base de Datos](docs/database-v1.0.0.3.md)
-- [Guía de Despliegue](docs/deployment-v1.0.0.3.md)
+Contributions are welcome! Please follow these guidelines:
 
-## 🔐 Credenciales por Defecto
-- **Usuario:** admin
-- **Contraseña:** admin123
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## 📄 Licencia
-MIT License - Ver [LICENSE](LICENSE) para detalles completos
+### Development Guidelines
+
+- Follow PEP 8 style guidelines
+- Add docstrings to functions and classes
+- Update tests for new features
+- Maintain the existing architecture patterns
+- Do not commit `.env` files or database files
+
+## Security Considerations
+
+- Change default admin credentials immediately
+- Use strong SECRET_KEY in production
+- Keep `.env` file secure and never commit it
+- Use PostgreSQL for multi-user deployments
+- Regular database backups recommended
+- Keep dependencies updated
+
+## Troubleshooting
+
+### Database Issues
+```bash
+# Reset database (WARNING: destroys all data)
+rm dragofactu.db
+python3 scripts/init_db.py
+```
+
+### Permission Errors
+- Ensure the application has write permissions in its directory
+- Check that the database file is not locked by another process
+
+### GUI Issues
+- Verify PySide6 is properly installed: `pip install --upgrade PySide6`
+- On Linux, ensure Qt dependencies are installed
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Built with [PySide6](https://wiki.qt.io/Qt_for_Python) - Qt for Python
+- Database powered by [SQLAlchemy](https://www.sqlalchemy.org/)
+- PDF generation by [ReportLab](https://www.reportlab.com/)
+
+## Support
+
+For bug reports and feature requests, please open an issue on GitHub.
 
 ---
 
-**✅ Estado Actual:** Estable - V1.0.0.3  
-**🎯 Características:** Todas las funcionalidades principales implementadas y corregidas  
-**🚀 Producción:** Lista para despliegue en entornos productivos
-
-## 📋 Checklist de Calidad V1.0.0.3
-
-- [x] Interfaz estable sin errores de navegación
-- [x] Persistencia de datos correcta
-- [x] Mapeo ORM sin conflictos
-- [x] Gestión de archivos externos funcional
-- [x] Configuración completa y persistente
-- [x] Multi-idioma funcional
-- [x] Documentos con explorer funcional
-- [x] Diario con recarga automática
-- [x] Importación/Exportación de datos
-- [x] Launcher único y funcional
-
----
-
-**Desarrollado con 🐲 por DRAGOFACTU Team**  
-**V1.0.0.3 - Sistema de Gestión Profesional Estable**
+**Version:** 1.0.0
+**Status:** Production Ready
+**Developed with Python by Dragofactu Team**

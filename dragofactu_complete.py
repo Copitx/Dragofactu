@@ -33,6 +33,7 @@ from dragofactu.models.database import SessionLocal, engine, Base
 from dragofactu.models.entities import User, Client, Product, Document, DocumentType, DocumentStatus
 from dragofactu.services.auth.auth_service import AuthService
 from dragofactu.config.translation import translator
+from dragofactu.ui.styles import apply_stylesheet
 
 class Dashboard(QWidget):
     def __init__(self):
@@ -2877,6 +2878,7 @@ class LoginDialog(QDialog):
 class App(QApplication):
     def __init__(self):
         super().__init__(sys.argv)
+        apply_stylesheet(self)
         self.current_user = None
         self.setup_app()
     

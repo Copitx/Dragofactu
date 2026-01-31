@@ -21,7 +21,7 @@ def create_default_admin():
     try:
         # Get credentials from environment or use secure defaults
         admin_username = os.getenv('DEFAULT_ADMIN_USERNAME', 'admin')
-        admin_password = os.getenv('DEFAULT_ADMIN_PASSWORD', 'change-this-password-2024')
+        admin_password = os.getenv('DEFAULT_ADMIN_PASSWORD', 'admin123')
         
         # Verificar si ya existe el usuario admin
         admin_user = db.query(User).filter(User.username == admin_username).first()
@@ -53,10 +53,9 @@ def create_default_admin():
         print(f"   ID: {admin_user.id}")
         
         # Security warning if using default credentials
-        if admin_password == "change-this-password-2024":
+        if admin_password == "admin123":
             print("\n⚠️ SECURITY WARNING: Using default password!")
-            print("   Please change this immediately after first login.")
-            print("   Set DEFAULT_ADMIN_PASSWORD environment variable for security.")
+            print("   Change it after first login or set DEFAULT_ADMIN_PASSWORD env var.")
         
         return admin_user
         

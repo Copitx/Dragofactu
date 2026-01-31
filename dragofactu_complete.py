@@ -741,6 +741,8 @@ class Dashboard(QWidget):
     def __init__(self):
         super().__init__()
         self.metric_labels = {}
+        self.metric_titles = {}
+        self.translatable_labels = {}
         self.setup_ui()
 
     def setup_ui(self):
@@ -775,23 +777,23 @@ class Dashboard(QWidget):
         welcome_layout.setSpacing(4)
 
         # Welcome title
-        welcome_label = QLabel("Bienvenido a Dragofactu")
-        welcome_label.setStyleSheet(f"""
+        self.welcome_label = QLabel(translator.t("dashboard.welcome"))
+        self.welcome_label.setStyleSheet(f"""
             font-size: 28px;
             font-weight: 600;
             color: {self.COLORS['text_primary']};
             background: transparent;
         """)
-        welcome_layout.addWidget(welcome_label)
+        welcome_layout.addWidget(self.welcome_label)
 
         # Subtitle
-        subtitle_label = QLabel("Resumen de tu negocio")
-        subtitle_label.setStyleSheet(f"""
+        self.subtitle_label = QLabel(translator.t("app.subtitle"))
+        self.subtitle_label.setStyleSheet(f"""
             font-size: 15px;
             color: {self.COLORS['text_secondary']};
             background: transparent;
         """)
-        welcome_layout.addWidget(subtitle_label)
+        welcome_layout.addWidget(self.subtitle_label)
 
         parent_layout.addWidget(welcome_widget)
 
@@ -802,21 +804,21 @@ class Dashboard(QWidget):
         metrics_layout.setContentsMargins(0, 0, 0, 0)
         metrics_layout.setSpacing(16)
 
-        # Define metrics
+        # Define metrics with translation keys
         metrics = [
-            ('clients', 'Clientes', self.get_client_count()),
-            ('products', 'Productos', self.get_product_count()),
-            ('documents', 'Documentos', self.get_document_count()),
-            ('low_stock', 'Stock Bajo', self.get_low_stock_count()),
+            ('clients', 'dashboard.total_clients', self.get_client_count()),
+            ('products', 'dashboard.active_products', self.get_product_count()),
+            ('documents', 'dashboard.pending_documents', self.get_document_count()),
+            ('low_stock', 'dashboard.low_stock_items', self.get_low_stock_count()),
         ]
 
-        for key, title, value in metrics:
-            card = self._create_metric_card(key, title, value)
+        for key, title_key, value in metrics:
+            card = self._create_metric_card(key, title_key, value)
             metrics_layout.addWidget(card)
 
         parent_layout.addWidget(metrics_widget)
 
-    def _create_metric_card(self, key, title, value):
+    def _create_metric_card(self, key, title_key, value):
         """Create a single metric card"""
         card = QFrame()
         card.setStyleSheet(f"""
@@ -831,8 +833,8 @@ class Dashboard(QWidget):
         card_layout.setContentsMargins(20, 20, 20, 20)
         card_layout.setSpacing(8)
 
-        # Title label
-        title_label = QLabel(title)
+        # Title label (translated)
+        title_label = QLabel(translator.t(title_key))
         title_label.setStyleSheet(f"""
             font-size: 13px;
             font-weight: 500;
@@ -853,45 +855,55 @@ class Dashboard(QWidget):
         """)
         card_layout.addWidget(value_label)
 
-        # Store reference for updates
+        # Store references for updates
         self.metric_labels[key] = value_label
+        self.metric_titles[key] = (title_label, title_key)
 
         return card
 
     def _create_quick_actions(self, parent_layout):
         """Create quick action cards"""
         # Section title
-        section_title = QLabel("Acciones Rápidas")
-        section_title.setStyleSheet(f"""
+        self.quick_actions_title = QLabel(translator.t("dashboard.quick_actions"))
+        self.quick_actions_title.setStyleSheet(f"""
             font-size: 17px;
             font-weight: 600;
             color: {self.COLORS['text_primary']};
             background: transparent;
             padding-top: 8px;
         """)
-        parent_layout.addWidget(section_title)
+        parent_layout.addWidget(self.quick_actions_title)
 
         # Actions container
-        actions_widget = QWidget()
-        actions_layout = QHBoxLayout(actions_widget)
-        actions_layout.setContentsMargins(0, 0, 0, 0)
-        actions_layout.setSpacing(16)
+        self.actions_widget = QWidget()
+        self.actions_layout = QHBoxLayout(self.actions_widget)
+        self.actions_layout.setContentsMargins(0, 0, 0, 0)
+        self.actions_layout.setSpacing(16)
 
-        # Define actions
+        self._populate_quick_actions()
+        parent_layout.addWidget(self.actions_widget)
+
+    def _populate_quick_actions(self):
+        """Populate quick action cards (for retranslation)"""
+        # Clear existing
+        while self.actions_layout.count():
+            item = self.actions_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # Define actions with translation keys
         actions = [
-            ('Nueva Factura', 'Crear documento de venta', self.add_invoice),
-            ('Nuevo Presupuesto', 'Crear cotización', self.add_quote),
-            ('Nuevo Cliente', 'Añadir al directorio', self.add_client),
-            ('Nuevo Producto', 'Añadir al inventario', self.add_product),
+            ('buttons.new_invoice', self.add_invoice),
+            ('buttons.new_quote', self.add_quote),
+            ('buttons.new_client', self.add_client),
+            ('buttons.new_product', self.add_product),
         ]
 
-        for title, description, callback in actions:
-            action_card = self._create_action_card(title, description, callback)
-            actions_layout.addWidget(action_card)
+        for title_key, callback in actions:
+            action_card = self._create_action_card(translator.t(title_key), callback)
+            self.actions_layout.addWidget(action_card)
 
-        parent_layout.addWidget(actions_widget)
-
-    def _create_action_card(self, title, description, callback):
+    def _create_action_card(self, title, callback):
         """Create a clickable action card"""
         card = QFrame()
         card.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -930,15 +942,6 @@ class Dashboard(QWidget):
         """)
         card_layout.addWidget(title_label)
 
-        # Description
-        desc_label = QLabel(description)
-        desc_label.setStyleSheet(f"""
-            font-size: 12px;
-            color: {self.COLORS['text_secondary']};
-            background: transparent;
-        """)
-        card_layout.addWidget(desc_label)
-
         # Make card clickable
         card.mousePressEvent = lambda e: callback()
 
@@ -947,15 +950,15 @@ class Dashboard(QWidget):
     def _create_recent_documents(self, parent_layout):
         """Create recent documents section"""
         # Section title
-        section_title = QLabel("Documentos Recientes")
-        section_title.setStyleSheet(f"""
+        self.recent_docs_title = QLabel(translator.t("dashboard.recent_documents"))
+        self.recent_docs_title.setStyleSheet(f"""
             font-size: 17px;
             font-weight: 600;
             color: {self.COLORS['text_primary']};
             background: transparent;
             padding-top: 8px;
         """)
-        parent_layout.addWidget(section_title)
+        parent_layout.addWidget(self.recent_docs_title)
 
         # Documents container
         docs_frame = QFrame()
@@ -1099,6 +1102,28 @@ class Dashboard(QWidget):
             self.metric_labels['documents'].setText(str(self.get_document_count()))
         if 'low_stock' in self.metric_labels:
             self.metric_labels['low_stock'].setText(str(self.get_low_stock_count()))
+
+    def retranslate_ui(self):
+        """Update all translatable text"""
+        # Welcome section
+        if hasattr(self, 'welcome_label'):
+            self.welcome_label.setText(translator.t("dashboard.welcome"))
+        if hasattr(self, 'subtitle_label'):
+            self.subtitle_label.setText(translator.t("app.subtitle"))
+
+        # Metric titles
+        for key, (label, title_key) in self.metric_titles.items():
+            label.setText(translator.t(title_key))
+
+        # Section titles
+        if hasattr(self, 'quick_actions_title'):
+            self.quick_actions_title.setText(translator.t("dashboard.quick_actions"))
+        if hasattr(self, 'recent_docs_title'):
+            self.recent_docs_title.setText(translator.t("dashboard.recent_documents"))
+
+        # Rebuild quick actions with new translations
+        if hasattr(self, '_populate_quick_actions'):
+            self._populate_quick_actions()
 
     def get_client_count(self):
         """Get total clients"""
@@ -1891,6 +1916,7 @@ class ClientManagementTab(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.translatable_widgets = {}
         self.setup_ui()
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_data)
@@ -1905,14 +1931,14 @@ class ClientManagementTab(QWidget):
 
         # Header with title
         header_layout = QHBoxLayout()
-        title_label = QLabel("Clientes")
-        title_label.setStyleSheet(f"""
+        self.title_label = QLabel(translator.t("clients.title"))
+        self.title_label.setStyleSheet(f"""
             font-size: 28px;
             font-weight: 600;
             color: {UIStyles.COLORS['text_primary']};
             background: transparent;
         """)
-        header_layout.addWidget(title_label)
+        header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         layout.addLayout(header_layout)
 
@@ -1920,27 +1946,27 @@ class ClientManagementTab(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setSpacing(12)
 
-        add_btn = QPushButton("+ Nuevo Cliente")
-        add_btn.clicked.connect(self.add_client)
-        add_btn.setStyleSheet(UIStyles.get_primary_button_style())
-        toolbar_layout.addWidget(add_btn)
+        self.add_btn = QPushButton(translator.t("buttons.new_client"))
+        self.add_btn.clicked.connect(self.add_client)
+        self.add_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        toolbar_layout.addWidget(self.add_btn)
 
-        edit_btn = QPushButton("Editar")
-        edit_btn.clicked.connect(self.edit_client)
-        edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(edit_btn)
+        self.edit_btn = QPushButton(translator.t("buttons.edit"))
+        self.edit_btn.clicked.connect(self.edit_client)
+        self.edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.edit_btn)
 
-        delete_btn = QPushButton("Eliminar")
-        delete_btn.clicked.connect(self.delete_client)
-        delete_btn.setStyleSheet(UIStyles.get_danger_button_style())
-        toolbar_layout.addWidget(delete_btn)
+        self.delete_btn = QPushButton(translator.t("buttons.delete"))
+        self.delete_btn.clicked.connect(self.delete_client)
+        self.delete_btn.setStyleSheet(UIStyles.get_danger_button_style())
+        toolbar_layout.addWidget(self.delete_btn)
 
         toolbar_layout.addStretch()
 
-        refresh_btn = QPushButton("Actualizar")
-        refresh_btn.clicked.connect(self.refresh_data)
-        refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(refresh_btn)
+        self.refresh_btn = QPushButton(translator.t("buttons.refresh"))
+        self.refresh_btn.clicked.connect(self.refresh_data)
+        self.refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.refresh_btn)
 
         layout.addLayout(toolbar_layout)
 
@@ -1948,12 +1974,12 @@ class ClientManagementTab(QWidget):
         search_layout = QHBoxLayout()
         search_layout.setSpacing(12)
 
-        search_label = QLabel("Buscar:")
-        search_label.setStyleSheet(UIStyles.get_label_style())
-        search_layout.addWidget(search_label)
+        self.search_label = QLabel(translator.t("buttons.search") + ":")
+        self.search_label.setStyleSheet(UIStyles.get_label_style())
+        search_layout.addWidget(self.search_label)
 
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("Buscar por nombre, email, teléfono...")
+        self.search_edit.setPlaceholderText(translator.t("clients.search_placeholder"))
         self.search_edit.setStyleSheet(UIStyles.get_input_style())
         self.search_edit.textChanged.connect(self.filter_clients)
         search_layout.addWidget(self.search_edit)
@@ -1964,7 +1990,8 @@ class ClientManagementTab(QWidget):
         self.clients_table = QTableWidget()
         self.clients_table.setColumnCount(7)
         self.clients_table.setHorizontalHeaderLabels([
-            "CÓDIGO", "NOMBRE", "EMAIL", "TELÉFONO", "DIRECCIÓN", "CIF/NIF", "ESTADO"
+            translator.t("clients.code"), translator.t("clients.name"), translator.t("clients.email"),
+            translator.t("clients.phone"), translator.t("clients.address"), translator.t("clients.tax_id"), translator.t("clients.active")
         ])
         self.clients_table.setStyleSheet(UIStyles.get_table_style())
         self.clients_table.setAlternatingRowColors(False)
@@ -2112,11 +2139,41 @@ class ClientManagementTab(QWidget):
                 logger.error(f"Error deleting client: {e}")
                 QMessageBox.critical(self, "❌ Error", f"Error al eliminar cliente: {str(e)}")
 
+    def retranslate_ui(self):
+        """Update all translatable text"""
+        # Update title
+        if hasattr(self, 'title_label'):
+            self.title_label.setText(translator.t("clients.title"))
+        
+        # Update buttons
+        if hasattr(self, 'add_btn'):
+            self.add_btn.setText(translator.t("buttons.new_client"))
+        if hasattr(self, 'edit_btn'):
+            self.edit_btn.setText(translator.t("buttons.edit"))
+        if hasattr(self, 'delete_btn'):
+            self.delete_btn.setText(translator.t("buttons.delete"))
+        if hasattr(self, 'refresh_btn'):
+            self.refresh_btn.setText(translator.t("buttons.refresh"))
+        
+        # Update search
+        if hasattr(self, 'search_label'):
+            self.search_label.setText(translator.t("buttons.search") + ":")
+        if hasattr(self, 'search_edit'):
+            self.search_edit.setPlaceholderText(translator.t("clients.search_placeholder"))
+        
+        # Update table headers
+        if hasattr(self, 'clients_table'):
+            self.clients_table.setHorizontalHeaderLabels([
+                translator.t("clients.code"), translator.t("clients.name"), translator.t("clients.email"),
+                translator.t("clients.phone"), translator.t("clients.address"), translator.t("clients.tax_id"), translator.t("clients.active")
+            ])
+
 class ProductManagementTab(QWidget):
     """Modern product management tab with Apple-inspired design"""
 
     def __init__(self):
         super().__init__()
+        self.translatable_widgets = {}
         self.setup_ui()
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_data)
@@ -2130,14 +2187,14 @@ class ProductManagementTab(QWidget):
 
         # Header
         header_layout = QHBoxLayout()
-        title_label = QLabel("Productos")
-        title_label.setStyleSheet(f"""
+        self.title_label = QLabel(translator.t("products.title"))
+        self.title_label.setStyleSheet(f"""
             font-size: 28px;
             font-weight: 600;
             color: {UIStyles.COLORS['text_primary']};
             background: transparent;
         """)
-        header_layout.addWidget(title_label)
+        header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         layout.addLayout(header_layout)
 
@@ -2145,27 +2202,27 @@ class ProductManagementTab(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setSpacing(12)
 
-        add_btn = QPushButton("+ Nuevo Producto")
-        add_btn.clicked.connect(self.add_product)
-        add_btn.setStyleSheet(UIStyles.get_primary_button_style())
-        toolbar_layout.addWidget(add_btn)
+        self.add_btn = QPushButton(translator.t("buttons.new_product"))
+        self.add_btn.clicked.connect(self.add_product)
+        self.add_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        toolbar_layout.addWidget(self.add_btn)
 
-        edit_btn = QPushButton("Editar")
-        edit_btn.clicked.connect(self.edit_product)
-        edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(edit_btn)
+        self.edit_btn = QPushButton(translator.t("buttons.edit"))
+        self.edit_btn.clicked.connect(self.edit_product)
+        self.edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.edit_btn)
 
-        delete_btn = QPushButton("Eliminar")
-        delete_btn.clicked.connect(self.delete_product)
-        delete_btn.setStyleSheet(UIStyles.get_danger_button_style())
-        toolbar_layout.addWidget(delete_btn)
+        self.delete_btn = QPushButton(translator.t("buttons.delete"))
+        self.delete_btn.clicked.connect(self.delete_product)
+        self.delete_btn.setStyleSheet(UIStyles.get_danger_button_style())
+        toolbar_layout.addWidget(self.delete_btn)
 
         toolbar_layout.addStretch()
 
-        refresh_btn = QPushButton("Actualizar")
-        refresh_btn.clicked.connect(self.refresh_data)
-        refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(refresh_btn)
+        self.refresh_btn = QPushButton(translator.t("buttons.refresh"))
+        self.refresh_btn.clicked.connect(self.refresh_data)
+        self.refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.refresh_btn)
 
         layout.addLayout(toolbar_layout)
 
@@ -2173,12 +2230,12 @@ class ProductManagementTab(QWidget):
         search_layout = QHBoxLayout()
         search_layout.setSpacing(12)
 
-        search_label = QLabel("Buscar:")
-        search_label.setStyleSheet(UIStyles.get_label_style())
-        search_layout.addWidget(search_label)
+        self.search_label = QLabel(translator.t("buttons.search") + ":")
+        self.search_label.setStyleSheet(UIStyles.get_label_style())
+        search_layout.addWidget(self.search_label)
 
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("Buscar por nombre, código, descripción...")
+        self.search_edit.setPlaceholderText(translator.t("products.search_placeholder"))
         self.search_edit.setStyleSheet(UIStyles.get_input_style())
         self.search_edit.textChanged.connect(self.filter_products)
         search_layout.addWidget(self.search_edit)
@@ -2189,7 +2246,9 @@ class ProductManagementTab(QWidget):
         self.products_table = QTableWidget()
         self.products_table.setColumnCount(8)
         self.products_table.setHorizontalHeaderLabels([
-            "CÓDIGO", "NOMBRE", "DESCRIPCIÓN", "P. COSTE", "P. VENTA", "STOCK", "STOCK MÍN", "ESTADO"
+            translator.t("products.code"), translator.t("products.name"), translator.t("products.description"),
+            translator.t("products.cost_price"), translator.t("products.sale_price"), translator.t("products.stock"),
+            translator.t("products.minimum_stock"), translator.t("products.active")
         ])
         self.products_table.setStyleSheet(UIStyles.get_table_style())
         self.products_table.setAlternatingRowColors(False)
@@ -2327,11 +2386,42 @@ class ProductManagementTab(QWidget):
                 logger.error(f"Error deleting product: {e}")
                 QMessageBox.critical(self, "❌ Error", f"Error al eliminar producto: {str(e)}")
 
+    def retranslate_ui(self):
+        """Update all translatable text"""
+        # Update title
+        if hasattr(self, 'title_label'):
+            self.title_label.setText(translator.t("products.title"))
+        
+        # Update buttons
+        if hasattr(self, 'add_btn'):
+            self.add_btn.setText(translator.t("buttons.new_product"))
+        if hasattr(self, 'edit_btn'):
+            self.edit_btn.setText(translator.t("buttons.edit"))
+        if hasattr(self, 'delete_btn'):
+            self.delete_btn.setText(translator.t("buttons.delete"))
+        if hasattr(self, 'refresh_btn'):
+            self.refresh_btn.setText(translator.t("buttons.refresh"))
+        
+        # Update search
+        if hasattr(self, 'search_label'):
+            self.search_label.setText(translator.t("buttons.search") + ":")
+        if hasattr(self, 'search_edit'):
+            self.search_edit.setPlaceholderText(translator.t("products.search_placeholder"))
+        
+        # Update table headers
+        if hasattr(self, 'products_table'):
+            self.products_table.setHorizontalHeaderLabels([
+                translator.t("products.code"), translator.t("products.name"), translator.t("products.description"),
+                translator.t("products.cost_price"), translator.t("products.sale_price"), translator.t("products.stock"),
+                translator.t("products.minimum_stock"), translator.t("products.active")
+            ])
+
 class DocumentManagementTab(QWidget):
     """Modern document management tab with Apple-inspired design"""
 
     def __init__(self):
         super().__init__()
+        self.translatable_widgets = {}
         self.setup_ui()
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_data)
@@ -2345,14 +2435,14 @@ class DocumentManagementTab(QWidget):
 
         # Header
         header_layout = QHBoxLayout()
-        title_label = QLabel("Documentos")
-        title_label.setStyleSheet(f"""
+        self.title_label = QLabel(translator.t("documents.title"))
+        self.title_label.setStyleSheet(f"""
             font-size: 28px;
             font-weight: 600;
             color: {UIStyles.COLORS['text_primary']};
             background: transparent;
         """)
-        header_layout.addWidget(title_label)
+        header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         layout.addLayout(header_layout)
 
@@ -2360,27 +2450,27 @@ class DocumentManagementTab(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setSpacing(12)
 
-        new_invoice_btn = QPushButton("+ Nueva Factura")
-        new_invoice_btn.clicked.connect(lambda: self.create_document("invoice"))
-        new_invoice_btn.setStyleSheet(UIStyles.get_primary_button_style())
-        toolbar_layout.addWidget(new_invoice_btn)
+        self.new_invoice_btn = QPushButton(translator.t("buttons.new_invoice"))
+        self.new_invoice_btn.clicked.connect(lambda: self.create_document("invoice"))
+        self.new_invoice_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        toolbar_layout.addWidget(self.new_invoice_btn)
 
-        new_quote_btn = QPushButton("+ Presupuesto")
-        new_quote_btn.clicked.connect(lambda: self.create_document("quote"))
-        new_quote_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(new_quote_btn)
+        self.new_quote_btn = QPushButton(translator.t("buttons.new_quote"))
+        self.new_quote_btn.clicked.connect(lambda: self.create_document("quote"))
+        self.new_quote_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.new_quote_btn)
 
-        new_delivery_btn = QPushButton("+ Albarán")
-        new_delivery_btn.clicked.connect(lambda: self.create_document("delivery"))
-        new_delivery_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(new_delivery_btn)
+        self.new_delivery_btn = QPushButton(translator.t("buttons.new_delivery_note"))
+        self.new_delivery_btn.clicked.connect(lambda: self.create_document("delivery"))
+        self.new_delivery_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.new_delivery_btn)
 
         toolbar_layout.addStretch()
 
-        refresh_btn = QPushButton("Actualizar")
-        refresh_btn.clicked.connect(self.refresh_data)
-        refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(refresh_btn)
+        self.refresh_btn = QPushButton(translator.t("buttons.refresh"))
+        self.refresh_btn.clicked.connect(self.refresh_data)
+        self.refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.refresh_btn)
 
         layout.addLayout(toolbar_layout)
 
@@ -2388,12 +2478,17 @@ class DocumentManagementTab(QWidget):
         filter_layout = QHBoxLayout()
         filter_layout.setSpacing(12)
 
-        filter_label = QLabel("Filtrar por tipo:")
-        filter_label.setStyleSheet(UIStyles.get_label_style())
-        filter_layout.addWidget(filter_label)
+        self.filter_label = QLabel(translator.t("documents.filter_by_type") + ":")
+        self.filter_label.setStyleSheet(UIStyles.get_label_style())
+        filter_layout.addWidget(self.filter_label)
 
         self.filter_combo = QComboBox()
-        self.filter_combo.addItems(["Todos", "Presupuestos", "Facturas", "Albaranes"])
+        self.filter_combo.addItems([
+            translator.t("documents.all_types"),
+            translator.t("documents.quotes"),
+            translator.t("documents.invoices"),
+            translator.t("documents.delivery_notes")
+        ])
         self.filter_combo.setStyleSheet(UIStyles.get_input_style())
         self.filter_combo.currentTextChanged.connect(self.refresh_data)
         filter_layout.addWidget(self.filter_combo)
@@ -2405,7 +2500,9 @@ class DocumentManagementTab(QWidget):
         self.docs_table = QTableWidget()
         self.docs_table.setColumnCount(8)
         self.docs_table.setHorizontalHeaderLabels([
-            "CÓDIGO", "TIPO", "CLIENTE", "FECHA", "ESTADO", "TOTAL", "VENCIMIENTO", "ACCIONES"
+            translator.t("documents.code"), translator.t("documents.type"), translator.t("documents.client"),
+            translator.t("documents.date"), translator.t("documents.status"), translator.t("documents.total"),
+            translator.t("documents.due_date"), translator.t("documents.actions")
         ])
         self.docs_table.setStyleSheet(UIStyles.get_table_style())
         self.docs_table.setAlternatingRowColors(False)
@@ -2872,12 +2969,54 @@ class DocumentManagementTab(QWidget):
                 f"Error al generar el PDF:\n\n{str(e)}"
             )
 
+    def retranslate_ui(self):
+        """Update all translatable text"""
+        # Update title
+        if hasattr(self, 'title_label'):
+            self.title_label.setText(translator.t("documents.title"))
+        
+        # Update buttons
+        if hasattr(self, 'new_invoice_btn'):
+            self.new_invoice_btn.setText(translator.t("buttons.new_invoice"))
+        if hasattr(self, 'new_quote_btn'):
+            self.new_quote_btn.setText(translator.t("buttons.new_quote"))
+        if hasattr(self, 'new_delivery_btn'):
+            self.new_delivery_btn.setText(translator.t("buttons.new_delivery_note"))
+        if hasattr(self, 'refresh_btn'):
+            self.refresh_btn.setText(translator.t("buttons.refresh"))
+        
+        # Update filter
+        if hasattr(self, 'filter_label'):
+            self.filter_label.setText(translator.t("documents.filter_by_type") + ":")
+        if hasattr(self, 'filter_combo'):
+            current_text = self.filter_combo.currentText()
+            self.filter_combo.clear()
+            self.filter_combo.addItems([
+                translator.t("documents.all_types"),
+                translator.t("documents.quotes"),
+                translator.t("documents.invoices"),
+                translator.t("documents.delivery_notes")
+            ])
+            # Try to restore previous selection
+            index = self.filter_combo.findText(current_text)
+            if index >= 0:
+                self.filter_combo.setCurrentIndex(index)
+        
+        # Update table headers
+        if hasattr(self, 'docs_table'):
+            self.docs_table.setHorizontalHeaderLabels([
+                translator.t("documents.code"), translator.t("documents.type"), translator.t("documents.client"),
+                translator.t("documents.date"), translator.t("documents.status"), translator.t("documents.total"),
+                translator.t("documents.due_date"), translator.t("documents.actions")
+            ])
+
 
 class InventoryManagementTab(QWidget):
     """Modern inventory management tab with Apple-inspired design"""
 
     def __init__(self):
         super().__init__()
+        self.translatable_widgets = {}
         self.setup_ui()
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_data)
@@ -2891,14 +3030,14 @@ class InventoryManagementTab(QWidget):
 
         # Header
         header_layout = QHBoxLayout()
-        title_label = QLabel("Inventario")
-        title_label.setStyleSheet(f"""
+        self.title_label = QLabel(translator.t("inventory.title"))
+        self.title_label.setStyleSheet(f"""
             font-size: 28px;
             font-weight: 600;
             color: {UIStyles.COLORS['text_primary']};
             background: transparent;
         """)
-        header_layout.addWidget(title_label)
+        header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         layout.addLayout(header_layout)
 
@@ -2906,27 +3045,27 @@ class InventoryManagementTab(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setSpacing(12)
 
-        add_btn = QPushButton("+ Nuevo Producto")
-        add_btn.clicked.connect(self.add_product)
-        add_btn.setStyleSheet(UIStyles.get_primary_button_style())
-        toolbar_layout.addWidget(add_btn)
+        self.add_btn = QPushButton(translator.t("buttons.new_product"))
+        self.add_btn.clicked.connect(self.add_product)
+        self.add_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        toolbar_layout.addWidget(self.add_btn)
 
-        adjust_stock_btn = QPushButton("Ajustar Stock")
-        adjust_stock_btn.clicked.connect(self.adjust_stock)
-        adjust_stock_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(adjust_stock_btn)
+        self.adjust_stock_btn = QPushButton(translator.t("buttons.adjust_stock"))
+        self.adjust_stock_btn.clicked.connect(self.adjust_stock)
+        self.adjust_stock_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.adjust_stock_btn)
 
-        generate_report_btn = QPushButton("Informe")
-        generate_report_btn.clicked.connect(self.generate_report)
-        generate_report_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(generate_report_btn)
+        self.generate_report_btn = QPushButton(translator.t("buttons.report"))
+        self.generate_report_btn.clicked.connect(self.generate_report)
+        self.generate_report_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.generate_report_btn)
 
         toolbar_layout.addStretch()
 
-        refresh_btn = QPushButton("Actualizar")
-        refresh_btn.clicked.connect(self.refresh_data)
-        refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(refresh_btn)
+        self.refresh_btn = QPushButton(translator.t("buttons.refresh"))
+        self.refresh_btn.clicked.connect(self.refresh_data)
+        self.refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.refresh_btn)
 
         layout.addLayout(toolbar_layout)
 
@@ -2934,22 +3073,29 @@ class InventoryManagementTab(QWidget):
         search_layout = QHBoxLayout()
         search_layout.setSpacing(12)
 
-        search_label = QLabel("Buscar:")
-        search_label.setStyleSheet(UIStyles.get_label_style())
-        search_layout.addWidget(search_label)
+        self.search_label = QLabel(translator.t("buttons.search") + ":")
+        self.search_label.setStyleSheet(UIStyles.get_label_style())
+        search_layout.addWidget(self.search_label)
 
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("Buscar producto...")
+        self.search_edit.setPlaceholderText(translator.t("inventory.search_placeholder"))
         self.search_edit.setStyleSheet(UIStyles.get_input_style())
         self.search_edit.textChanged.connect(self.filter_products)
         search_layout.addWidget(self.search_edit)
 
-        filter_label = QLabel("Filtro:")
-        filter_label.setStyleSheet(UIStyles.get_label_style())
-        search_layout.addWidget(filter_label)
+        self.filter_label = QLabel(translator.t("inventory.filter") + ":")
+        self.filter_label.setStyleSheet(UIStyles.get_label_style())
+        search_layout.addWidget(self.filter_label)
 
         self.filter_combo = QComboBox()
-        self.filter_combo.addItems(["Todos", "Con Stock", "Stock Bajo", "Sin Stock", "Activos", "Inactivos"])
+        self.filter_combo.addItems([
+            translator.t("inventory.all_items"),
+            translator.t("inventory.in_stock"),
+            translator.t("inventory.low_stock"),
+            translator.t("inventory.out_of_stock"),
+            translator.t("inventory.active_only"),
+            translator.t("inventory.inactive_only")
+        ])
         self.filter_combo.setStyleSheet(UIStyles.get_input_style())
         self.filter_combo.currentTextChanged.connect(self.filter_products)
         search_layout.addWidget(self.filter_combo)
@@ -2960,7 +3106,7 @@ class InventoryManagementTab(QWidget):
         stats_layout = QHBoxLayout()
         stats_layout.setSpacing(16)
 
-        self.total_products_label = QLabel("Total: 0")
+        self.total_products_label = QLabel(translator.t("inventory.total_products") + ": 0")
         self.total_products_label.setStyleSheet(f"""
             background-color: {UIStyles.COLORS['bg_card']};
             border: 1px solid {UIStyles.COLORS['border_light']};
@@ -2971,7 +3117,7 @@ class InventoryManagementTab(QWidget):
         """)
         stats_layout.addWidget(self.total_products_label)
 
-        self.low_stock_label = QLabel("Stock Bajo: 0")
+        self.low_stock_label = QLabel(translator.t("inventory.low_stock") + ": 0")
         self.low_stock_label.setStyleSheet(f"""
             background-color: {UIStyles.COLORS['bg_card']};
             border: 1px solid {UIStyles.COLORS['warning']};
@@ -2982,7 +3128,7 @@ class InventoryManagementTab(QWidget):
         """)
         stats_layout.addWidget(self.low_stock_label)
 
-        self.total_value_label = QLabel("Valor Total: 0.00 €")
+        self.total_value_label = QLabel(translator.t("inventory.total_value") + ": 0.00 €")
         self.total_value_label.setStyleSheet(f"""
             background-color: {UIStyles.COLORS['bg_card']};
             border: 1px solid {UIStyles.COLORS['success']};
@@ -3000,7 +3146,9 @@ class InventoryManagementTab(QWidget):
         self.inventory_table = QTableWidget()
         self.inventory_table.setColumnCount(9)
         self.inventory_table.setHorizontalHeaderLabels([
-            "CÓDIGO", "PRODUCTO", "DESCRIPCIÓN", "STOCK ACTUAL", "STOCK MÍN", "ESTADO", "VALOR TOTAL", "ACCIONES", "ÚLTIMO MOV."
+            translator.t("inventory.code"), translator.t("inventory.product"), translator.t("inventory.description"),
+            translator.t("inventory.current_stock"), translator.t("inventory.minimum_stock"), translator.t("inventory.status"),
+            translator.t("inventory.total_value"), translator.t("inventory.actions"), translator.t("inventory.last_movement")
         ])
         self.inventory_table.setStyleSheet(UIStyles.get_table_style())
         self.inventory_table.setAlternatingRowColors(False)
@@ -3339,11 +3487,60 @@ class InventoryManagementTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "❌ Error", f"Error generando informe: {str(e)}")
 
+    def retranslate_ui(self):
+        """Update all translatable text"""
+        # Update title
+        if hasattr(self, 'title_label'):
+            self.title_label.setText(translator.t("inventory.title"))
+        
+        # Update buttons
+        if hasattr(self, 'add_btn'):
+            self.add_btn.setText(translator.t("buttons.new_product"))
+        if hasattr(self, 'adjust_stock_btn'):
+            self.adjust_stock_btn.setText(translator.t("buttons.adjust_stock"))
+        if hasattr(self, 'generate_report_btn'):
+            self.generate_report_btn.setText(translator.t("buttons.report"))
+        if hasattr(self, 'refresh_btn'):
+            self.refresh_btn.setText(translator.t("buttons.refresh"))
+        
+        # Update search and filter
+        if hasattr(self, 'search_label'):
+            self.search_label.setText(translator.t("buttons.search") + ":")
+        if hasattr(self, 'search_edit'):
+            self.search_edit.setPlaceholderText(translator.t("inventory.search_placeholder"))
+        if hasattr(self, 'filter_label'):
+            self.filter_label.setText(translator.t("inventory.filter") + ":")
+        
+        if hasattr(self, 'filter_combo'):
+            current_text = self.filter_combo.currentText()
+            self.filter_combo.clear()
+            self.filter_combo.addItems([
+                translator.t("inventory.all_items"),
+                translator.t("inventory.in_stock"),
+                translator.t("inventory.low_stock"),
+                translator.t("inventory.out_of_stock"),
+                translator.t("inventory.active_only"),
+                translator.t("inventory.inactive_only")
+            ])
+            # Try to restore previous selection
+            index = self.filter_combo.findText(current_text)
+            if index >= 0:
+                self.filter_combo.setCurrentIndex(index)
+        
+        # Update table headers
+        if hasattr(self, 'inventory_table'):
+            self.inventory_table.setHorizontalHeaderLabels([
+                translator.t("inventory.code"), translator.t("inventory.product"), translator.t("inventory.description"),
+                translator.t("inventory.current_stock"), translator.t("inventory.minimum_stock"), translator.t("inventory.status"),
+                translator.t("inventory.total_value"), translator.t("inventory.actions"), translator.t("inventory.last_movement")
+            ])
+
 class DiaryManagementTab(QWidget):
     """Modern diary management tab with Apple-inspired design"""
 
     def __init__(self):
         super().__init__()
+        self.translatable_widgets = {}
         self.notes = []
         self.setup_ui()
         self.load_notes()
@@ -3359,14 +3556,14 @@ class DiaryManagementTab(QWidget):
 
         # Header
         header_layout = QHBoxLayout()
-        title_label = QLabel("Diario")
-        title_label.setStyleSheet(f"""
+        self.title_label = QLabel(translator.t("diary.title"))
+        self.title_label.setStyleSheet(f"""
             font-size: 28px;
             font-weight: 600;
             color: {UIStyles.COLORS['text_primary']};
             background: transparent;
         """)
-        header_layout.addWidget(title_label)
+        header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         layout.addLayout(header_layout)
 
@@ -3374,22 +3571,22 @@ class DiaryManagementTab(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setSpacing(12)
 
-        add_entry_btn = QPushButton("+ Nueva Nota")
-        add_entry_btn.clicked.connect(self.add_entry)
-        add_entry_btn.setStyleSheet(UIStyles.get_primary_button_style())
-        toolbar_layout.addWidget(add_entry_btn)
+        self.add_entry_btn = QPushButton(translator.t("diary.new_entry"))
+        self.add_entry_btn.clicked.connect(self.add_entry)
+        self.add_entry_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        toolbar_layout.addWidget(self.add_entry_btn)
 
-        view_calendar_btn = QPushButton("Ver Calendario")
-        view_calendar_btn.clicked.connect(self.view_calendar)
-        view_calendar_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        toolbar_layout.addWidget(view_calendar_btn)
+        self.view_calendar_btn = QPushButton(translator.t("diary.view_calendar"))
+        self.view_calendar_btn.clicked.connect(self.view_calendar)
+        self.view_calendar_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.view_calendar_btn)
 
         toolbar_layout.addStretch()
 
-        clear_all_btn = QPushButton("Limpiar Todo")
-        clear_all_btn.clicked.connect(self.clear_all)
-        clear_all_btn.setStyleSheet(UIStyles.get_danger_button_style())
-        toolbar_layout.addWidget(clear_all_btn)
+        self.clear_all_btn = QPushButton(translator.t("diary.clear_all"))
+        self.clear_all_btn.clicked.connect(self.clear_all)
+        self.clear_all_btn.setStyleSheet(UIStyles.get_danger_button_style())
+        toolbar_layout.addWidget(self.clear_all_btn)
 
         layout.addLayout(toolbar_layout)
 
@@ -3397,9 +3594,9 @@ class DiaryManagementTab(QWidget):
         date_layout = QHBoxLayout()
         date_layout.setSpacing(12)
 
-        date_label = QLabel("Fecha:")
-        date_label.setStyleSheet(UIStyles.get_label_style())
-        date_layout.addWidget(date_label)
+        self.date_label = QLabel(translator.t("diary.date") + ":")
+        self.date_label.setStyleSheet(UIStyles.get_label_style())
+        date_layout.addWidget(self.date_label)
 
         self.date_edit = QDateEdit()
         self.date_edit.setDate(QDate.currentDate())
@@ -3408,10 +3605,10 @@ class DiaryManagementTab(QWidget):
         self.date_edit.dateChanged.connect(self.filter_notes_by_date)
         date_layout.addWidget(self.date_edit)
 
-        today_btn = QPushButton("Hoy")
-        today_btn.clicked.connect(lambda: self.date_edit.setDate(QDate.currentDate()))
-        today_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-        date_layout.addWidget(today_btn)
+        self.today_btn = QPushButton(translator.t("diary.today"))
+        self.today_btn.clicked.connect(lambda: self.date_edit.setDate(QDate.currentDate()))
+        self.today_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        date_layout.addWidget(self.today_btn)
 
         date_layout.addStretch()
         layout.addLayout(date_layout)
@@ -3617,8 +3814,41 @@ class DiaryManagementTab(QWidget):
         today = QDate.currentDate().toString('yyyy-MM-dd')
         today_notes = [note for note in self.notes if note['date'] == today]
         
-        self.total_notes_label.setText(f"📊 Total Notas: {len(self.notes)}")
-        self.today_notes_label.setText(f"📅 Notas Hoy: {len(today_notes)}")
+        self.total_notes_label.setText(f"📊 {translator.t('diary.total_notes')}: {len(self.notes)}")
+        self.today_notes_label.setText(f"📅 {translator.t('diary.today_notes')}: {len(today_notes)}")
+
+    def retranslate_ui(self):
+        """Update all translatable text"""
+        # Update title
+        if hasattr(self, 'title_label'):
+            self.title_label.setText(translator.t("diary.title"))
+        
+        # Update buttons
+        if hasattr(self, 'add_entry_btn'):
+            self.add_entry_btn.setText(translator.t("diary.new_entry"))
+        if hasattr(self, 'view_calendar_btn'):
+            self.view_calendar_btn.setText(translator.t("diary.view_calendar"))
+        if hasattr(self, 'clear_all_btn'):
+            self.clear_all_btn.setText(translator.t("diary.clear_all"))
+        if hasattr(self, 'today_btn'):
+            self.today_btn.setText(translator.t("diary.today"))
+        
+        # Update date label
+        if hasattr(self, 'date_label'):
+            self.date_label.setText(translator.t("diary.date") + ":")
+        
+        # Update empty state text
+        if hasattr(self, 'empty_state_label'):
+            self.empty_state_label.setText(translator.t("diary.empty_state"))
+        if hasattr(self, 'empty_state_hint'):
+            self.empty_state_hint.setText(translator.t("diary.empty_state_hint"))
+        
+        # Update statistics
+        if hasattr(self, 'total_notes_label'):
+            self.total_notes_label.setText(f"📊 {translator.t('diary.total_notes')}: {len(self.notes)}")
+        if hasattr(self, 'today_notes_label'):
+            today_notes = [n for n in self.notes if n['date'] == QDate.currentDate().toString('yyyy-MM-dd')]
+            self.today_notes_label.setText(f"📅 {translator.t('diary.today_notes')}: {len(today_notes)}")
 
 class DiaryEntryDialog(QDialog):
     """Dialog for creating new diary entries"""
@@ -3827,32 +4057,32 @@ class MainWindow(QMainWindow):
 
         # Dashboard tab
         self.dashboard = Dashboard()
-        self.tabs.addTab(self.dashboard, "Panel Principal")
+        self.tabs.addTab(self.dashboard, translator.t("tabs.dashboard"))
 
         # Add functional tabs
         self.clients_tab = ClientManagementTab()
-        self.tabs.addTab(self.clients_tab, "Clientes")
+        self.tabs.addTab(self.clients_tab, translator.t("tabs.clients"))
 
         self.products_tab = ProductManagementTab()
-        self.tabs.addTab(self.products_tab, "Productos")
+        self.tabs.addTab(self.products_tab, translator.t("tabs.products"))
 
         self.documents_tab = DocumentManagementTab()
-        self.tabs.addTab(self.documents_tab, "Documentos")
+        self.tabs.addTab(self.documents_tab, translator.t("tabs.documents"))
 
         self.inventory_tab = InventoryManagementTab()
-        self.tabs.addTab(self.inventory_tab, "Inventario")
+        self.tabs.addTab(self.inventory_tab, translator.t("tabs.inventory"))
 
         self.diary_tab = DiaryManagementTab()
-        self.tabs.addTab(self.diary_tab, "Diario")
+        self.tabs.addTab(self.diary_tab, translator.t("tabs.diary"))
 
         layout.addWidget(self.tabs)
 
         # Create status bar with user info
         status_bar = self.statusBar()
-        self.user_label = QLabel("No conectado")
+        self.user_label = QLabel("")
         self.user_label.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; padding-right: 16px;")
         status_bar.addPermanentWidget(self.user_label)
-        status_bar.showMessage("Listo")
+        status_bar.showMessage(translator.t("status.ready"))
 
         # Connect tab changes to refresh data
         self.tabs.currentChanged.connect(self.on_tab_changed)
@@ -3874,61 +4104,61 @@ class MainWindow(QMainWindow):
                 tab_widget.refresh_data()
     
     def create_menu(self):
-        """Create clean menu bar"""
+        """Create clean menu bar with translations"""
         menubar = self.menuBar()
 
         # File menu
-        file_menu = menubar.addMenu("Archivo")
+        self.file_menu = menubar.addMenu(translator.t("menu.file"))
 
-        new_quote_action = QAction("Nuevo Presupuesto", self)
-        new_quote_action.setShortcut("Ctrl+Shift+P")
-        new_quote_action.triggered.connect(self.new_quote)
-        file_menu.addAction(new_quote_action)
+        self.new_quote_action = QAction(translator.t("menu.new_quote"), self)
+        self.new_quote_action.setShortcut("Ctrl+Shift+P")
+        self.new_quote_action.triggered.connect(self.new_quote)
+        self.file_menu.addAction(self.new_quote_action)
 
-        new_invoice_action = QAction("Nueva Factura", self)
-        new_invoice_action.setShortcut("Ctrl+Shift+F")
-        new_invoice_action.triggered.connect(self.new_invoice)
-        file_menu.addAction(new_invoice_action)
+        self.new_invoice_action = QAction(translator.t("menu.new_invoice"), self)
+        self.new_invoice_action.setShortcut("Ctrl+Shift+F")
+        self.new_invoice_action.triggered.connect(self.new_invoice)
+        self.file_menu.addAction(self.new_invoice_action)
 
-        file_menu.addSeparator()
+        self.file_menu.addSeparator()
 
-        import_file_action = QAction("Importar...", self)
-        import_file_action.setShortcut("Ctrl+I")
-        import_file_action.triggered.connect(self.import_external_file)
-        file_menu.addAction(import_file_action)
+        self.import_action = QAction(translator.t("menu.import") + "...", self)
+        self.import_action.setShortcut("Ctrl+I")
+        self.import_action.triggered.connect(self.import_external_file)
+        self.file_menu.addAction(self.import_action)
 
-        export_data_action = QAction("Exportar...", self)
-        export_data_action.setShortcut("Ctrl+E")
-        export_data_action.triggered.connect(self.export_data)
-        file_menu.addAction(export_data_action)
+        self.export_action = QAction(translator.t("menu.export") + "...", self)
+        self.export_action.setShortcut("Ctrl+E")
+        self.export_action.triggered.connect(self.export_data)
+        self.file_menu.addAction(self.export_action)
 
-        export_pdf_action = QAction("Exportar a PDF...", self)
-        export_pdf_action.setShortcut("Ctrl+P")
-        export_pdf_action.triggered.connect(self.export_document_to_pdf)
-        file_menu.addAction(export_pdf_action)
+        self.export_pdf_action = QAction("PDF...", self)
+        self.export_pdf_action.setShortcut("Ctrl+P")
+        self.export_pdf_action.triggered.connect(self.export_document_to_pdf)
+        self.file_menu.addAction(self.export_pdf_action)
 
-        file_menu.addSeparator()
+        self.file_menu.addSeparator()
 
-        exit_action = QAction("Salir", self)
-        exit_action.setShortcut("Ctrl+Q")
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
+        self.exit_action = QAction(translator.t("menu.exit"), self)
+        self.exit_action.setShortcut("Ctrl+Q")
+        self.exit_action.triggered.connect(self.close)
+        self.file_menu.addAction(self.exit_action)
 
         # Tools menu
-        tools_menu = menubar.addMenu("Herramientas")
+        self.tools_menu = menubar.addMenu(translator.t("menu.tools"))
 
-        settings_action = QAction("Preferencias...", self)
-        settings_action.setShortcut("Ctrl+,")
-        settings_action.triggered.connect(self.show_settings)
-        tools_menu.addAction(settings_action)
+        self.settings_action = QAction(translator.t("menu.settings") + "...", self)
+        self.settings_action.setShortcut("Ctrl+,")
+        self.settings_action.triggered.connect(self.show_settings)
+        self.tools_menu.addAction(self.settings_action)
 
         # Language menu
-        language_menu = menubar.addMenu("Idioma")
+        self.language_menu = menubar.addMenu(translator.t("menu.language"))
 
         for lang_code, lang_name in translator.get_available_languages().items():
             lang_action = QAction(lang_name, self)
             lang_action.triggered.connect(lambda checked, code=lang_code: self.change_language(code))
-            language_menu.addAction(lang_action)
+            self.language_menu.addAction(lang_action)
     
     def new_quote(self):
         """Create new quote"""
@@ -4033,33 +4263,65 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def change_language(self, lang_code):
-        """Change application language and save preference"""
+        """Change application language and update UI immediately"""
         try:
             lang_names = {'es': 'Español', 'en': 'English', 'de': 'Deutsch'}
             lang_name = lang_names.get(lang_code, lang_code)
 
             if translator.set_language(lang_code):
-                # Show message in the NEW language
-                messages = {
-                    'es': f"Idioma cambiado a {lang_name}.\n\nReinicie la aplicación para aplicar los cambios.",
-                    'en': f"Language changed to {lang_name}.\n\nRestart the application to apply changes.",
-                    'de': f"Sprache geändert zu {lang_name}.\n\nStarten Sie die Anwendung neu."
-                }
-                titles = {
-                    'es': "Idioma Guardado",
-                    'en': "Language Saved",
-                    'de': "Sprache Gespeichert"
-                }
+                # Update UI immediately
+                self.retranslate_ui()
+
+                # Show confirmation in new language
                 QMessageBox.information(
                     self,
-                    titles.get(lang_code, "Language"),
-                    messages.get(lang_code, messages['en'])
+                    "OK",
+                    translator.t("messages.language_changed", lang=lang_name)
                 )
             else:
                 QMessageBox.warning(self, "Error", f"Language {lang_code} not available")
         except Exception as e:
             logger.error(f"Error changing language: {e}")
             QMessageBox.warning(self, "Error", f"Could not change language: {str(e)}")
+
+    def retranslate_ui(self):
+        """Update all UI text to current language"""
+        # Window title
+        self.setWindowTitle(f"DRAGOFACTU - {translator.t('app.subtitle')}")
+
+        # Update tab names
+        self.tabs.setTabText(0, translator.t("tabs.dashboard"))
+        self.tabs.setTabText(1, translator.t("tabs.clients"))
+        self.tabs.setTabText(2, translator.t("tabs.products"))
+        self.tabs.setTabText(3, translator.t("tabs.documents"))
+        self.tabs.setTabText(4, translator.t("tabs.inventory"))
+        self.tabs.setTabText(5, translator.t("tabs.diary"))
+
+        # Update menus
+        self.file_menu.setTitle(translator.t("menu.file"))
+        self.tools_menu.setTitle(translator.t("menu.tools"))
+        self.language_menu.setTitle(translator.t("menu.language"))
+
+        # Update menu actions
+        self.new_quote_action.setText(translator.t("menu.new_quote"))
+        self.new_invoice_action.setText(translator.t("menu.new_invoice"))
+        self.import_action.setText(translator.t("menu.import") + "...")
+        self.export_action.setText(translator.t("menu.export") + "...")
+        self.exit_action.setText(translator.t("menu.exit"))
+        self.settings_action.setText(translator.t("menu.settings") + "...")
+
+        # Update Dashboard
+        if hasattr(self, 'dashboard') and hasattr(self.dashboard, 'retranslate_ui'):
+            self.dashboard.retranslate_ui()
+
+        # Update tab content
+        for i in range(self.tabs.count()):
+            tab = self.tabs.widget(i)
+            if hasattr(tab, 'retranslate_ui'):
+                tab.retranslate_ui()
+
+        # Update status bar
+        self.statusBar().showMessage(translator.t("status.ready"))
 
     def import_external_file(self):
         """"Import external files - Fixed QAction/slot mismatch"""

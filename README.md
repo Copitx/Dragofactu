@@ -1,6 +1,6 @@
 # DRAGOFACTU - Sistema de Gestion Empresarial
 
-**Version:** 1.0.0.7
+**Version:** 1.0.0.8
 **Estado:** Estable
 **Stack:** Python 3.10+ / PySide6 / SQLAlchemy / SQLite
 
@@ -18,9 +18,9 @@ ERP de escritorio para gestion empresarial:
 - Facturacion (presupuestos, facturas, albaranes)
 - Inventario con alertas de stock
 - Gestion de clientes y proveedores
-- Gestion de trabajadores y formacion
-- Diario personal
-- Multi-idioma (ES/EN/DE)
+ - Gestion de trabajadores y formacion
+ - Diario personal
+ - Multi-idioma (ES/EN/DE) con cambio en vivo sin reinicio
 
 ---
 
@@ -93,6 +93,15 @@ Dragofactu/                    # Codigo fuente (11MB)
 - `debug_main.py`, `test_*.py`, `run.py`, `start_fixed.py`
 - `dashboard_view_fixed.py`, `inventory_view_fixed.py`
 
+### v1.0.0.8 (2026-01-31) - Sistema de Traducción Completo
+
+- **Traducción de UI completa**: Dashboard + todas las tabs traducibles
+- **Cambio de idioma en vivo**: Sin requerir reinicio de aplicación
+- **Persistencia de idioma**: Guarda preferencia automáticamente
+- **Soporte multi-idioma**: Español, Inglés, Alemán 100% traducido
+- **Métodos retranslate_ui()**: Cada componente actualiza dinámicamente
+- **Archivos JSON completos**: 50+ nuevas claves de traducción por idioma
+
 ### v1.0.0.6 (2026-01-13) - UI Redesign
 
 - Sistema de diseno Apple-inspired
@@ -142,7 +151,7 @@ Dragofactu/                    # Codigo fuente (11MB)
 | Inventario | Estable | Stock en tiempo real, movimientos |
 | Diario | Estable | Notas diarias, etiquetas |
 | Trabajadores | Estable | CRUD, cursos, formacion |
-| Config | Estable | Preferencias, idioma, tema |
+| Config | Estable | Preferencias, idioma con cambio en vivo, tema |
 
 ---
 

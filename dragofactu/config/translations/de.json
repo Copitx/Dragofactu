@@ -1,20 +1,23 @@
 {
   "app": {
     "name": "DRAGOFACTU",
-    "subtitle": "Unternehmensverwaltungssystem"
+    "subtitle": "Unternehmensverwaltung"
   },
   "login": {
-    "title": "Anmeldung",
+    "title": "Anmelden",
     "username": "Benutzername",
     "password": "Passwort",
     "login_button": "Anmelden",
     "invalid_credentials": "Ungültiger Benutzername oder Passwort",
-    "please_enter_credentials": "Bitte geben Sie Benutzername und Passwort ein"
+    "please_enter_credentials": "Bitte Benutzername und Passwort eingeben"
   },
   "menu": {
-    "dashboard": "Dashboard",
+    "file": "Datei",
+    "tools": "Werkzeuge",
+    "language": "Sprache",
+    "dashboard": "Übersicht",
     "clients": "Kunden",
-    "suppliers": "Lieferanten", 
+    "suppliers": "Lieferanten",
     "products": "Produkte",
     "documents": "Dokumente",
     "inventory": "Inventar",
@@ -22,64 +25,145 @@
     "diary": "Tagebuch",
     "workers": "Mitarbeiter",
     "settings": "Einstellungen",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "new_quote": "Neues Angebot",
+    "new_invoice": "Neue Rechnung",
+    "import": "Importieren",
+    "export": "Exportieren",
+    "exit": "Beenden"
+  },
+  "tabs": {
+    "dashboard": "Übersicht",
+    "clients": "Kunden",
+    "products": "Produkte",
+    "documents": "Dokumente",
+    "inventory": "Inventar",
+    "diary": "Tagebuch"
   },
   "dashboard": {
-    "total_clients": "Gesamtkunden",
-    "total_suppliers": "Gesamtlieferanten", 
-    "active_products": "Aktive Produkte",
-    "pending_documents": "Ausstehende Dokumente",
+    "welcome": "Willkommen bei DRAGOFACTU",
+    "subtitle": "Unternehmensverwaltung",
+    "total_clients": "Kunden",
+    "total_suppliers": "Lieferanten",
+    "active_products": "Produkte",
+    "pending_documents": "Dokumente",
     "low_stock_items": "Niedriger Bestand",
     "unpaid_invoices": "Unbezahlte Rechnungen",
-    "recent_activity": "Aktuelle Aktivität",
-    "error_loading_data": "Fehler beim Laden der Dashboard-Daten"
+    "recent_activity": "Letzte Aktivität",
+    "quick_actions": "Schnellaktionen",
+    "recent_documents": "Letzte Dokumente",
+    "error_loading_data": "Fehler beim Laden"
   },
   "buttons": {
     "add": "Hinzufügen",
     "edit": "Bearbeiten",
-    "delete": "Löschen", 
+    "delete": "Löschen",
     "save": "Speichern",
     "cancel": "Abbrechen",
+    "search": "Suchen",
+    "refresh": "Aktualisieren",
     "new_quote": "Neues Angebot",
     "new_invoice": "Neue Rechnung",
+    "new_client": "Neuer Kunde",
+    "new_product": "Neues Produkt",
+    "new_delivery_note": "+ Lieferschein",
     "adjust_stock": "Bestand anpassen",
-    "add_product": "Produkt hinzufügen"
+    "add_product": "Produkt hinzufügen",
+    "report": "Bericht"
   },
   "clients": {
     "title": "Kundenverwaltung",
-    "code": "Code",
-    "name": "Name",
-    "tax_id": "Steuernummer",
-    "address": "Adresse",
-    "city": "Stadt",
-    "phone": "Telefon",
-    "email": "E-Mail",
-    "active": "Aktiv"
+    "code": "CODE",
+    "name": "NAME",
+    "tax_id": "STEUERNUMMER",
+    "address": "ADRESSE",
+    "city": "STADT",
+    "phone": "TELEFON",
+    "email": "E-MAIL",
+    "active": "STATUS",
+    "search_placeholder": "Suche nach Name, E-Mail, Telefon..."
+  },
+  "products": {
+    "title": "Produktverwaltung",
+    "code": "CODE",
+    "name": "NAME",
+    "description": "BESCHREIBUNG",
+    "category": "Kategorie",
+    "cost_price": "KOSTENPREIS",
+    "sale_price": "VERKAUFSPREIS",
+    "price": "Preis",
+    "stock": "BESTAND",
+    "minimum_stock": "MIN BESTAND",
+    "active": "STATUS",
+    "search_placeholder": "Suche nach Name, Code, Beschreibung..."
   },
   "documents": {
+    "title": "Dokumentenverwaltung",
     "quote": "Angebot",
-    "invoice": "Rechnung", 
+    "invoice": "Rechnung",
     "receipt": "Lieferschein",
     "supplier_invoice": "Lieferantenrechnung",
-    "code": "Code",
-    "type": "Typ",
-    "status": "Status",
-    "client": "Kunde",
-    "date": "Datum",
-    "total": "Gesamt"
+    "delivery_note": "Lieferschein",
+    "code": "CODE",
+    "type": "TYP",
+    "status": "STATUS",
+    "client": "KUNDE",
+    "date": "DATUM",
+    "total": "GESAMT",
+    "due_date": "FÄLLIGKEIT",
+    "actions": "AKTIONEN",
+    "all_types": "Alle",
+    "quotes": "Angebote",
+    "invoices": "Rechnungen",
+    "delivery_notes": "Lieferscheine",
+    "filter_by_type": "Nach Typ filtern"
   },
   "inventory": {
     "title": "Inventarverwaltung",
     "product": "Produkt",
-    "current_stock": "Aktueller Bestand",
-    "minimum_stock": "Mindestbestand",
+    "description": "Beschreibung",
+    "code": "CODE",
+    "current_stock": "AKTUELLER BESTAND",
+    "minimum_stock": "MIN BESTAND",
+    "status": "STATUS",
+    "total_value": "GESAMTWERT",
+    "actions": "AKTIONEN",
+    "last_movement": "LETZTE BEW.",
     "add_item": "Artikel hinzufügen",
-    "stock_adjustment": "Bestandsanpassung"
+    "stock_adjustment": "Bestandsanpassung",
+    "total_products": "Gesamt",
+    "low_stock": "Niedriger Bestand",
+    "filter": "Filter",
+    "search_placeholder": "Produkt suchen...",
+    "all_items": "Alle",
+    "in_stock": "Auf Lager",
+    "out_of_stock": "Nicht auf Lager",
+    "active_only": "Aktive",
+    "inactive_only": "Inaktive"
+  },
+  "diary": {
+    "title": "Tagebuch",
+    "new_entry": "+ Neue Notiz",
+    "view_calendar": "Kalender anzeigen",
+    "clear_all": "Alles löschen",
+    "today": "Heute",
+    "date": "Datum",
+    "notes": "Notizen",
+    "total_notes": "Gesamte Notizen",
+    "today_notes": "Heutige Notizen",
+    "empty_state": "Tagebuch-Notizen erscheinen hier...",
+    "empty_state_hint": "Klicken Sie auf 'Neue Notiz' um Einträge hinzuzufügen"
   },
   "messages": {
-    "confirm_delete": "Sind Sie sicher, dass Sie dieses Element löschen möchten?",
+    "confirm_delete": "Möchten Sie dieses Element wirklich löschen?",
     "save_success": "Erfolgreich gespeichert",
     "delete_success": "Erfolgreich gelöscht",
-    "error_occurred": "Ein Fehler ist aufgetreten"
+    "error_occurred": "Ein Fehler ist aufgetreten",
+    "language_changed": "Sprache geändert zu {lang}",
+    "no_results": "Keine Ergebnisse gefunden"
+  },
+  "status": {
+    "ready": "Bereit",
+    "user": "Benutzer"
   }
 }

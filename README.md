@@ -1,192 +1,209 @@
-# 🐲 DRAGOFACTU - Sistema de Gestión Profesional V1.0.0.3
+# DRAGOFACTU - Sistema de Gestion Empresarial
 
-**Estado:** Estable - Versión 1.0.0.3
-**Objetivo:** Sistema completo y robusto de gestión empresarial con facturación, inventario, y gestión de clientes
+**Version:** 1.0.0.7
+**Estado:** Estable
+**Stack:** Python 3.10+ / PySide6 / SQLAlchemy / SQLite
 
-## 🎯 Screenshots - V1.0.0.3
-<p align="center">
-<img src="Screenshots/panelprincipal.png" alt="Pantalla principal de mi app Python" width="600"/>
-</p>
-<img src="Screenshots/login.png" alt="Login menu" width="600"/>
-</p>
-<img src="Screenshots/clientesmenu.png" alt="clients add menu" width="600"/>
-</p>
-<img src="Screenshots/documentosprincipal.png" alt="docsedit panel" width="600"/>
-</p>
+---
 
-## 🎯 Características Completas - V1.0.0.3
+## Screenshots
 
-### 🏠 Dashboard Principal (Estable)
-- Resumen general con contadores en tiempo real y persistencia de UI
-- Tarjetas interactivas con estadísticas de negocio
-- Acciones rápidas funcionales para creación de entidades
-- Panel de actividad reciente con actualizaciones automáticas
-- Navegación consistente sin pérdida de elementos de interfaz
+<!-- TODO: Añadir screenshots actualizados -->
 
-### 👥 Gestión de Clientes (Corregido)
-- CRUD completo sin errores de mapeo ORM
-- Ficha completa con campos correctos (tax_id vs nif)
-- Búsqueda y filtrado avanzado en tiempo real
-- Estados visuales con indicadores de color
-- Importación/Exportación de datos externos
+---
 
-### 📦 Gestión de Productos (Corregido)
-- Creación y edición sin errores de campo
-- Control de stock con alertas funcionales
-- Gestión de múltiples unidades y precios
-- Integración completa con módulo de documentos
-- Persistencia de datos validada
+## Que es Dragofactu
 
-### 💰 Gestión de Documentos (Implementado)
-- **Explorer de Documentos** - Vista tipo Excel con listado reciente
-- **Presupuestos** - Creación completa con cálculo automático
-- **Facturas** - Facturación con IVA configurable
-- **Albaranes** - Sistema de entrega completo
-- **Estados avanzados** - Borrador, Enviado, Aceptado, Pagado, Parcialmente Pagado
-- **Integración Cliente/Producto** - Selección automática desde base de datos
-- **Códigos automáticos** - PRE-*, FAC-*, ALB-*
+ERP de escritorio para gestion empresarial:
+- Facturacion (presupuestos, facturas, albaranes)
+- Inventario con alertas de stock
+- Gestion de clientes y proveedores
+- Gestion de trabajadores y formacion
+- Diario personal
+- Multi-idioma (ES/EN/DE)
 
-### 📊 Gestión de Inventario (Estable)
-- Control de stock en tiempo real
-- Ajustes individuales y masivos
-- Alertas de stock bajo con indicadores visuales
-- Informes completos de valoración
-- Movimientos de stock registrados
-- Integración con módulo de productos
+---
 
-### 📓 Diario Personal (Corregido)
-- Creación y persistencia de notas diarias
-- Recarga automática al cambiar fecha/selección
-- Sistema de etiquetas y prioridades
-- Búsqueda por fecha con filtrado instantáneo
-- Exportación de datos del diario
+## Instalacion Rapida
 
-### 🔧 Configuración Funcional (Nuevo)
-- Panel de configuración completo con múltiples secciones
-- Preferencias generales de empresa
-- Configuración de interfaz (tema, idioma, fuentes)
-- Información de base de datos y estadísticas
-- Restablecimiento a valores por defecto
-- Información de versión y sistema
-
-### 📁 Gestión de Archivos Externos (Nuevo)
-- Importación de archivos CSV, JSON, y texto
-- Soporte para importación de clientes masivos
-- Exportación de datos en múltiples formatos
-- Integración con módulos existentes
-- Validación y manejo de errores
-
-### 🌍 Sistema Multi-idioma (Corregido)
-- Cambio de idioma funcional con actualización de UI
-- Traducciones consistentes en toda la aplicación
-- Persistencia de preferencia de idioma
-- Soporte completo para Español, Inglés, y Alemán
-
-## 🔍 Problemas Corregidos en V1.0.0.3
-
-### ✅ Problemas Críticos Resueltos
-1. **Persistencia de Dashboard** - Los botones no desaparecen al navegar
-2. **Mapeo ORM** - Error 'nif' corregido a 'tax_id' en Client model
-3. **Explorador de Documentos** - Reemplazada vista placeholder "En desarrollo"
-4. **Persistencia de Diario** - Las notas se recargan automáticamente
-5. **Menú Configuración** - Implementado panel funcional completo
-6. **Importación de Archivos** - Sistema completo de importación/exportación
-7. **Cambio de Idioma** - Funcional con actualización dinámica de interfaz
-
-## 🚀 Instalación V1.0.0.3
-
-### Requisitos
-- Python 3.8+
-- PySide6 
-- SQLAlchemy
-- SQLite (por defecto)
-
-### Instalación
 ```bash
-# Clonar versión estable
-git clone https://github.com/Copitx/Dragofactu.git --branch v1.0.0.3
-
-# Entrar al directorio
+# Clonar repositorio
+git clone https://github.com/Copitx/Dragofactu.git
 cd Dragofactu
 
-# Crear entorno virtual
-python3 -m venv venv
-
-# Activar entorno
-source venv/bin/activate
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Inicializar base de datos
-python3 scripts/init_db.py
-
-# Ejecutar aplicación estable
+# Ejecutar (instalacion automatica)
 ./start_dragofactu.sh
 ```
 
-### 🔧 Configuración V1.0.0.3
-```bash
-# Base de datos SQLite
-DATABASE_URL=sqlite:///data/dragofactu.db
+**Primera ejecucion:** El launcher preguntara donde instalar:
+```
+DRAGOFACTU - First Time Setup
+Default installation directory: ~/.dragofactu
+Use default location? [Y/n/custom path]:
+```
 
-# Idioma por defecto
+**Credenciales por defecto:** `admin` / `admin123`
+
+---
+
+## Estructura del Proyecto
+
+```
+Dragofactu/                    # Codigo fuente (11MB)
+├── start_dragofactu.sh        # Entry point
+├── launch_dragofactu_fixed.py # Launcher configurable
+├── dragofactu_complete.py     # App monolitica
+├── dragofactu/                # Paquete modular
+│   ├── models/                # SQLAlchemy ORM
+│   ├── services/              # Logica de negocio
+│   ├── ui/                    # PySide6 views
+│   └── config/                # Configuracion
+└── scripts/                   # Utilidades
+
+~/.dragofactu/                 # Datos de usuario (separado)
+├── venv/                      # Virtual environment
+├── data/
+│   └── dragofactu.db          # Base de datos
+├── exports/                   # Exportaciones
+└── attachments/               # Adjuntos
+```
+
+---
+
+## Changelog
+
+### v1.0.0.7 (2026-01-31) - Clean Repo Structure
+
+**Limpieza del repositorio:**
+- Reducido tamano de 457MB a 11MB
+- Eliminado `venv/` del historial de git (commiteado por error)
+- Creado `.gitignore` completo
+- Eliminados 15 archivos obsoletos (launchers duplicados, backups, tests)
+
+**Nuevo sistema de instalacion:**
+- El launcher pregunta ubicacion en primera ejecucion
+- Por defecto instala en `~/.dragofactu/`
+- Codigo fuente separado de datos de usuario
+- Configuracion guardada en `~/.dragofactu_config.json`
+
+**Archivos eliminados:**
+- `launch_dragofactu.py`, `launch_simple.py`, `launch_final.py`
+- `simple_dragofactu_app.py`, `simple_dragofactu_app_fixed.py`
+- `complete_dragofactu_app.py`, `dragofactu_complete_backup.py`
+- `debug_main.py`, `test_*.py`, `run.py`, `start_fixed.py`
+- `dashboard_view_fixed.py`, `inventory_view_fixed.py`
+
+### v1.0.0.6 (2026-01-13) - UI Redesign
+
+- Sistema de diseno Apple-inspired
+- Clase `UIStyles` centralizada
+- Paleta de colores consistente (#007AFF accent)
+- Menus sin emojis + keyboard shortcuts
+- Dashboard con metricas y quick actions
+
+### v1.0.0.5 - Visual Interface
+
+- Pequenos cambios en interfaz visual
+
+### v1.0.0.4 - CRUD & Stability
+
+- CRUD completo implementado
+- Fix critico: Import error en `inventory_service.py`
+- Fix: Syntax error en launcher
+- Seguridad: Credenciales basadas en env vars
+- Arquitectura: Launcher unificado
+
+### v1.0.0.3 - Core Features
+
+- Dashboard principal estable
+- Gestion de clientes/productos/documentos
+- Sistema multi-idioma
+- Configuracion funcional
+
+### v1.0.0.2 - Session Fix
+
+- Fix critico: DetachedInstanceError en SQLAlchemy
+- Pre-extraccion de datos de usuario en LoginDialog
+
+### v1.0.0.1 - v1.0.0 - Initial Release
+
+- Version inicial con estructura modular
+
+---
+
+## Funcionalidades
+
+| Modulo | Estado | Descripcion |
+|--------|--------|-------------|
+| Dashboard | Estable | Metricas, acciones rapidas, docs recientes |
+| Clientes | Estable | CRUD completo, busqueda, import/export |
+| Productos | Estable | CRUD, control stock, alertas |
+| Documentos | Estable | Presupuestos, facturas, albaranes |
+| Inventario | Estable | Stock en tiempo real, movimientos |
+| Diario | Estable | Notas diarias, etiquetas |
+| Trabajadores | Estable | CRUD, cursos, formacion |
+| Config | Estable | Preferencias, idioma, tema |
+
+---
+
+## Configuracion
+
+### Variables de Entorno (.env)
+
+```bash
+DATABASE_URL=sqlite:///dragofactu.db
+DEBUG=false
+SECRET_KEY=tu-clave-secreta-32-chars
 DEFAULT_LANGUAGE=es
-
-# Moneda y configuración
-DEFAULT_CURRENCY=EUR
-DEFAULT_TAX_RATE=21
+DEFAULT_ADMIN_USERNAME=admin
+DEFAULT_ADMIN_PASSWORD=admin123
 ```
 
-## 🎚️ Lanzamiento de la Aplicación
+### Ubicacion de Datos
 
-### Método Principal (Recomendado)
+El launcher usa `~/.dragofactu/` por defecto. Para cambiar:
+
 ```bash
-# Ejecutar launcher oficial
+# Eliminar config actual
+rm ~/.dragofactu_config.json
+
+# Ejecutar de nuevo (preguntara ubicacion)
 ./start_dragofactu.sh
 ```
 
-### Alternativa para Desarrollo
+---
+
+## Desarrollo
+
 ```bash
+# Activar entorno
+source ~/.dragofactu/venv/bin/activate
+
 # Ejecutar directamente
-source venv/bin/activate
 python3 dragofactu_complete.py
+
+# Reset base de datos
+rm ~/.dragofactu/data/dragofactu.db
+python3 scripts/init_db.py
 ```
 
-## 📚 Documentación V1.0.0.3
+---
 
-- [Guía de Usuario](docs/user-guide-v1.0.0.3.md)
-- [Referencia de API](docs/api-v1.0.0.3.md)
-- [Esquema de Base de Datos](docs/database-v1.0.0.3.md)
-- [Guía de Despliegue](docs/deployment-v1.0.0.3.md)
+## Stack Tecnologico
 
-## 🔐 Credenciales por Defecto
-- **Usuario:** admin
-- **Contraseña:** admin123
-
-## 📄 Licencia
-MIT License - Ver [LICENSE](LICENSE) para detalles completos
+- **GUI:** PySide6 (Qt6)
+- **ORM:** SQLAlchemy 2.0
+- **DB:** SQLite (dev) / PostgreSQL (prod)
+- **Auth:** bcrypt + JWT
+- **PDF:** ReportLab
+- **i18n:** JSON translations (es/en/de)
 
 ---
 
-**✅ Estado Actual:** Estable - V1.0.0.3  
-**🎯 Características:** Todas las funcionalidades principales implementadas y corregidas  
-**🚀 Producción:** Lista para despliegue en entornos productivos
+## Licencia
 
-## 📋 Checklist de Calidad V1.0.0.3
-
-- [x] Interfaz estable sin errores de navegación
-- [x] Persistencia de datos correcta
-- [x] Mapeo ORM sin conflictos
-- [x] Gestión de archivos externos funcional
-- [x] Configuración completa y persistente
-- [x] Multi-idioma funcional
-- [x] Documentos con explorer funcional
-- [x] Diario con recarga automática
-- [x] Importación/Exportación de datos
-- [x] Launcher único y funcional
+MIT License
 
 ---
 
-**Desarrollado con 🐲 por DRAGOFACTU Team**  
-**V1.0.0.3 - Sistema de Gestión Profesional Estable**
+**Desarrollado por DRAGOFACTU Team**

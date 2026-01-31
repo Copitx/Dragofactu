@@ -137,11 +137,13 @@ class DocumentType(enum.Enum):
 
 class DocumentStatus(enum.Enum):
     DRAFT = "draft"
+    NOT_SENT = "not_sent"
     SENT = "sent"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     PAID = "paid"
     PARTIALLY_PAID = "partially_paid"
+    CANCELLED = "cancelled"
 
 
 class Document(Base):
@@ -219,6 +221,26 @@ class DocumentLine(Base):
     # Relationships
     document = relationship("Document", back_populates="lines")
     product = relationship("Product", back_populates="document_lines")
+
+
+class Reminder(Base):
+    """User reminders that appear in the dashboard"""
+    __tablename__ = "reminders"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    due_date = Column(DateTime(timezone=True))
+    priority = Column(String(20), default="normal")  # low, normal, high
+    is_completed = Column(Boolean, default=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+
+    # Audit fields
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    creator = relationship("User")
 
 
 class Worker(Base):

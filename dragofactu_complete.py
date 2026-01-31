@@ -31,7 +31,7 @@ from PySide6.QtGui import QFont, QAction, QColor
 from sqlalchemy.orm import joinedload
 
 from dragofactu.models.database import SessionLocal, engine, Base
-from dragofactu.models.entities import User, Client, Product, Document, DocumentLine, DocumentType, DocumentStatus
+from dragofactu.models.entities import User, Client, Product, Document, DocumentLine, DocumentType, DocumentStatus, Reminder
 from dragofactu.services.auth.auth_service import AuthService
 from dragofactu.config.translation import translator
 from dragofactu.ui.styles import apply_stylesheet
@@ -245,6 +245,31 @@ class UIStyles:
             QDialog {{
                 background-color: {cls.COLORS['bg_app']};
             }}
+            QDialogButtonBox QPushButton {{
+                background-color: {cls.COLORS['accent']};
+                color: {cls.COLORS['text_inverse']};
+                border: none;
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: 500;
+                font-size: 13px;
+                min-width: 80px;
+            }}
+            QDialogButtonBox QPushButton:hover {{
+                background-color: {cls.COLORS['accent_hover']};
+            }}
+            QDialogButtonBox QPushButton[text="Cancel"],
+            QDialogButtonBox QPushButton[text="Cancelar"],
+            QDialogButtonBox QPushButton[text="No"] {{
+                background-color: {cls.COLORS['bg_card']};
+                color: {cls.COLORS['text_primary']};
+                border: 1px solid {cls.COLORS['border']};
+            }}
+            QDialogButtonBox QPushButton[text="Cancel"]:hover,
+            QDialogButtonBox QPushButton[text="Cancelar"]:hover,
+            QDialogButtonBox QPushButton[text="No"]:hover {{
+                background-color: {cls.COLORS['bg_hover']};
+            }}
         """
 
     @classmethod
@@ -262,6 +287,48 @@ class UIStyles:
                 background-color: {cls.COLORS['bg_hover']};
             }}
         """
+
+
+# =============================================================================
+# Document Status Translation (Spanish)
+# =============================================================================
+
+# Map DocumentStatus enum values to Spanish labels
+STATUS_LABELS_ES = {
+    "draft": "Borrador",
+    "not_sent": "No Enviado",
+    "sent": "Enviado",
+    "accepted": "Aceptado",
+    "rejected": "Rechazado",
+    "paid": "Pagado",
+    "partially_paid": "Pago Parcial",
+    "cancelled": "Cancelado",
+}
+
+# Reverse map: Spanish labels to DocumentStatus enum values
+STATUS_VALUES = {v: k for k, v in STATUS_LABELS_ES.items()}
+
+# All status labels for dropdowns (in order)
+STATUS_OPTIONS_ES = [
+    "Borrador",
+    "No Enviado",
+    "Enviado",
+    "Aceptado",
+    "Rechazado",
+    "Pagado",
+    "Pago Parcial",
+    "Cancelado",
+]
+
+def get_status_label(status_value):
+    """Get Spanish label for a status value"""
+    if hasattr(status_value, 'value'):
+        status_value = status_value.value
+    return STATUS_LABELS_ES.get(str(status_value), str(status_value))
+
+def get_status_value(status_label):
+    """Get status value from Spanish label"""
+    return STATUS_VALUES.get(status_label, status_label)
 
 
 # =============================================================================
@@ -761,20 +828,47 @@ class Dashboard(QWidget):
         # 2. Metrics Cards
         self._create_metrics_section(layout)
 
-        # 3. Quick Actions
+        # 3. Pending Reminders Section
+        self._create_pending_reminders(layout)
+
+        # 4. Quick Actions
         self._create_quick_actions(layout)
 
-        # 4. Recent Documents
+        # 5. Recent Documents
         self._create_recent_documents(layout)
 
         layout.addStretch()
 
+    def _update_datetime(self):
+        """Update date and time labels"""
+        from datetime import datetime
+        now = datetime.now()
+        # Date in Spanish format
+        days = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"]
+        months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        day_name = days[now.weekday()]
+        month_name = months[now.month - 1]
+        date_str = f"{day_name}, {now.day} de {month_name} de {now.year}"
+        time_str = now.strftime("%H:%M:%S")
+
+        if hasattr(self, 'date_label'):
+            self.date_label.setText(date_str)
+        if hasattr(self, 'time_label'):
+            self.time_label.setText(time_str)
+
     def _create_welcome_section(self, parent_layout):
         """Create welcome header section"""
         welcome_widget = QWidget()
-        welcome_layout = QVBoxLayout(welcome_widget)
+        welcome_layout = QHBoxLayout(welcome_widget)
         welcome_layout.setContentsMargins(0, 0, 0, 0)
-        welcome_layout.setSpacing(4)
+        welcome_layout.setSpacing(16)
+
+        # Left side: Welcome text
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(4)
 
         # Welcome title
         self.welcome_label = QLabel(translator.t("dashboard.welcome"))
@@ -784,7 +878,7 @@ class Dashboard(QWidget):
             color: {self.COLORS['text_primary']};
             background: transparent;
         """)
-        welcome_layout.addWidget(self.welcome_label)
+        left_layout.addWidget(self.welcome_label)
 
         # Subtitle
         self.subtitle_label = QLabel(translator.t("app.subtitle"))
@@ -793,7 +887,48 @@ class Dashboard(QWidget):
             color: {self.COLORS['text_secondary']};
             background: transparent;
         """)
-        welcome_layout.addWidget(self.subtitle_label)
+        left_layout.addWidget(self.subtitle_label)
+
+        welcome_layout.addWidget(left_widget)
+        welcome_layout.addStretch()
+
+        # Right side: Date and time
+        datetime_widget = QWidget()
+        datetime_layout = QVBoxLayout(datetime_widget)
+        datetime_layout.setContentsMargins(0, 0, 0, 0)
+        datetime_layout.setSpacing(2)
+        datetime_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        # Date
+        self.date_label = QLabel()
+        self.date_label.setStyleSheet(f"""
+            font-size: 15px;
+            font-weight: 500;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
+        self.date_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        datetime_layout.addWidget(self.date_label)
+
+        # Time
+        self.time_label = QLabel()
+        self.time_label.setStyleSheet(f"""
+            font-size: 24px;
+            font-weight: 600;
+            color: {self.COLORS['accent']};
+            background: transparent;
+        """)
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        datetime_layout.addWidget(self.time_label)
+
+        welcome_layout.addWidget(datetime_widget)
+
+        # Update date/time immediately and start timer
+        self._update_datetime()
+        from PySide6.QtCore import QTimer
+        self.datetime_timer = QTimer(self)
+        self.datetime_timer.timeout.connect(self._update_datetime)
+        self.datetime_timer.start(1000)  # Update every second
 
         parent_layout.addWidget(welcome_widget)
 
@@ -860,6 +995,353 @@ class Dashboard(QWidget):
         self.metric_titles[key] = (title_label, title_key)
 
         return card
+
+    def _create_pending_reminders(self, parent_layout):
+        """Create pending documents and user reminders sections side by side"""
+        # Container for both sections
+        container = QWidget()
+        container_layout = QHBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(16)
+
+        # LEFT SIDE: Pending Documents
+        pending_widget = QWidget()
+        pending_main_layout = QVBoxLayout(pending_widget)
+        pending_main_layout.setContentsMargins(0, 0, 0, 0)
+        pending_main_layout.setSpacing(8)
+
+        # Pending title
+        self.pending_title = QLabel("Documentos Pendientes")
+        self.pending_title.setStyleSheet(f"""
+            font-size: 17px;
+            font-weight: 600;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
+        pending_main_layout.addWidget(self.pending_title)
+
+        # Pending frame
+        self.pending_frame = QFrame()
+        self.pending_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.COLORS['bg_card']};
+                border: none;
+                border-radius: 12px;
+            }}
+        """)
+
+        self.pending_layout = QVBoxLayout(self.pending_frame)
+        self.pending_layout.setContentsMargins(0, 0, 0, 0)
+        self.pending_layout.setSpacing(0)
+
+        self._populate_pending_documents()
+        pending_main_layout.addWidget(self.pending_frame)
+
+        container_layout.addWidget(pending_widget, 1)
+
+        # RIGHT SIDE: User Reminders
+        reminders_widget = QWidget()
+        reminders_main_layout = QVBoxLayout(reminders_widget)
+        reminders_main_layout.setContentsMargins(0, 0, 0, 0)
+        reminders_main_layout.setSpacing(8)
+
+        # Reminders title
+        self.user_reminders_title = QLabel("Recordatorios")
+        self.user_reminders_title.setStyleSheet(f"""
+            font-size: 17px;
+            font-weight: 600;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
+        reminders_main_layout.addWidget(self.user_reminders_title)
+
+        # Reminders frame
+        self.user_reminders_frame = QFrame()
+        self.user_reminders_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.COLORS['bg_card']};
+                border: none;
+                border-radius: 12px;
+            }}
+        """)
+
+        self.user_reminders_layout = QVBoxLayout(self.user_reminders_frame)
+        self.user_reminders_layout.setContentsMargins(0, 0, 0, 0)
+        self.user_reminders_layout.setSpacing(0)
+
+        self._populate_user_reminders()
+        reminders_main_layout.addWidget(self.user_reminders_frame)
+
+        container_layout.addWidget(reminders_widget, 1)
+
+        parent_layout.addWidget(container)
+
+    def _populate_pending_documents(self):
+        """Populate pending documents list"""
+        # Clear existing items
+        while self.pending_layout.count():
+            child = self.pending_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        pending_items = self._get_pending_items()
+
+        if pending_items:
+            for i, item in enumerate(pending_items[:5]):  # Max 5 items
+                is_last = (i == len(pending_items[:5]) - 1)
+                row = self._create_pending_row(item, is_last)
+                self.pending_layout.addWidget(row)
+        else:
+            empty_label = QLabel("No hay documentos pendientes")
+            empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty_label.setStyleSheet(f"""
+                font-size: 14px;
+                color: {self.COLORS['text_tertiary']};
+                padding: 24px;
+                background: transparent;
+            """)
+            self.pending_layout.addWidget(empty_label)
+
+    def _populate_user_reminders(self):
+        """Populate user reminders list"""
+        # Clear existing items
+        while self.user_reminders_layout.count():
+            child = self.user_reminders_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        reminders = self._get_user_reminders()
+
+        if reminders:
+            for i, reminder in enumerate(reminders[:5]):  # Max 5 items
+                is_last = (i == len(reminders[:5]) - 1)
+                row = self._create_user_reminder_row(reminder, is_last)
+                self.user_reminders_layout.addWidget(row)
+        else:
+            empty_label = QLabel("No hay recordatorios")
+            empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty_label.setStyleSheet(f"""
+                font-size: 14px;
+                color: {self.COLORS['text_tertiary']};
+                padding: 24px;
+                background: transparent;
+            """)
+            self.user_reminders_layout.addWidget(empty_label)
+
+    def _get_user_reminders(self):
+        """Get user reminders from database"""
+        try:
+            with SessionLocal() as db:
+                reminders = db.query(Reminder).filter(
+                    Reminder.is_completed == False
+                ).order_by(Reminder.due_date.asc().nullslast(), Reminder.created_at.desc()).limit(10).all()
+
+                result = []
+                for r in reminders:
+                    result.append({
+                        'id': str(r.id),
+                        'title': r.title,
+                        'description': r.description,
+                        'due_date': r.due_date,
+                        'priority': r.priority or 'normal',
+                    })
+                return result
+        except Exception as e:
+            logger.error(f"Error getting reminders: {e}")
+            return []
+
+    def _create_user_reminder_row(self, reminder, is_last=False):
+        """Create a single user reminder row"""
+        row = QWidget()
+        border_style = "" if is_last else f"border-bottom: 1px solid {self.COLORS['border_light']};"
+
+        priority_colors = {
+            'high': self.COLORS['danger'],
+            'normal': self.COLORS['accent'],
+            'low': self.COLORS['text_tertiary'],
+        }
+        left_border_color = priority_colors.get(reminder.get('priority', 'normal'), self.COLORS['accent'])
+
+        row.setStyleSheet(f"""
+            QWidget {{
+                background: transparent;
+                border-left: 3px solid {left_border_color};
+                {border_style}
+            }}
+            QWidget:hover {{
+                background-color: {self.COLORS['bg_hover']};
+            }}
+        """)
+
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(16, 12, 16, 12)
+        row_layout.setSpacing(12)
+
+        # Title
+        title_label = QLabel(reminder.get('title', 'Sin título'))
+        title_label.setStyleSheet(f"""
+            font-size: 13px;
+            font-weight: 500;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
+        title_label.setWordWrap(True)
+        row_layout.addWidget(title_label, 1)
+
+        # Due date if exists
+        due_date = reminder.get('due_date')
+        if due_date:
+            date_str = due_date.strftime('%d/%m') if hasattr(due_date, 'strftime') else str(due_date)[:10]
+            date_label = QLabel(date_str)
+            date_label.setStyleSheet(f"""
+                font-size: 11px;
+                color: {self.COLORS['text_tertiary']};
+                background: transparent;
+            """)
+            row_layout.addWidget(date_label)
+
+        return row
+
+    # Keep old method name for compatibility - now calls the new methods
+    def _populate_reminders(self):
+        """Backward compatibility - populate pending documents and reminders"""
+        if hasattr(self, '_populate_pending_documents'):
+            self._populate_pending_documents()
+        if hasattr(self, '_populate_user_reminders'):
+            self._populate_user_reminders()
+
+    def _get_pending_items(self):
+        """Get pending documents (drafts, sent, accepted, partially paid, not_sent)"""
+        try:
+            with SessionLocal() as db:
+                # Build list of pending statuses
+                pending_statuses = [
+                    DocumentStatus.DRAFT,
+                    DocumentStatus.SENT,
+                    DocumentStatus.ACCEPTED,
+                    DocumentStatus.PARTIALLY_PAID,
+                    DocumentStatus.NOT_SENT
+                ]
+
+                # Get all documents that are pending action
+                pending_docs = db.query(Document).options(joinedload(Document.client)).filter(
+                    Document.status.in_(pending_statuses)
+                ).order_by(Document.issue_date.desc()).limit(10).all()
+
+                result = []
+                for doc in pending_docs:
+                    status_text = get_status_label(doc.status)
+
+                    # Determine urgency
+                    urgency = "normal"
+                    if doc.status == DocumentStatus.DRAFT:
+                        urgency = "warning"
+                    elif doc.due_date:
+                        try:
+                            due = doc.due_date.date() if hasattr(doc.due_date, 'date') else doc.due_date
+                            if due < date.today():
+                                urgency = "danger"
+                        except:
+                            pass
+
+                    result.append({
+                        'code': doc.code or 'N/A',
+                        'client': doc.client.name if doc.client else 'Sin cliente',
+                        'total': float(doc.total or 0),
+                        'status': status_text,
+                        'urgency': urgency,
+                        'type': "Factura" if doc.type == DocumentType.INVOICE else "Presupuesto" if doc.type == DocumentType.QUOTE else "Albaran"
+                    })
+                return result
+        except Exception as e:
+            logger.error(f"Error getting pending items: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def _create_pending_row(self, item, is_last=False):
+        """Create a single pending document row"""
+        row = QWidget()
+        border_style = "" if is_last else f"border-bottom: 1px solid {self.COLORS['border_light']};"
+
+        urgency_colors = {
+            'warning': self.COLORS['warning'],
+            'danger': self.COLORS['danger'],
+            'normal': self.COLORS['accent'],
+        }
+        left_border_color = urgency_colors.get(item.get('urgency', 'normal'), self.COLORS['accent'])
+
+        row.setStyleSheet(f"""
+            QWidget {{
+                background: transparent;
+                border-left: 3px solid {left_border_color};
+                {border_style}
+            }}
+            QWidget:hover {{
+                background-color: {self.COLORS['bg_hover']};
+            }}
+        """)
+
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(16, 12, 20, 12)
+        row_layout.setSpacing(12)
+
+        # Type badge
+        type_label = QLabel(item.get('type', 'Doc'))
+        type_label.setStyleSheet(f"""
+            font-size: 11px;
+            font-weight: 500;
+            color: {self.COLORS['text_tertiary']};
+            background: transparent;
+            min-width: 70px;
+        """)
+        row_layout.addWidget(type_label)
+
+        # Document code
+        code_label = QLabel(item.get('code', 'N/A'))
+        code_label.setStyleSheet(f"""
+            font-size: 13px;
+            font-weight: 600;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+            min-width: 100px;
+        """)
+        row_layout.addWidget(code_label)
+
+        # Client name
+        client_label = QLabel(item.get('client', 'Sin cliente'))
+        client_label.setStyleSheet(f"""
+            font-size: 13px;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
+        row_layout.addWidget(client_label, 1)
+
+        # Amount
+        amount = item.get('total', 0)
+        amount_label = QLabel(f"{amount:,.2f} EUR")
+        amount_label.setStyleSheet(f"""
+            font-size: 13px;
+            font-weight: 500;
+            color: {self.COLORS['text_primary']};
+            background: transparent;
+        """)
+        amount_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        row_layout.addWidget(amount_label)
+
+        # Status badge
+        status_label = QLabel(item.get('status', 'Pendiente'))
+        status_label.setStyleSheet(f"""
+            font-size: 11px;
+            font-weight: 500;
+            color: {left_border_color};
+            background: transparent;
+            min-width: 60px;
+        """)
+        status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        row_layout.addWidget(status_label)
+
+        return row
 
     def _create_quick_actions(self, parent_layout):
         """Create quick action cards"""
@@ -960,9 +1442,9 @@ class Dashboard(QWidget):
         """)
         parent_layout.addWidget(self.recent_docs_title)
 
-        # Documents container
-        docs_frame = QFrame()
-        docs_frame.setStyleSheet(f"""
+        # Documents container - save reference for updates
+        self.recent_docs_frame = QFrame()
+        self.recent_docs_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {self.COLORS['bg_card']};
                 border: none;
@@ -970,9 +1452,22 @@ class Dashboard(QWidget):
             }}
         """)
 
-        docs_layout = QVBoxLayout(docs_frame)
-        docs_layout.setContentsMargins(0, 0, 0, 0)
-        docs_layout.setSpacing(0)
+        self.recent_docs_layout = QVBoxLayout(self.recent_docs_frame)
+        self.recent_docs_layout.setContentsMargins(0, 0, 0, 0)
+        self.recent_docs_layout.setSpacing(0)
+
+        # Populate recent documents
+        self._populate_recent_documents()
+
+        parent_layout.addWidget(self.recent_docs_frame)
+
+    def _populate_recent_documents(self):
+        """Populate or refresh recent documents list"""
+        # Clear existing items
+        while self.recent_docs_layout.count():
+            child = self.recent_docs_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
 
         # Get recent documents
         recent_docs = self._get_recent_documents()
@@ -980,7 +1475,7 @@ class Dashboard(QWidget):
         if recent_docs:
             for i, doc in enumerate(recent_docs):
                 doc_row = self._create_document_row(doc, is_last=(i == len(recent_docs) - 1))
-                docs_layout.addWidget(doc_row)
+                self.recent_docs_layout.addWidget(doc_row)
         else:
             # Empty state
             empty_label = QLabel("No hay documentos recientes")
@@ -991,9 +1486,7 @@ class Dashboard(QWidget):
                 padding: 40px;
                 background: transparent;
             """)
-            docs_layout.addWidget(empty_label)
-
-        parent_layout.addWidget(docs_frame)
+            self.recent_docs_layout.addWidget(empty_label)
 
     def _create_document_row(self, doc, is_last=False):
         """Create a single document row"""
@@ -1046,24 +1539,30 @@ class Dashboard(QWidget):
         amount_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row_layout.addWidget(amount_label)
 
-        # Status badge
-        status = doc.get('status', 'draft')
+        # Status badge - get both value and label
+        status_value = doc.get('status_value', doc.get('status', 'draft'))
+        status_label_text = doc.get('status_label', get_status_label(status_value))
+
         status_colors = {
             'draft': self.COLORS['text_tertiary'],
+            'not_sent': self.COLORS['warning'],
             'sent': self.COLORS['accent'],
+            'accepted': self.COLORS['success'],
+            'rejected': self.COLORS['danger'],
             'paid': self.COLORS['success'],
-            'pending': self.COLORS['warning'],
+            'partially_paid': self.COLORS['warning'],
+            'cancelled': self.COLORS['text_tertiary'],
         }
-        status_color = status_colors.get(status.lower(), self.COLORS['text_tertiary'])
+        status_color = status_colors.get(str(status_value).lower(), self.COLORS['text_tertiary'])
 
-        status_label = QLabel(status.capitalize())
+        status_label = QLabel(status_label_text)
         status_label.setStyleSheet(f"""
             font-size: 12px;
             font-weight: 500;
             color: {status_color};
             background: transparent;
             padding: 4px 8px;
-            min-width: 60px;
+            min-width: 70px;
         """)
         status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         row_layout.addWidget(status_label)
@@ -1074,17 +1573,19 @@ class Dashboard(QWidget):
         """Get recent documents from database"""
         try:
             with SessionLocal() as db:
-                documents = db.query(Document).order_by(
+                documents = db.query(Document).options(joinedload(Document.client)).order_by(
                     Document.created_at.desc()
                 ).limit(5).all()
 
                 result = []
                 for doc in documents:
+                    status_value = doc.status.value if doc.status else 'draft'
                     result.append({
                         'code': doc.code or 'N/A',
                         'client': doc.client.name if doc.client else 'Sin cliente',
                         'total': float(doc.total or 0),
-                        'status': doc.status.value if doc.status else 'draft',
+                        'status_value': status_value,
+                        'status_label': get_status_label(status_value),
                     })
                 return result
         except Exception as e:
@@ -1102,6 +1603,14 @@ class Dashboard(QWidget):
             self.metric_labels['documents'].setText(str(self.get_document_count()))
         if 'low_stock' in self.metric_labels:
             self.metric_labels['low_stock'].setText(str(self.get_low_stock_count()))
+
+        # Update pending reminders
+        if hasattr(self, '_populate_reminders'):
+            self._populate_reminders()
+
+        # Update recent documents
+        if hasattr(self, '_populate_recent_documents'):
+            self._populate_recent_documents()
 
     def retranslate_ui(self):
         """Update all translatable text"""
@@ -1625,131 +2134,197 @@ class ProductDialog(QDialog):
             return
 
 class DocumentDialog(QDialog):
-    """Document creation dialog with client/product selection"""
-    def __init__(self, parent=None, doc_type="quote"):
+    """Document creation/editing dialog with client/product selection"""
+    def __init__(self, parent=None, doc_type="quote", document_id=None):
         super().__init__(parent)
         self.doc_type = doc_type
+        self.document_id = document_id
+        self.is_edit_mode = document_id is not None
         if doc_type == "quote":
             self.doc_title = "Presupuesto"
         elif doc_type == "delivery":
             self.doc_title = "Albaran"
         else:
             self.doc_title = "Factura"
-        self.setWindowTitle(f"Nuevo {self.doc_title}")
+        title = f"Editar {self.doc_title}" if self.is_edit_mode else f"Nuevo {self.doc_title}"
+        self.setWindowTitle(title)
         self.setModal(True)
-        # Increased size to prevent overlapping elements
-        self.resize(1000, 850)
+        self.resize(1000, 750)
+        self.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
         self.items = []
         self.setup_ui()
-    
+        if self.is_edit_mode:
+            self.load_document_data()
+
     def setup_ui(self):
         layout = QVBoxLayout(self)
-        
-        # Client section
-        client_group = QGroupBox("👤 Datos del Cliente")
-        client_layout = QFormLayout(client_group)
-        
+        layout.setSpacing(16)
+        layout.setContentsMargins(24, 24, 24, 24)
+
+        # Header
+        header_label = QLabel(f"{'Editar' if self.is_edit_mode else 'Nuevo'} {self.doc_title}")
+        header_label.setStyleSheet(f"font-size: 20px; font-weight: 600; color: {UIStyles.COLORS['text_primary']};")
+        layout.addWidget(header_label)
+
+        # Main content in horizontal layout
+        main_layout = QHBoxLayout()
+        main_layout.setSpacing(16)
+
+        # LEFT SIDE: Client and items
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(12)
+
+        # Client selection
+        client_layout = QHBoxLayout()
+        client_label = QLabel("Cliente:")
+        client_label.setStyleSheet(UIStyles.get_label_style())
+        client_layout.addWidget(client_label)
         self.client_combo = QComboBox()
+        self.client_combo.setMinimumWidth(300)
         self.setup_clients()
-        client_layout.addRow("Cliente (*)", self.client_combo)
-        
-        layout.addWidget(client_group)
-        
-        # Document items
-        items_group = QGroupBox(f"📋 Items del {self.doc_title}")
-        items_layout = QVBoxLayout(items_group)
-        
+        client_layout.addWidget(self.client_combo)
+        client_layout.addStretch()
+        left_layout.addLayout(client_layout)
+
+        # Product selection with quantity
+        product_frame = QFrame()
+        product_frame.setStyleSheet(f"QFrame {{ background-color: {UIStyles.COLORS['bg_hover']}; border-radius: 8px; padding: 8px; }}")
+        product_inner = QHBoxLayout(product_frame)
+        product_inner.setContentsMargins(12, 8, 12, 8)
+
+        self.product_combo = QComboBox()
+        self.product_combo.setMinimumWidth(250)
+        self.setup_products()
+        product_inner.addWidget(QLabel("Producto:"))
+        product_inner.addWidget(self.product_combo)
+
+        product_inner.addWidget(QLabel("Cantidad:"))
+        self.quantity_spin = QSpinBox()
+        self.quantity_spin.setRange(1, 9999)
+        self.quantity_spin.setValue(1)
+        self.quantity_spin.setMinimumWidth(80)
+        product_inner.addWidget(self.quantity_spin)
+
+        add_btn = QPushButton("Agregar")
+        add_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        add_btn.clicked.connect(self.add_item)
+        product_inner.addWidget(add_btn)
+
+        left_layout.addWidget(product_frame)
+
         # Items table
         self.items_table = QTableWidget()
-        self.items_table.setColumnCount(6)
+        self.items_table.setColumnCount(7)
         self.items_table.setHorizontalHeaderLabels([
-            "Producto", "Descripción", "Cantidad", "Precio Unit.", "Descuento", "Total"
+            "Producto", "Descripcion", "Cantidad", "Precio Unit.", "Dto %", "Total", "Acciones"
         ])
-        
-        # Configure table
+        self.items_table.setStyleSheet(UIStyles.get_table_style())
+        self.items_table.setAlternatingRowColors(False)
+        self.items_table.verticalHeader().setVisible(False)
+
         header = self.items_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
-        
-        items_layout.addWidget(self.items_table)
-        
-        # Product selection buttons
-        product_layout = QHBoxLayout()
-        
-        self.product_combo = QComboBox()
-        self.setup_products()
-        product_layout.addWidget(QLabel("Añadir Producto:"))
-        product_layout.addWidget(self.product_combo)
-        
-        add_item_btn = QPushButton("➕ Añadir")
-        add_item_btn.clicked.connect(self.add_item)
-        product_layout.addWidget(add_item_btn)
-        
-        remove_item_btn = QPushButton("➖ Eliminar")
-        remove_item_btn.clicked.connect(self.remove_item)
-        product_layout.addWidget(remove_item_btn)
-        
-        product_layout.addStretch()
-        items_layout.addLayout(product_layout)
-        
-        layout.addWidget(items_group)
-        
-        # Totals section
-        totals_group = QGroupBox("💰 Totales")
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
+        self.items_table.setColumnWidth(0, 150)
+        self.items_table.setColumnWidth(2, 80)
+        self.items_table.setColumnWidth(3, 100)
+        self.items_table.setColumnWidth(4, 60)
+        self.items_table.setColumnWidth(5, 100)
+        self.items_table.setColumnWidth(6, 80)
+
+        left_layout.addWidget(self.items_table)
+        main_layout.addWidget(left_widget, 2)
+
+        # RIGHT SIDE: Details, totals, notes
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(12)
+
+        # Document details (for edit mode)
+        if self.is_edit_mode:
+            details_group = QGroupBox("Detalles")
+            details_layout = QFormLayout(details_group)
+            details_layout.setSpacing(8)
+
+            self.status_combo = QComboBox()
+            self.status_combo.addItems(STATUS_OPTIONS_ES)
+            details_layout.addRow("Estado:", self.status_combo)
+
+            self.due_date_edit = QDateEdit()
+            self.due_date_edit.setCalendarPopup(True)
+            self.due_date_edit.setDate(QDate.currentDate().addDays(30))
+            details_layout.addRow("Vencimiento:", self.due_date_edit)
+
+            right_layout.addWidget(details_group)
+
+        # Totals
+        totals_group = QGroupBox("Totales")
         totals_layout = QFormLayout(totals_group)
-        
-        self.subtotal_label = QLabel("0.00 €")
+        totals_layout.setSpacing(8)
+
+        self.subtotal_label = QLabel("0.00 EUR")
+        self.subtotal_label.setStyleSheet("font-weight: 500;")
         totals_layout.addRow("Subtotal:", self.subtotal_label)
-        
+
         self.tax_combo = QComboBox()
         self.tax_combo.addItems(["21% IVA", "10% IVA", "4% IVA", "Exento IVA"])
         self.tax_combo.currentTextChanged.connect(self.update_totals)
         totals_layout.addRow("IVA:", self.tax_combo)
-        
-        self.total_label = QLabel("0.00 €")
-        totals_layout.addRow("Total:", self.total_label)
-        
-        layout.addWidget(totals_group)
-        
+
+        self.tax_amount_label = QLabel("0.00 EUR")
+        totals_layout.addRow("Importe IVA:", self.tax_amount_label)
+
+        self.total_label = QLabel("0.00 EUR")
+        self.total_label.setStyleSheet(f"font-size: 18px; font-weight: 600; color: {UIStyles.COLORS['accent']};")
+        totals_layout.addRow("TOTAL:", self.total_label)
+
+        right_layout.addWidget(totals_group)
+
         # Notes
-        notes_group = QGroupBox("📝 Notas")
+        notes_group = QGroupBox("Notas")
         notes_layout = QVBoxLayout(notes_group)
-        
         self.notes_edit = QTextEdit()
         self.notes_edit.setPlaceholderText("Notas adicionales...")
-        self.notes_edit.setMaximumHeight(100)
+        self.notes_edit.setMaximumHeight(80)
         notes_layout.addWidget(self.notes_edit)
-        
-        layout.addWidget(notes_group)
-        
+
+        # Internal notes (for edit mode)
+        if self.is_edit_mode:
+            self.internal_notes_edit = QTextEdit()
+            self.internal_notes_edit.setPlaceholderText("Notas internas (no visibles en documento)...")
+            self.internal_notes_edit.setMaximumHeight(60)
+            notes_layout.addWidget(QLabel("Notas internas:"))
+            notes_layout.addWidget(self.internal_notes_edit)
+
+        right_layout.addWidget(notes_group)
+        right_layout.addStretch()
+
+        main_layout.addWidget(right_widget, 1)
+        layout.addLayout(main_layout)
+
         # Buttons
         button_layout = QHBoxLayout()
-        
-        save_btn = QPushButton(f"💾 Guardar {self.doc_title}")
-        save_btn.clicked.connect(self.save_document)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #229954; }
-        """)
-        button_layout.addWidget(save_btn)
-        
-        cancel_btn = QPushButton("❌ Cancelar")
+        button_layout.addStretch()
+
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)
-        
+
+        save_btn = QPushButton(f"Guardar {self.doc_title}")
+        save_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        save_btn.clicked.connect(self.save_document)
+        button_layout.addWidget(save_btn)
+
         layout.addLayout(button_layout)
-        
-        # Initial totals
         self.update_totals()
     
     def setup_clients(self):
@@ -1777,37 +2352,109 @@ class DocumentDialog(QDialog):
             self.product_combo.addItem("Error cargando productos", None)
     
     def add_item(self):
-        """Add selected product to table"""
+        """Add selected product to table with quantity"""
         product_id = self.product_combo.currentData()
         if not product_id:
-            QMessageBox.warning(self, "❌ Error", "Seleccione un producto primero")
+            QMessageBox.warning(self, "Error", "Seleccione un producto primero")
             return
-        
+
+        quantity = self.quantity_spin.value()
+
         try:
             with SessionLocal() as db:
                 product = db.query(Product).filter(Product.id == product_id).first()
                 if product:
                     row = self.items_table.rowCount()
                     self.items_table.insertRow(row)
-                    
+                    price = float(product.sale_price or 0)
+                    total_line = price * quantity
+
                     self.items_table.setItem(row, 0, QTableWidgetItem(product.name))
                     self.items_table.setItem(row, 1, QTableWidgetItem(product.description or ""))
-                    self.items_table.setItem(row, 2, QTableWidgetItem("1"))
-                    self.items_table.setItem(row, 3, QTableWidgetItem(f"{product.sale_price:.2f}"))
-                    self.items_table.setItem(row, 4, QTableWidgetItem("0"))
-                    self.items_table.setItem(row, 5, QTableWidgetItem(f"{product.sale_price:.2f}"))
-                    
+
+                    # Quantity with spinbox
+                    qty_spin = QSpinBox()
+                    qty_spin.setRange(1, 9999)
+                    qty_spin.setValue(quantity)
+                    qty_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
+                    self.items_table.setCellWidget(row, 2, qty_spin)
+
+                    self.items_table.setItem(row, 3, QTableWidgetItem(f"{price:.2f}"))
+
+                    # Discount spinbox
+                    disc_spin = QSpinBox()
+                    disc_spin.setRange(0, 100)
+                    disc_spin.setValue(0)
+                    disc_spin.setSuffix("%")
+                    disc_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
+                    self.items_table.setCellWidget(row, 4, disc_spin)
+
+                    self.items_table.setItem(row, 5, QTableWidgetItem(f"{total_line:.2f}"))
+
+                    # Delete button
+                    del_btn = QPushButton("X")
+                    del_btn.setStyleSheet(f"background-color: {UIStyles.COLORS['danger']}; color: white; border: none; border-radius: 4px; padding: 4px 8px;")
+                    del_btn.clicked.connect(lambda checked, r=row: self._remove_row(r))
+                    self.items_table.setCellWidget(row, 6, del_btn)
+
                     self.items.append({
                         'product_id': product.id,
-                        'quantity': 1,
-                        'price': product.sale_price,
+                        'quantity': quantity,
+                        'price': price,
                         'discount': 0
                     })
-                    
+
+                    # Reset quantity spinner
+                    self.quantity_spin.setValue(1)
                     self.update_totals()
         except Exception as e:
-            QMessageBox.critical(self, "❌ Error", f"Error añadiendo producto: {str(e)}")
-    
+            QMessageBox.critical(self, "Error", f"Error añadiendo producto: {str(e)}")
+
+    def _update_line_total(self, row):
+        """Update line total when quantity or discount changes"""
+        try:
+            qty_widget = self.items_table.cellWidget(row, 2)
+            disc_widget = self.items_table.cellWidget(row, 4)
+            price_item = self.items_table.item(row, 3)
+
+            if qty_widget and disc_widget and price_item:
+                quantity = qty_widget.value()
+                discount = disc_widget.value()
+                price = float(price_item.text().replace('€', '').replace('EUR', '').strip())
+
+                subtotal = price * quantity
+                discount_amount = subtotal * (discount / 100)
+                total = subtotal - discount_amount
+
+                self.items_table.setItem(row, 5, QTableWidgetItem(f"{total:.2f}"))
+
+                # Update items list
+                if row < len(self.items):
+                    self.items[row]['quantity'] = quantity
+                    self.items[row]['discount'] = discount
+
+                self.update_totals()
+        except Exception as e:
+            logger.warning(f"Error updating line total: {e}")
+
+    def _remove_row(self, row):
+        """Remove a specific row from table"""
+        # Find actual row (may have shifted)
+        for i in range(self.items_table.rowCount()):
+            btn = self.items_table.cellWidget(i, 6)
+            if btn and btn == self.sender():
+                self.items_table.removeRow(i)
+                if i < len(self.items):
+                    self.items.pop(i)
+                self.update_totals()
+                return
+        # Fallback
+        if row < self.items_table.rowCount():
+            self.items_table.removeRow(row)
+            if row < len(self.items):
+                self.items.pop(row)
+            self.update_totals()
+
     def remove_item(self):
         """Remove selected row from table"""
         current_row = self.items_table.currentRow()
@@ -1816,19 +2463,19 @@ class DocumentDialog(QDialog):
             if current_row < len(self.items):
                 self.items.pop(current_row)
             self.update_totals()
-    
+
     def update_totals(self):
         """Calculate and update totals"""
         subtotal = 0.0
-        
+
         for row in range(self.items_table.rowCount()):
             total_item = self.items_table.item(row, 5)
             if total_item:
                 try:
-                    subtotal += float(total_item.text().replace('€', '').strip())
+                    subtotal += float(total_item.text().replace('€', '').replace('EUR', '').strip())
                 except ValueError as e:
                     logger.warning(f"Could not parse subtotal value at row {row}: {e}")
-        
+
         tax_text = self.tax_combo.currentText()
         tax_rate = 0.21
         if "21%" in tax_text:
@@ -1839,12 +2486,116 @@ class DocumentDialog(QDialog):
             tax_rate = 0.04
         elif "Exento" in tax_text:
             tax_rate = 0.0
-        
+
         tax_amount = subtotal * tax_rate
         total = subtotal + tax_amount
-        
-        self.subtotal_label.setText(f"{subtotal:.2f} €")
-        self.total_label.setText(f"{total:.2f} €")
+
+        self.subtotal_label.setText(f"{subtotal:.2f} EUR")
+        if hasattr(self, 'tax_amount_label'):
+            self.tax_amount_label.setText(f"{tax_amount:.2f} EUR")
+        self.total_label.setText(f"{total:.2f} EUR")
+
+    def load_document_data(self):
+        """Load existing document data for editing"""
+        if not self.document_id:
+            return
+        try:
+            # Convert string ID to UUID if needed
+            doc_id = self.document_id
+            if isinstance(doc_id, str):
+                doc_id = uuid.UUID(doc_id)
+
+            with SessionLocal() as db:
+                doc = db.query(Document).options(
+                    joinedload(Document.lines),
+                    joinedload(Document.client)
+                ).filter(Document.id == doc_id).first()
+
+                if doc:
+                    # Set client
+                    for i in range(self.client_combo.count()):
+                        if self.client_combo.itemData(i) == doc.client_id:
+                            self.client_combo.setCurrentIndex(i)
+                            break
+
+                    # Set status if in edit mode
+                    if hasattr(self, 'status_combo'):
+                        status_label = get_status_label(doc.status)
+                        idx = self.status_combo.findText(status_label)
+                        if idx >= 0:
+                            self.status_combo.setCurrentIndex(idx)
+
+                    # Set due date
+                    if hasattr(self, 'due_date_edit') and doc.due_date:
+                        self.due_date_edit.setDate(QDate(doc.due_date.year, doc.due_date.month, doc.due_date.day))
+
+                    # Set notes
+                    if doc.notes:
+                        self.notes_edit.setPlainText(doc.notes)
+                    if hasattr(self, 'internal_notes_edit') and doc.internal_notes:
+                        self.internal_notes_edit.setPlainText(doc.internal_notes)
+
+                    # Load line items
+                    for line in doc.lines:
+                        self._add_line_to_table(line, db)
+
+                    self.update_totals()
+        except Exception as e:
+            logger.error(f"Error loading document: {e}")
+            QMessageBox.warning(self, "Error", f"Error cargando documento: {str(e)}")
+
+    def _add_line_to_table(self, line, db):
+        """Add a document line to the table"""
+        row = self.items_table.rowCount()
+        self.items_table.insertRow(row)
+
+        # Get product name if exists
+        product_name = line.description or "Producto"
+        if line.product_id:
+            product = db.query(Product).filter(Product.id == line.product_id).first()
+            if product:
+                product_name = product.name
+
+        quantity = int(line.quantity or 1)
+        price = float(line.unit_price or 0)
+        discount = float(line.discount_percent or 0)
+        total_line = float(line.subtotal or (price * quantity))
+
+        self.items_table.setItem(row, 0, QTableWidgetItem(product_name))
+        self.items_table.setItem(row, 1, QTableWidgetItem(line.description or ""))
+
+        # Quantity spinbox
+        qty_spin = QSpinBox()
+        qty_spin.setRange(1, 9999)
+        qty_spin.setValue(quantity)
+        qty_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
+        self.items_table.setCellWidget(row, 2, qty_spin)
+
+        self.items_table.setItem(row, 3, QTableWidgetItem(f"{price:.2f}"))
+
+        # Discount spinbox
+        disc_spin = QSpinBox()
+        disc_spin.setRange(0, 100)
+        disc_spin.setValue(int(discount))
+        disc_spin.setSuffix("%")
+        disc_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
+        self.items_table.setCellWidget(row, 4, disc_spin)
+
+        self.items_table.setItem(row, 5, QTableWidgetItem(f"{total_line:.2f}"))
+
+        # Delete button
+        del_btn = QPushButton("X")
+        del_btn.setStyleSheet(f"background-color: {UIStyles.COLORS['danger']}; color: white; border: none; border-radius: 4px; padding: 4px 8px;")
+        del_btn.clicked.connect(lambda checked, r=row: self._remove_row(r))
+        self.items_table.setCellWidget(row, 6, del_btn)
+
+        self.items.append({
+            'product_id': line.product_id,
+            'quantity': quantity,
+            'price': price,
+            'discount': discount,
+            'line_id': line.id
+        })
     
     def _get_current_user_id(self):
         """Get current user ID from MainWindow"""
@@ -1856,59 +2607,159 @@ class DocumentDialog(QDialog):
         return None
 
     def save_document(self):
-        """Save document"""
+        """Save or update document with line items"""
         client_id = self.client_combo.currentData()
         if not client_id:
-            QMessageBox.warning(self, "❌ Error", "Seleccione un cliente")
+            QMessageBox.warning(self, "Error", "Seleccione un cliente")
             return
 
         if self.items_table.rowCount() == 0:
-            QMessageBox.warning(self, "❌ Error", "Añada al menos un producto")
+            QMessageBox.warning(self, "Error", "Añada al menos un producto")
             return
 
         # Get current user ID
         user_id = self._get_current_user_id()
-        if not user_id:
-            QMessageBox.warning(self, "❌ Error", "No hay usuario autenticado")
+        if not user_id and not self.is_edit_mode:
+            QMessageBox.warning(self, "Error", "No hay usuario autenticado")
             return
 
         try:
             with SessionLocal() as db:
                 # Calculate totals
                 total_text = self.total_label.text()
-                total = float(total_text.replace('€', '').strip())
+                total = float(total_text.replace('EUR', '').replace('€', '').strip())
 
-                # Create document - determine type and code prefix
-                if self.doc_type == "quote":
-                    doc_type = DocumentType.QUOTE
-                    code_prefix = "PRE"
-                elif self.doc_type == "delivery":
-                    doc_type = DocumentType.DELIVERY_NOTE
-                    code_prefix = "ALB"
+                if self.is_edit_mode:
+                    # Update existing document
+                    document = db.query(Document).options(joinedload(Document.lines)).filter(Document.id == self.document_id).first()
+                    if not document:
+                        QMessageBox.warning(self, "Error", "Documento no encontrado")
+                        return
+
+                    # Store original status for stock deduction check
+                    original_status = document.status
+
+                    document.client_id = client_id
+                    document.total = total
+                    document.notes = self.notes_edit.toPlainText().strip() or None
+
+                    new_status = original_status
+                    if hasattr(self, 'status_combo'):
+                        status_value = get_status_value(self.status_combo.currentText())
+                        new_status = DocumentStatus(status_value)
+                        document.status = new_status
+
+                    if hasattr(self, 'due_date_edit'):
+                        qdate = self.due_date_edit.date()
+                        document.due_date = date(qdate.year(), qdate.month(), qdate.day())
+
+                    if hasattr(self, 'internal_notes_edit'):
+                        document.internal_notes = self.internal_notes_edit.toPlainText().strip() or None
+
+                    # Check if status changed to PAID - deduct stock from products
+                    stock_deducted = []
+                    if new_status == DocumentStatus.PAID and original_status != DocumentStatus.PAID:
+                        # Use the items from the table (not document.lines since we're about to delete them)
+                        for row in range(self.items_table.rowCount()):
+                            if row < len(self.items) and self.items[row].get('product_id'):
+                                product_id = self.items[row]['product_id']
+                                qty_widget = self.items_table.cellWidget(row, 2)
+                                quantity = qty_widget.value() if qty_widget else 1
+
+                                product = db.query(Product).filter(Product.id == product_id).first()
+                                if product:
+                                    old_stock = product.current_stock or 0
+                                    new_stock = max(0, old_stock - quantity)
+                                    product.current_stock = new_stock
+                                    stock_deducted.append(f"{product.name}: -{quantity} (Stock: {old_stock} → {new_stock})")
+
+                    # Delete old lines and add new ones
+                    db.query(DocumentLine).filter(DocumentLine.document_id == document.id).delete()
+
+                    # Add updated lines
+                    self._save_document_lines(db, document.id)
+
+                    db.commit()
+
+                    # Show success message with stock info if deducted
+                    if stock_deducted:
+                        QMessageBox.information(self, "Exito",
+                            f"{self.doc_title} actualizado correctamente\n\nStock descontado:\n" + "\n".join(stock_deducted))
+                    else:
+                        QMessageBox.information(self, "Exito", f"{self.doc_title} actualizado correctamente")
                 else:
-                    doc_type = DocumentType.INVOICE
-                    code_prefix = "FAC"
-                doc_code = f"{code_prefix}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    # Create new document
+                    if self.doc_type == "quote":
+                        doc_type = DocumentType.QUOTE
+                        code_prefix = "PRE"
+                    elif self.doc_type == "delivery":
+                        doc_type = DocumentType.DELIVERY_NOTE
+                        code_prefix = "ALB"
+                    else:
+                        doc_type = DocumentType.INVOICE
+                        code_prefix = "FAC"
+                    doc_code = f"{code_prefix}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-                document = Document(
-                    code=doc_code,
-                    type=doc_type,
-                    client_id=client_id,
-                    issue_date=date.today(),
-                    total=total,
-                    status=DocumentStatus.DRAFT,
-                    notes=self.notes_edit.toPlainText(),
-                    created_by=user_id
-                )
-                
-                db.add(document)
-                db.commit()
-                
-                QMessageBox.information(self, "✅ Éxito", f"{self.doc_title} guardado correctamente\nCódigo: {doc_code}")
+                    document = Document(
+                        code=doc_code,
+                        type=doc_type,
+                        client_id=client_id,
+                        issue_date=date.today(),
+                        total=total,
+                        status=DocumentStatus.DRAFT,
+                        notes=self.notes_edit.toPlainText().strip() or None,
+                        created_by=user_id
+                    )
+
+                    db.add(document)
+                    db.flush()  # Get the ID
+
+                    # Save line items
+                    self._save_document_lines(db, document.id)
+
+                    db.commit()
+                    QMessageBox.information(self, "Exito", f"{self.doc_title} guardado correctamente\nCodigo: {doc_code}")
+
                 self.accept()
-                
+
         except Exception as e:
-            QMessageBox.critical(self, "❌ Error", f"Error guardando {self.doc_title.lower()}: {str(e)}")
+            logger.error(f"Error saving document: {e}")
+            QMessageBox.critical(self, "Error", f"Error guardando {self.doc_title.lower()}: {str(e)}")
+
+    def _save_document_lines(self, db, document_id):
+        """Save document line items"""
+        for row in range(self.items_table.rowCount()):
+            product_name = self.items_table.item(row, 0).text() if self.items_table.item(row, 0) else ""
+            description = self.items_table.item(row, 1).text() if self.items_table.item(row, 1) else ""
+
+            qty_widget = self.items_table.cellWidget(row, 2)
+            quantity = qty_widget.value() if qty_widget else 1
+
+            price_item = self.items_table.item(row, 3)
+            unit_price = float(price_item.text().replace('EUR', '').replace('€', '').strip()) if price_item else 0
+
+            disc_widget = self.items_table.cellWidget(row, 4)
+            discount = disc_widget.value() if disc_widget else 0
+
+            total_item = self.items_table.item(row, 5)
+            subtotal = float(total_item.text().replace('EUR', '').replace('€', '').strip()) if total_item else 0
+
+            # Get product_id from items list if available
+            product_id = None
+            if row < len(self.items) and self.items[row].get('product_id'):
+                product_id = self.items[row]['product_id']
+
+            line = DocumentLine(
+                document_id=document_id,
+                product_id=product_id,
+                description=description or product_name,
+                quantity=quantity,
+                unit_price=unit_price,
+                discount_percent=discount,
+                subtotal=subtotal,
+                order_index=row
+            )
+            db.add(line)
 
 # Continue with other classes...
 class ClientManagementTab(QWidget):
@@ -2493,6 +3344,37 @@ class DocumentManagementTab(QWidget):
         self.filter_combo.currentTextChanged.connect(self.refresh_data)
         filter_layout.addWidget(self.filter_combo)
 
+        # Status filter
+        self.status_filter_label = QLabel("Estado:")
+        self.status_filter_label.setStyleSheet(UIStyles.get_label_style())
+        filter_layout.addWidget(self.status_filter_label)
+
+        self.status_filter_combo = QComboBox()
+        self.status_filter_combo.addItems(["Todos los estados"] + STATUS_OPTIONS_ES)
+        self.status_filter_combo.setStyleSheet(UIStyles.get_input_style())
+        self.status_filter_combo.currentTextChanged.connect(self.refresh_data)
+        filter_layout.addWidget(self.status_filter_combo)
+
+        # Sort by filter
+        self.sort_label = QLabel("Ordenar por:")
+        self.sort_label.setStyleSheet(UIStyles.get_label_style())
+        filter_layout.addWidget(self.sort_label)
+
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems([
+            "Fecha (más reciente)",
+            "Fecha (más antiguo)",
+            "Código (A-Z)",
+            "Código (Z-A)",
+            "Cliente (A-Z)",
+            "Cliente (Z-A)",
+            "Total (mayor)",
+            "Total (menor)"
+        ])
+        self.sort_combo.setStyleSheet(UIStyles.get_input_style())
+        self.sort_combo.currentTextChanged.connect(self.refresh_data)
+        filter_layout.addWidget(self.sort_combo)
+
         filter_layout.addStretch()
         layout.addLayout(filter_layout)
 
@@ -2517,11 +3399,13 @@ class DocumentManagementTab(QWidget):
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
+        self.docs_table.setColumnWidth(7, 140)  # Fixed width for actions column
 
-        # Enable double-click on table rows
+        # Enable click/double-click on table
         self.docs_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.docs_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.docs_table.cellClicked.connect(self.on_table_click)
         self.docs_table.cellDoubleClicked.connect(self.on_table_double_click)
 
         layout.addWidget(self.docs_table)
@@ -2535,9 +3419,9 @@ class DocumentManagementTab(QWidget):
         """Refresh documents data"""
         try:
             with SessionLocal() as db:
-                # Get filter
+                # Get type filter
                 filter_type = self.filter_combo.currentText()
-                
+
                 # Build query with eager loading for client relationship
                 query = db.query(Document).options(joinedload(Document.client))
                 if filter_type != "Todos":
@@ -2548,8 +3432,45 @@ class DocumentManagementTab(QWidget):
                     elif filter_type == "Albaranes":
                         query = query.filter(Document.type == DocumentType.DELIVERY_NOTE)
 
-                # Get documents with most recent first
-                documents = query.order_by(Document.updated_at.desc()).limit(100).all()
+                # Get status filter
+                if hasattr(self, 'status_filter_combo'):
+                    status_filter = self.status_filter_combo.currentText()
+                    status_map = {
+                        "Borrador": DocumentStatus.DRAFT,
+                        "No Enviado": DocumentStatus.NOT_SENT,
+                        "Enviado": DocumentStatus.SENT,
+                        "Aceptado": DocumentStatus.ACCEPTED,
+                        "Rechazado": DocumentStatus.REJECTED,
+                        "Pagado": DocumentStatus.PAID,
+                        "Pago Parcial": DocumentStatus.PARTIALLY_PAID,
+                        "Cancelado": DocumentStatus.CANCELLED,
+                    }
+                    if status_filter in status_map:
+                        query = query.filter(Document.status == status_map[status_filter])
+
+                # Apply sort order
+                sort_option = self.sort_combo.currentText() if hasattr(self, 'sort_combo') else "Fecha (más reciente)"
+
+                if sort_option == "Fecha (más reciente)":
+                    query = query.order_by(Document.issue_date.desc())
+                elif sort_option == "Fecha (más antiguo)":
+                    query = query.order_by(Document.issue_date.asc())
+                elif sort_option == "Código (A-Z)":
+                    query = query.order_by(Document.code.asc())
+                elif sort_option == "Código (Z-A)":
+                    query = query.order_by(Document.code.desc())
+                elif sort_option == "Cliente (A-Z)":
+                    query = query.join(Client).order_by(Client.name.asc())
+                elif sort_option == "Cliente (Z-A)":
+                    query = query.join(Client).order_by(Client.name.desc())
+                elif sort_option == "Total (mayor)":
+                    query = query.order_by(Document.total.desc())
+                elif sort_option == "Total (menor)":
+                    query = query.order_by(Document.total.asc())
+                else:
+                    query = query.order_by(Document.updated_at.desc())
+
+                documents = query.limit(100).all()
                 
                 self.docs_table.setRowCount(0)
                 # Store document IDs for double-click lookup
@@ -2560,9 +3481,14 @@ class DocumentManagementTab(QWidget):
                     # Store document ID for this row
                     self._document_ids.append(str(doc.id))
 
-                    # Document code - store ID in item data
+                    # Document code - store ID in item data, make it look clickable
                     code_item = QTableWidgetItem(doc.code or "")
                     code_item.setData(Qt.ItemDataRole.UserRole, str(doc.id))
+                    code_font = QFont()
+                    code_font.setUnderline(True)
+                    code_font.setBold(True)
+                    code_item.setFont(code_font)
+                    code_item.setForeground(QColor("#007AFF"))  # Blue link color
                     self.docs_table.setItem(row, 0, code_item)
                     
                     # Document type
@@ -2602,22 +3528,20 @@ class DocumentManagementTab(QWidget):
                         date_text = doc.issue_date.strftime('%d/%m/%Y')
                     self.docs_table.setItem(row, 3, QTableWidgetItem(date_text))
                     
-                    # Status
-                    status_text = ""
-                    status_color = ""
-                    if doc.status == DocumentStatus.DRAFT:
-                        status_text = "Borrador"
-                        status_color = "gray"
-                    elif doc.status == DocumentStatus.SENT:
-                        status_text = "Enviado"
-                        status_color = "blue"
-                    elif doc.status == DocumentStatus.ACCEPTED:
-                        status_text = "Aceptado"
-                        status_color = "green"
-                    elif doc.status == DocumentStatus.PAID:
-                        status_text = "Pagado"
-                        status_color = "purple"
-                    
+                    # Status - use translated labels
+                    status_text = get_status_label(doc.status)
+                    status_colors = {
+                        DocumentStatus.DRAFT: "#6E6E73",       # Gray
+                        DocumentStatus.NOT_SENT: "#FF9500",    # Orange
+                        DocumentStatus.SENT: "#007AFF",        # Blue
+                        DocumentStatus.ACCEPTED: "#34C759",    # Green
+                        DocumentStatus.REJECTED: "#FF3B30",    # Red
+                        DocumentStatus.PAID: "#5856D6",        # Purple
+                        DocumentStatus.PARTIALLY_PAID: "#FF9500", # Orange
+                        DocumentStatus.CANCELLED: "#8E8E93",   # Dark gray
+                    }
+                    status_color = status_colors.get(doc.status, "#6E6E73")
+
                     status_item = QTableWidgetItem(status_text)
                     status_item.setForeground(QColor(status_color))
                     status_font = QFont()
@@ -2635,50 +3559,36 @@ class DocumentManagementTab(QWidget):
                         due_text = doc.due_date.strftime('%d/%m/%Y')
                     self.docs_table.setItem(row, 6, QTableWidgetItem(due_text))
                     
-                    # Actions
+                    # Actions - create simple text buttons
                     actions_widget = QWidget()
                     actions_layout = QHBoxLayout(actions_widget)
                     actions_layout.setContentsMargins(2, 2, 2, 2)
-                    
-                    view_btn = QPushButton("👁️")
+                    actions_layout.setSpacing(2)
+
+                    view_btn = QPushButton("👁")
                     view_btn.setToolTip("Ver Documento")
-                    view_btn.setMaximumSize(30, 25)
+                    view_btn.setFixedSize(28, 24)
                     view_btn.clicked.connect(lambda checked, d=doc: self.view_document(d))
                     actions_layout.addWidget(view_btn)
-                    
-                    edit_btn = QPushButton("✏️")
+
+                    edit_btn = QPushButton("✎")
                     edit_btn.setToolTip("Editar Documento")
-                    edit_btn.setMaximumSize(30, 25)
+                    edit_btn.setFixedSize(28, 24)
                     edit_btn.clicked.connect(lambda checked, d=doc: self.edit_document(d))
                     actions_layout.addWidget(edit_btn)
 
                     pdf_btn = QPushButton("PDF")
                     pdf_btn.setToolTip("Generar PDF")
-                    pdf_btn.setMaximumSize(35, 25)
-                    pdf_btn.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: {UIStyles.COLORS['accent']};
-                            color: white;
-                            border: none;
-                            border-radius: 4px;
-                            font-size: 10px;
-                            font-weight: bold;
-                            padding: 2px 4px;
-                        }}
-                        QPushButton:hover {{
-                            background-color: {UIStyles.COLORS['accent_hover']};
-                        }}
-                    """)
+                    pdf_btn.setFixedSize(36, 24)
                     pdf_btn.clicked.connect(lambda checked, d=doc: self.generate_pdf(d))
                     actions_layout.addWidget(pdf_btn)
 
-                    delete_btn = QPushButton("🗑️")
-                    delete_btn.setToolTip("Eliminar Documento")
-                    delete_btn.setMaximumSize(30, 25)
-                    delete_btn.setStyleSheet("color: #e74c3c;")
-                    delete_btn.clicked.connect(lambda checked, d=doc: self.delete_document(d))
-                    actions_layout.addWidget(delete_btn)
-                    
+                    del_btn = QPushButton("🗑")
+                    del_btn.setToolTip("Eliminar Documento")
+                    del_btn.setFixedSize(28, 24)
+                    del_btn.clicked.connect(lambda checked, d=doc: self.delete_document(d))
+                    actions_layout.addWidget(del_btn)
+
                     self.docs_table.setCellWidget(row, 7, actions_widget)
                 
                 self.status_label.setText(f"📊 Mostrando {len(documents)} documentos - Filtro: {filter_type}")
@@ -2692,18 +3602,40 @@ class DocumentManagementTab(QWidget):
         if dialog.exec():
             self.refresh_data()
 
+    def on_table_click(self, row, column):
+        """Handle click on table - if clicked on code column (0), open editor"""
+        if column == 0:  # Code column clicked
+            self._open_document_editor(row)
+
     def on_table_double_click(self, row, column):
         """Handle double-click on table row - opens edit dialog"""
+        self._open_document_editor(row)
+
+    def _open_document_editor(self, row):
+        """Open the full document editor for the given row"""
+        if row < 0 or row >= len(self._document_ids):
+            return
         raw_id = self._document_ids[row]
         try:
-            # Ensure doc_id is a UUID object if it's a string
             doc_id = uuid.UUID(raw_id) if isinstance(raw_id, str) else raw_id
             with SessionLocal() as db:
                 doc = db.query(Document).filter(Document.id == doc_id).first()
                 if doc:
-                    self.edit_document(doc)
+                    # Determine document type
+                    doc_type = "quote"
+                    if doc.type == DocumentType.INVOICE:
+                        doc_type = "invoice"
+                    elif doc.type == DocumentType.DELIVERY_NOTE:
+                        doc_type = "delivery"
+
+                    # Open full editor dialog
+                    dialog = DocumentDialog(self, doc_type, document_id=str(doc.id))
+                    if dialog.exec():
+                        self.refresh_data()
+                        self._sync_dashboard()
+                        self._sync_inventory()
         except Exception as e:
-            logger.error(f"Error on double-click: {e}")
+            logger.error(f"Error opening document editor: {e}")
             QMessageBox.critical(self, "Error", f"Error al abrir documento: {str(e)}")
 
     def view_document(self, document):
@@ -2798,87 +3730,33 @@ class DocumentManagementTab(QWidget):
             QMessageBox.critical(self, "❌ Error", f"Error al ver documento: {str(e)}")
 
     def edit_document(self, document):
-        """Edit document - opens document dialog for editing"""
+        """Edit document - opens full document dialog for editing"""
         try:
             # Ensure ID is a UUID object
             doc_id = uuid.UUID(str(document.id)) if not isinstance(document.id, uuid.UUID) else document.id
             with SessionLocal() as db:
                 doc = db.query(Document).filter(Document.id == doc_id).first()
                 if not doc:
-                    QMessageBox.warning(self, "❌ Error", "Documento no encontrado")
+                    QMessageBox.warning(self, "Error", "Documento no encontrado")
                     return
 
-                # Create edit dialog
-                edit_dialog = QDialog(self)
-                doc_type = "Presupuesto" if doc.type == DocumentType.QUOTE else "Factura" if doc.type == DocumentType.INVOICE else "Albarán"
-                edit_dialog.setWindowTitle(f"✏️ Editar {doc_type} - {doc.code}")
-                edit_dialog.setModal(True)
-                edit_dialog.resize(500, 400)
+                # Determine document type
+                doc_type = "quote"
+                if doc.type == DocumentType.INVOICE:
+                    doc_type = "invoice"
+                elif doc.type == DocumentType.DELIVERY_NOTE:
+                    doc_type = "delivery"
 
-                layout = QFormLayout(edit_dialog)
-
-                # Status combo
-                status_combo = QComboBox()
-                status_options = ["draft", "sent", "accepted", "rejected", "paid", "partially_paid", "cancelled"]
-                status_combo.addItems(status_options)
-                current_status = doc.status.value if hasattr(doc.status, 'value') else str(doc.status)
-                if current_status in status_options:
-                    status_combo.setCurrentText(current_status)
-                layout.addRow("Estado:", status_combo)
-
-                # Due date
-                due_date_edit = QDateEdit()
-                if doc.due_date:
-                    due_date_edit.setDate(QDate(doc.due_date.year, doc.due_date.month, doc.due_date.day))
-                else:
-                    due_date_edit.setDate(QDate.currentDate().addDays(30))
-                due_date_edit.setCalendarPopup(True)
-                layout.addRow("Fecha Vencimiento:", due_date_edit)
-
-                # Notes
-                notes_edit = QTextEdit()
-                notes_edit.setPlainText(doc.notes or "")
-                notes_edit.setMaximumHeight(100)
-                layout.addRow("Notas:", notes_edit)
-
-                # Internal notes
-                internal_notes_edit = QTextEdit()
-                internal_notes_edit.setPlainText(doc.internal_notes or "")
-                internal_notes_edit.setMaximumHeight(100)
-                layout.addRow("Notas Internas:", internal_notes_edit)
-
-                # Buttons
-                buttons = QDialogButtonBox(
-                    QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
-                )
-
-                def save_changes():
-                    try:
-                        with SessionLocal() as db2:
-                            doc2 = db2.query(Document).filter(Document.id == document.id).first()
-                            if doc2:
-                                doc2.status = DocumentStatus(status_combo.currentText())
-                                qdate = due_date_edit.date()
-                                doc2.due_date = date(qdate.year(), qdate.month(), qdate.day())
-                                doc2.notes = notes_edit.toPlainText().strip() or None
-                                doc2.internal_notes = internal_notes_edit.toPlainText().strip() or None
-                                db2.commit()
-                                edit_dialog.accept()
-                                self.refresh_data()
-                                QMessageBox.information(self, "✅ Éxito", "Documento actualizado correctamente")
-                    except Exception as e:
-                        logger.error(f"Error saving document: {e}")
-                        QMessageBox.critical(self, "❌ Error", f"Error al guardar: {str(e)}")
-
-                buttons.accepted.connect(save_changes)
-                buttons.rejected.connect(edit_dialog.reject)
-                layout.addRow(buttons)
-
-                edit_dialog.exec()
+                # Open full editor dialog
+                dialog = DocumentDialog(self, doc_type, document_id=str(doc.id))
+                if dialog.exec():
+                    self.refresh_data()
+                    self._sync_dashboard()
+                    self._sync_inventory()
 
         except Exception as e:
             logger.error(f"Error editing document: {e}")
-            QMessageBox.critical(self, "❌ Error", f"Error al editar documento: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error al editar documento: {str(e)}")
 
     def delete_document(self, document):
         """Delete document"""
@@ -2899,13 +3777,15 @@ class DocumentManagementTab(QWidget):
                         db.delete(doc)
                         db.commit()
                         self.refresh_data()
-                        QMessageBox.information(self, "✅ Éxito", f"Documento '{doc_code}' eliminado correctamente")
+                        # Sync with Dashboard
+                        self._sync_dashboard()
+                        QMessageBox.information(self, "Exito", f"Documento '{doc_code}' eliminado correctamente")
                     else:
-                        QMessageBox.warning(self, "❌ Error", "Documento no encontrado")
+                        QMessageBox.warning(self, "Error", "Documento no encontrado")
 
             except Exception as e:
                 logger.error(f"Error deleting document: {e}")
-                QMessageBox.critical(self, "❌ Error", f"Error al eliminar documento: {str(e)}")
+                QMessageBox.critical(self, "Error", f"Error al eliminar documento: {str(e)}")
 
     def generate_pdf(self, document):
         """Generate PDF for document"""
@@ -3009,6 +3889,31 @@ class DocumentManagementTab(QWidget):
                 translator.t("documents.date"), translator.t("documents.status"), translator.t("documents.total"),
                 translator.t("documents.due_date"), translator.t("documents.actions")
             ])
+
+    def _sync_dashboard(self):
+        """Sync changes with the Dashboard panel"""
+        try:
+            # Find the main window and refresh dashboard
+            parent = self.parent()
+            while parent is not None:
+                if hasattr(parent, 'dashboard') and parent.dashboard:
+                    parent.dashboard.refresh_data()
+                    break
+                parent = parent.parent()
+        except Exception as e:
+            logger.warning(f"Could not sync with dashboard: {e}")
+
+    def _sync_inventory(self):
+        """Sync changes with the Inventory panel"""
+        try:
+            parent = self.parent()
+            while parent is not None:
+                if hasattr(parent, 'inventory_tab') and parent.inventory_tab:
+                    parent.inventory_tab.refresh_data()
+                    break
+                parent = parent.parent()
+        except Exception as e:
+            logger.warning(f"Could not sync with inventory: {e}")
 
 
 class InventoryManagementTab(QWidget):
@@ -3212,8 +4117,8 @@ class InventoryManagementTab(QWidget):
                     status_item.setFont(font)
                     self.inventory_table.setItem(row, 5, status_item)
                     
-                    # Total value
-                    total_product_value = (product.current_stock or 0) * (product.sale_price or 0)
+                    # Total value - convert to float to avoid Decimal type issues
+                    total_product_value = float(product.current_stock or 0) * float(product.sale_price or 0)
                     total_value += total_product_value
                     value_item = QTableWidgetItem(f"{total_product_value:.2f} €")
                     self.inventory_table.setItem(row, 6, value_item)
@@ -3334,63 +4239,161 @@ class InventoryManagementTab(QWidget):
                     QMessageBox.information(self, "Info", "No hay productos activos en el inventario")
                     return
 
-                # Create product selection dialog
-                from PySide6.QtWidgets import QInputDialog
+                # Create custom product selection dialog
+                picker_dialog = QDialog(self)
+                picker_dialog.setWindowTitle("Seleccionar Producto")
+                picker_dialog.setModal(True)
+                picker_dialog.resize(500, 400)
+                picker_dialog.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
 
-                # Build list of products with current stock info
-                product_list = [
-                    f"{p.code} - {p.name} (Stock: {p.current_stock or 0})"
-                    for p in products
-                ]
+                layout = QVBoxLayout(picker_dialog)
+                layout.setSpacing(16)
+                layout.setContentsMargins(24, 24, 24, 24)
 
-                product_name, ok = QInputDialog.getItem(
-                    self,
-                    "Seleccionar Producto",
-                    "Seleccione el producto para ajustar stock:",
-                    product_list,
-                    0,
-                    False
-                )
+                # Label
+                label = QLabel("Seleccione el producto para ajustar stock:")
+                label.setStyleSheet(UIStyles.get_label_style())
+                layout.addWidget(label)
 
-                if ok and product_name:
-                    # Extract product code from selection
-                    product_code = product_name.split(" - ")[0]
-                    # Get fresh product from DB
-                    product = db.query(Product).filter(Product.code == product_code).first()
-                    if product:
-                        self.adjust_product_stock(product)
+                # Product list
+                product_list = QListWidget()
+                product_list.setStyleSheet(f"""
+                    QListWidget {{
+                        background-color: {UIStyles.COLORS['bg_card']};
+                        border: 1px solid {UIStyles.COLORS['border']};
+                        border-radius: 8px;
+                        padding: 8px;
+                    }}
+                    QListWidget::item {{
+                        padding: 10px;
+                        border-bottom: 1px solid {UIStyles.COLORS['border_light']};
+                    }}
+                    QListWidget::item:selected {{
+                        background-color: {UIStyles.COLORS['accent']};
+                        color: white;
+                    }}
+                    QListWidget::item:hover {{
+                        background-color: {UIStyles.COLORS['bg_hover']};
+                    }}
+                """)
+
+                # Store product data for later access
+                product_data = {}
+                for p in products:
+                    item_text = f"{p.code} - {p.name} (Stock: {p.current_stock or 0})"
+                    product_list.addItem(item_text)
+                    product_data[item_text] = p.code
+
+                layout.addWidget(product_list)
+
+                # Buttons
+                button_layout = QHBoxLayout()
+                button_layout.addStretch()
+
+                cancel_btn = QPushButton("Cancelar")
+                cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+                cancel_btn.clicked.connect(picker_dialog.reject)
+                button_layout.addWidget(cancel_btn)
+
+                select_btn = QPushButton("Seleccionar")
+                select_btn.setStyleSheet(UIStyles.get_primary_button_style())
+
+                def on_select():
+                    current_item = product_list.currentItem()
+                    if current_item:
+                        product_code = product_data.get(current_item.text())
+                        if product_code:
+                            picker_dialog.accept()
+                            # Get fresh product from DB
+                            with SessionLocal() as db2:
+                                product = db2.query(Product).filter(Product.code == product_code).first()
+                                if product:
+                                    self.adjust_product_stock(product)
+                    else:
+                        QMessageBox.warning(picker_dialog, "Aviso", "Seleccione un producto primero")
+
+                select_btn.clicked.connect(on_select)
+                product_list.itemDoubleClicked.connect(lambda: on_select())
+                button_layout.addWidget(select_btn)
+
+                layout.addLayout(button_layout)
+                picker_dialog.exec()
 
         except Exception as e:
             logger.error(f"Error showing product picker: {e}")
             QMessageBox.critical(self, "Error", f"Error al mostrar selector de productos: {str(e)}")
     
     def adjust_product_stock(self, product):
-        """Adjust stock for specific product - improved with better validation"""
-        from PySide6.QtWidgets import QInputDialog
-
+        """Adjust stock for specific product - improved with custom dialog"""
         # Store product info to avoid detached session issues
         product_id = product.id
         product_name = product.name
         current_stock = product.current_stock or 0
 
-        # Show current stock and ask for adjustment
-        quantity, ok = QInputDialog.getInt(
-            self,
-            "Ajustar Stock",
-            f"Producto: {product_name}\n"
-            f"Stock actual: {current_stock} unidades\n\n"
-            f"Ajuste de cantidad:\n"
-            f"  - Positivo para entrada (añadir stock)\n"
-            f"  - Negativo para salida (retirar stock)\n",
-            0, -9999, 9999, 1
-        )
+        # Create custom adjustment dialog
+        adjust_dialog = QDialog(self)
+        adjust_dialog.setWindowTitle("Ajustar Stock")
+        adjust_dialog.setModal(True)
+        adjust_dialog.resize(400, 300)
+        adjust_dialog.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
 
-        if ok and quantity != 0:  # Only proceed if user confirmed and quantity is not zero
+        layout = QVBoxLayout(adjust_dialog)
+        layout.setSpacing(16)
+        layout.setContentsMargins(24, 24, 24, 24)
+
+        # Product info
+        info_label = QLabel(f"Producto: {product_name}")
+        info_label.setStyleSheet(f"font-weight: 600; font-size: 15px; color: {UIStyles.COLORS['text_primary']};")
+        layout.addWidget(info_label)
+
+        stock_label = QLabel(f"Stock actual: {current_stock} unidades")
+        stock_label.setStyleSheet(UIStyles.get_label_style())
+        layout.addWidget(stock_label)
+
+        # Instructions
+        instructions = QLabel("Ajuste de cantidad:\n  + Positivo para entrada (añadir stock)\n  - Negativo para salida (retirar stock)")
+        instructions.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; font-size: 12px;")
+        layout.addWidget(instructions)
+
+        # Quantity input
+        quantity_layout = QHBoxLayout()
+        quantity_label = QLabel("Cantidad:")
+        quantity_label.setStyleSheet(UIStyles.get_label_style())
+        quantity_layout.addWidget(quantity_label)
+
+        quantity_spin = QSpinBox()
+        quantity_spin.setRange(-9999, 9999)
+        quantity_spin.setValue(0)
+        quantity_spin.setMinimumWidth(120)
+        quantity_layout.addWidget(quantity_spin)
+        quantity_layout.addStretch()
+
+        layout.addLayout(quantity_layout)
+        layout.addStretch()
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        cancel_btn.clicked.connect(adjust_dialog.reject)
+        button_layout.addWidget(cancel_btn)
+
+        save_btn = QPushButton("Aplicar Ajuste")
+        save_btn.setStyleSheet(UIStyles.get_primary_button_style())
+
+        def apply_adjustment():
+            quantity = quantity_spin.value()
+            if quantity == 0:
+                QMessageBox.information(adjust_dialog, "Info", "No se realizaron cambios (cantidad = 0)")
+                return
+
             try:
                 with SessionLocal() as db:
                     db_product = db.query(Product).filter(Product.id == product_id).first()
                     if not db_product:
-                        QMessageBox.warning(self, "Error", "Producto no encontrado")
+                        QMessageBox.warning(adjust_dialog, "Error", "Producto no encontrado")
                         return
 
                     old_stock = db_product.current_stock or 0
@@ -3399,7 +4402,7 @@ class InventoryManagementTab(QWidget):
                     # Validate the operation
                     if quantity < 0 and abs(quantity) > old_stock:
                         reply = QMessageBox.question(
-                            self,
+                            adjust_dialog,
                             "Confirmar Operacion",
                             f"La cantidad a retirar ({abs(quantity)}) es mayor que el stock actual ({old_stock}).\n"
                             f"El stock resultante sera 0.\n\n"
@@ -3414,6 +4417,7 @@ class InventoryManagementTab(QWidget):
                     db.commit()
 
                     movement_type = "Entrada" if quantity > 0 else "Salida"
+                    adjust_dialog.accept()
                     QMessageBox.information(
                         self, "Exito",
                         f"Stock ajustado correctamente\n\n"
@@ -3427,9 +4431,13 @@ class InventoryManagementTab(QWidget):
 
             except Exception as e:
                 logger.error(f"Error adjusting stock: {e}")
-                QMessageBox.critical(self, "Error", f"Error al ajustar stock: {str(e)}")
-        elif ok and quantity == 0:
-            QMessageBox.information(self, "Info", "No se realizaron cambios (cantidad = 0)")
+                QMessageBox.critical(adjust_dialog, "Error", f"Error al ajustar stock: {str(e)}")
+
+        save_btn.clicked.connect(apply_adjustment)
+        button_layout.addWidget(save_btn)
+
+        layout.addLayout(button_layout)
+        adjust_dialog.exec()
     
     def edit_product(self, product):
         """Edit product details using ProductDialog"""
@@ -3580,6 +4588,16 @@ class DiaryManagementTab(QWidget):
         self.view_calendar_btn.clicked.connect(self.view_calendar)
         self.view_calendar_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(self.view_calendar_btn)
+
+        self.new_reminder_btn = QPushButton("Nuevo Recordatorio")
+        self.new_reminder_btn.clicked.connect(self.add_reminder)
+        self.new_reminder_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.new_reminder_btn)
+
+        self.view_reminders_btn = QPushButton("Ver Recordatorios")
+        self.view_reminders_btn.clicked.connect(self.view_reminders)
+        self.view_reminders_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.view_reminders_btn)
 
         toolbar_layout.addStretch()
 
@@ -3740,7 +4758,225 @@ class DiaryManagementTab(QWidget):
         layout.addWidget(close_btn)
 
         calendar_dialog.exec()
-    
+
+    def add_reminder(self):
+        """Add a new reminder"""
+        reminder_dialog = QDialog(self)
+        reminder_dialog.setWindowTitle("Nuevo Recordatorio")
+        reminder_dialog.setModal(True)
+        reminder_dialog.resize(450, 350)
+        reminder_dialog.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
+
+        layout = QVBoxLayout(reminder_dialog)
+        layout.setSpacing(16)
+        layout.setContentsMargins(24, 24, 24, 24)
+
+        # Form layout
+        form_layout = QFormLayout()
+        form_layout.setSpacing(12)
+
+        # Title
+        title_edit = QLineEdit()
+        title_edit.setPlaceholderText("Titulo del recordatorio...")
+        form_layout.addRow("Titulo:", title_edit)
+
+        # Description
+        description_edit = QTextEdit()
+        description_edit.setPlaceholderText("Descripcion (opcional)...")
+        description_edit.setMaximumHeight(80)
+        form_layout.addRow("Descripcion:", description_edit)
+
+        # Due date
+        due_date_edit = QDateEdit()
+        due_date_edit.setDate(QDate.currentDate())
+        due_date_edit.setCalendarPopup(True)
+        form_layout.addRow("Fecha:", due_date_edit)
+
+        # Priority
+        priority_combo = QComboBox()
+        priority_combo.addItems(["Normal", "Alta", "Baja"])
+        form_layout.addRow("Prioridad:", priority_combo)
+
+        layout.addLayout(form_layout)
+        layout.addStretch()
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        cancel_btn.clicked.connect(reminder_dialog.reject)
+        button_layout.addWidget(cancel_btn)
+
+        save_btn = QPushButton("Guardar")
+        save_btn.setStyleSheet(UIStyles.get_primary_button_style())
+
+        def save_reminder():
+            title = title_edit.text().strip()
+            if not title:
+                QMessageBox.warning(reminder_dialog, "Error", "El titulo es obligatorio")
+                return
+
+            priority_map = {"Normal": "normal", "Alta": "high", "Baja": "low"}
+            priority = priority_map.get(priority_combo.currentText(), "normal")
+
+            try:
+                with SessionLocal() as db:
+                    qdate = due_date_edit.date()
+                    reminder = Reminder(
+                        title=title,
+                        description=description_edit.toPlainText().strip() or None,
+                        due_date=datetime(qdate.year(), qdate.month(), qdate.day()),
+                        priority=priority,
+                        is_completed=False,
+                    )
+                    db.add(reminder)
+                    db.commit()
+                    reminder_dialog.accept()
+                    QMessageBox.information(self, "Exito", "Recordatorio guardado correctamente")
+                    # Sync with dashboard
+                    self._sync_dashboard()
+            except Exception as e:
+                logger.error(f"Error saving reminder: {e}")
+                QMessageBox.critical(reminder_dialog, "Error", f"Error al guardar: {str(e)}")
+
+        save_btn.clicked.connect(save_reminder)
+        button_layout.addWidget(save_btn)
+
+        layout.addLayout(button_layout)
+        reminder_dialog.exec()
+
+    def _sync_dashboard(self):
+        """Sync changes with the Dashboard panel"""
+        try:
+            parent = self.parent()
+            while parent is not None:
+                if hasattr(parent, 'dashboard') and parent.dashboard:
+                    parent.dashboard.refresh_data()
+                    break
+                parent = parent.parent()
+        except Exception as e:
+            logger.warning(f"Could not sync with dashboard: {e}")
+
+    def view_reminders(self):
+        """View all reminders in a list dialog"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Recordatorios")
+        dialog.setModal(True)
+        dialog.resize(600, 450)
+        dialog.setStyleSheet(UIStyles.get_dialog_style())
+
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Title
+        title = QLabel("Lista de Recordatorios")
+        title.setStyleSheet(f"font-size: 18px; font-weight: 600; color: {UIStyles.COLORS['text_primary']};")
+        layout.addWidget(title)
+
+        # Table
+        table = QTableWidget()
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(["Titulo", "Fecha", "Prioridad", "Estado", "Acciones"])
+        table.setStyleSheet(UIStyles.get_table_style())
+        table.verticalHeader().setVisible(False)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        table.setColumnWidth(4, 120)
+
+        # Load reminders
+        try:
+            with SessionLocal() as db:
+                reminders = db.query(Reminder).order_by(
+                    Reminder.is_completed.asc(),
+                    Reminder.due_date.asc().nullslast()
+                ).all()
+
+                for row, r in enumerate(reminders):
+                    table.insertRow(row)
+                    table.setItem(row, 0, QTableWidgetItem(r.title))
+                    date_str = r.due_date.strftime('%d/%m/%Y') if r.due_date else "Sin fecha"
+                    table.setItem(row, 1, QTableWidgetItem(date_str))
+                    priority_map = {"high": "Alta", "normal": "Normal", "low": "Baja"}
+                    table.setItem(row, 2, QTableWidgetItem(priority_map.get(r.priority, "Normal")))
+                    status = "Completado" if r.is_completed else "Pendiente"
+                    status_item = QTableWidgetItem(status)
+                    if r.is_completed:
+                        status_item.setForeground(QColor("#34C759"))
+                    else:
+                        status_item.setForeground(QColor("#FF9500"))
+                    table.setItem(row, 3, status_item)
+
+                    # Action buttons
+                    actions = QWidget()
+                    actions_layout = QHBoxLayout(actions)
+                    actions_layout.setContentsMargins(2, 2, 2, 2)
+
+                    complete_btn = QPushButton("✓" if not r.is_completed else "↩")
+                    complete_btn.setToolTip("Marcar completado" if not r.is_completed else "Desmarcar")
+                    complete_btn.setFixedSize(28, 24)
+                    rid = r.id
+                    complete_btn.clicked.connect(lambda _, rid=rid: self._toggle_reminder(rid, dialog, table))
+                    actions_layout.addWidget(complete_btn)
+
+                    del_btn = QPushButton("🗑")
+                    del_btn.setToolTip("Eliminar")
+                    del_btn.setFixedSize(28, 24)
+                    del_btn.clicked.connect(lambda _, rid=rid: self._delete_reminder(rid, dialog, table))
+                    actions_layout.addWidget(del_btn)
+
+                    table.setCellWidget(row, 4, actions)
+
+        except Exception as e:
+            logger.error(f"Error loading reminders: {e}")
+
+        layout.addWidget(table)
+
+        # Close button
+        close_btn = QPushButton("Cerrar")
+        close_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+
+        dialog.exec()
+        self._sync_dashboard()
+
+    def _toggle_reminder(self, reminder_id, dialog, table):
+        """Toggle reminder completed status"""
+        try:
+            with SessionLocal() as db:
+                reminder = db.query(Reminder).filter(Reminder.id == reminder_id).first()
+                if reminder:
+                    reminder.is_completed = not reminder.is_completed
+                    db.commit()
+            dialog.accept()
+            self.view_reminders()
+        except Exception as e:
+            logger.error(f"Error toggling reminder: {e}")
+
+    def _delete_reminder(self, reminder_id, dialog, table):
+        """Delete a reminder"""
+        reply = QMessageBox.question(self, "Confirmar", "¿Eliminar este recordatorio?")
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                with SessionLocal() as db:
+                    reminder = db.query(Reminder).filter(Reminder.id == reminder_id).first()
+                    if reminder:
+                        db.delete(reminder)
+                        db.commit()
+                dialog.accept()
+                self.view_reminders()
+            except Exception as e:
+                logger.error(f"Error deleting reminder: {e}")
+
     def clear_all(self):
         """Clear all notes"""
         reply = QMessageBox.question(
@@ -4163,12 +5399,23 @@ class MainWindow(QMainWindow):
     def new_quote(self):
         """Create new quote"""
         dialog = DocumentDialog(self, "quote")
-        dialog.exec()
-    
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._refresh_all_panels()
+
     def new_invoice(self):
         """Create new invoice"""
         dialog = DocumentDialog(self, "invoice")
-        dialog.exec()
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._refresh_all_panels()
+
+    def _refresh_all_panels(self):
+        """Refresh all panels after data changes"""
+        if hasattr(self, 'dashboard') and self.dashboard:
+            self.dashboard.refresh_data()
+        if hasattr(self, 'documents_tab') and self.documents_tab:
+            self.documents_tab.refresh_data()
+        if hasattr(self, 'inventory_tab') and self.inventory_tab:
+            self.inventory_tab.refresh_data()
 
     def export_document_to_pdf(self):
         """Export selected document to PDF - shows document selection dialog"""

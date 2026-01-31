@@ -14,18 +14,23 @@ def setup_display_environment():
     """Setup display environment for remote/NX systems"""
     print("🖥️  Configurando entorno de visualización...")
     
-    # Fix for NX/remote environments
-    os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
-    os.environ['QT_SCALE_FACTOR'] = '1'
-    os.environ['QT_X11_NO_MITSHM'] = '1'  # Fix for remote displays
-    os.environ['QT_QPA_PLATFORM'] = 'xcb'  # Force X11 platform
-    
-    # Ensure DISPLAY is set
-    if not os.environ.get('DISPLAY'):
-        os.environ['DISPLAY'] = ':0'
-    
-    print(f"   DISPLAY: {os.environ.get('DISPLAY')}")
-    print("   ✅ Entorno configurado para display remoto")
+    # Only apply X11/xcb settings if not on macOS
+    if sys.platform != 'darwin':
+        # Fix for NX/remote environments
+        os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
+        os.environ['QT_SCALE_FACTOR'] = '1'
+        os.environ['QT_X11_NO_MITSHM'] = '1'  # Fix for remote displays
+        os.environ['QT_QPA_PLATFORM'] = 'xcb'  # Force X11 platform
+        
+        # Ensure DISPLAY is set
+        if not os.environ.get('DISPLAY'):
+            os.environ['DISPLAY'] = ':0'
+        
+        print(f"   DISPLAY: {os.environ.get('DISPLAY')}")
+        print("   ✅ Entorno configurado para display remoto (X11)")
+    else:
+        print("   🍎 Detected macOS environment")
+        print("   Using native display settings (Cocoa)")
 
 def check_python_version():
     """Check if Python version is compatible"""

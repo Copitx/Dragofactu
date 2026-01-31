@@ -7,6 +7,7 @@ Fixed version with proper data persistence and full functionality
 import sys
 import os
 import logging
+import uuid
 from datetime import datetime, date
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -25,7 +26,7 @@ from PySide6.QtWidgets import (
     QTimeEdit, QInputDialog, QFileDialog, QListWidget, QListWidgetItem
 )
 from PySide6.QtCore import Qt, QDate, QTime
-from PySide6.QtGui import QFont, QAction
+from PySide6.QtGui import QFont, QAction, QColor
 
 from sqlalchemy.orm import joinedload
 
@@ -74,7 +75,7 @@ class UIStyles:
         return f"""
             QFrame {{
                 background-color: {cls.COLORS['bg_card']};
-                border: 1px solid {cls.COLORS['border_light']};
+                border: none;
                 border-radius: 12px;
             }}
         """
@@ -821,7 +822,7 @@ class Dashboard(QWidget):
         card.setStyleSheet(f"""
             QFrame {{
                 background-color: {self.COLORS['bg_card']};
-                border: 1px solid {self.COLORS['border_light']};
+                border: none;
                 border-radius: 12px;
             }}
         """)
@@ -897,12 +898,11 @@ class Dashboard(QWidget):
         card.setStyleSheet(f"""
             QFrame {{
                 background-color: {self.COLORS['bg_card']};
-                border: 1px solid {self.COLORS['border_light']};
+                border: none;
                 border-radius: 12px;
             }}
             QFrame:hover {{
                 background-color: {self.COLORS['bg_hover']};
-                border-color: {self.COLORS['accent']};
             }}
         """)
 
@@ -962,7 +962,7 @@ class Dashboard(QWidget):
         docs_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {self.COLORS['bg_card']};
-                border: 1px solid {self.COLORS['border_light']};
+                border: none;
                 border-radius: 12px;
             }}
         """)
@@ -1165,6 +1165,97 @@ class Dashboard(QWidget):
         dialog.exec()
         self.refresh_data()
 
+    def import_external_file(self):
+        """Import external files"""
+        from PySide6.QtWidgets import QFileDialog
+        import json
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Seleccionar Archivo para Importar",
+            "",
+            "Todos los Archivos (*.csv *.json *.txt);;CSV Files (*.csv);;JSON Files (*.json);;Text Files (*.txt)"
+        )
+        
+        if file_path:
+            try:
+                if file_path.endswith('.csv'):
+                    self.import_csv_file(file_path)
+                elif file_path.endswith('.json'):
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        self.process_imported_json(data)
+                elif file_path.endswith('.txt'):
+                    self.import_text_file(file_path)
+                
+                QMessageBox.information(self, "✅ Éxito", f"Archivo importado correctamente: {os.path.basename(file_path)}")
+            except Exception as e:
+                logger.error(f"Error importing file: {e}")
+                QMessageBox.critical(self, "❌ Error", f"Error al importar archivo: {str(e)}")
+
+class ConfirmationDialog(QDialog):
+    """Custom styled confirmation dialog"""
+    def __init__(self, parent=None, title="Confirmar", message="¿Está seguro?", 
+                 confirm_text="Confirmar", cancel_text="Cancelar", is_danger=False):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setModal(True)
+        self.setFixedWidth(400)
+        
+        # Style
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {UIStyles.COLORS['bg_app']};
+            }}
+            QLabel {{
+                color: {UIStyles.COLORS['text_primary']};
+                font-size: 14px;
+            }}
+        """)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(20)
+        
+        # Icon and Message container
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(16)
+        
+        # Warning Icon
+        icon_label = QLabel("⚠️")
+        icon_label.setStyleSheet("font-size: 32px;")
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignTop)
+        content_layout.addWidget(icon_label)
+        
+        # Message
+        msg_label = QLabel(message)
+        msg_label.setWordWrap(True)
+        msg_label.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; line-height: 1.4;")
+        content_layout.addWidget(msg_label, 1)
+        
+        layout.addLayout(content_layout)
+        
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        cancel_btn = QPushButton(cancel_text)
+        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(cancel_btn)
+        
+        confirm_btn = QPushButton(confirm_text)
+        confirm_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        if is_danger:
+            confirm_btn.setStyleSheet(UIStyles.get_danger_button_style())
+        else:
+            confirm_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        confirm_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(confirm_btn)
+        
+        layout.addLayout(btn_layout)
+
 class ClientDialog(QDialog):
     """Dialog for creating and editing clients"""
     def __init__(self, parent=None, client_id=None):
@@ -1173,7 +1264,8 @@ class ClientDialog(QDialog):
         self.is_edit_mode = client_id is not None
         self.setWindowTitle("✏️ Editar Cliente" if self.is_edit_mode else "👤 Nuevo Cliente")
         self.setModal(True)
-        self.resize(500, 450)
+        # Increased height to ensure buttons are visible
+        self.resize(500, 650)
         self.setup_ui()
         if self.is_edit_mode:
             self.load_client_data()
@@ -1226,12 +1318,22 @@ class ClientDialog(QDialog):
         layout.addRow("Activo:", self.active_check)
 
         # Buttons
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(cancel_btn)
+        
+        save_btn = QPushButton("Guardar Cliente")
+        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        save_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        save_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(save_btn)
+        
+        layout.addRow(btn_layout)
 
     def load_client_data(self):
         """Load existing client data for editing"""
@@ -1309,7 +1411,8 @@ class ProductDialog(QDialog):
         self.is_edit_mode = product_id is not None
         self.setWindowTitle("✏️ Editar Producto" if self.is_edit_mode else "📦 Nuevo Producto")
         self.setModal(True)
-        self.resize(500, 500)
+        # Increased size to prevent cut-off elements
+        self.resize(550, 700)
         self.setup_ui()
         if self.is_edit_mode:
             self.load_product_data()
@@ -1373,12 +1476,22 @@ class ProductDialog(QDialog):
         layout.addRow("Activo:", self.active_check)
 
         # Buttons
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(cancel_btn)
+        
+        save_btn = QPushButton("Guardar Producto")
+        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        save_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        save_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(save_btn)
+        
+        layout.addRow(btn_layout)
 
     def load_product_data(self):
         """Load existing product data for editing"""
@@ -1499,7 +1612,8 @@ class DocumentDialog(QDialog):
             self.doc_title = "Factura"
         self.setWindowTitle(f"Nuevo {self.doc_title}")
         self.setModal(True)
-        self.resize(900, 700)
+        # Increased size to prevent overlapping elements
+        self.resize(1000, 850)
         self.items = []
         self.setup_ui()
     
@@ -1955,16 +2069,18 @@ class ClientManagementTab(QWidget):
         client_name = self.clients_table.item(current_row, 1).text()
         client_id = self.client_ids[current_row]
 
-        reply = QMessageBox.question(
-            self, "🗑️ Confirmar Eliminación",
-            f"¿Está seguro de eliminar al cliente '{client_name}'?\n\n"
-            "Se eliminarán también todos los documentos asociados.\n"
-            "Esta acción no se puede deshacer.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+        # Custom confirmation dialog
+        dialog = ConfirmationDialog(
+            self,
+            title="🗑️ Confirmar Eliminación",
+            message=f"¿Está seguro de eliminar al cliente '{client_name}'?\n\n"
+                    "Se eliminarán también todos los documentos asociados.\n"
+                    "Esta acción no se puede deshacer.",
+            confirm_text="Eliminar",
+            is_danger=True
         )
-
-        if reply == QMessageBox.StandardButton.Yes:
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             try:
                 with SessionLocal() as db:
                     # Check for associated documents
@@ -2185,15 +2301,17 @@ class ProductManagementTab(QWidget):
         product_name = self.products_table.item(current_row, 1).text()
         product_id = self.product_ids[current_row]
 
-        reply = QMessageBox.question(
-            self, "🗑️ Confirmar Eliminación",
-            f"¿Está seguro de eliminar el producto '{product_name}'?\n\n"
-            "Esta acción no se puede deshacer.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+        # Custom confirmation dialog
+        dialog = ConfirmationDialog(
+            self,
+            title="🗑️ Confirmar Eliminación",
+            message=f"¿Está seguro de eliminar el producto '{product_name}'?\n\n"
+                    "Esta acción no se puede deshacer.",
+            confirm_text="Eliminar",
+            is_danger=True
         )
-
-        if reply == QMessageBox.StandardButton.Yes:
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             try:
                 with SessionLocal() as db:
                     product = db.query(Product).filter(Product.id == product_id).first()
@@ -2360,12 +2478,16 @@ class DocumentManagementTab(QWidget):
                         type_text = "Albarán"
                     
                     type_item = QTableWidgetItem(type_text)
+                    type_font = QFont()
+                    type_font.setBold(True)
+                    type_item.setFont(type_font)
+                    
                     if doc.type == DocumentType.QUOTE:
-                        type_item.setStyleSheet("color: #9b59b6; font-weight: bold;")
+                        type_item.setForeground(QColor("#9b59b6"))
                     elif doc.type == DocumentType.INVOICE:
-                        type_item.setStyleSheet("color: #e67e22; font-weight: bold;")
+                        type_item.setForeground(QColor("#e67e22"))
                     elif doc.type == DocumentType.DELIVERY_NOTE:
-                        type_item.setStyleSheet("color: #3498db; font-weight: bold;")
+                        type_item.setForeground(QColor("#3498db"))
                     
                     self.docs_table.setItem(row, 1, type_item)
                     
@@ -2400,12 +2522,10 @@ class DocumentManagementTab(QWidget):
                         status_color = "purple"
                     
                     status_item = QTableWidgetItem(status_text)
-                    # Use proper Qt API - QTableWidgetItem doesn't have setStyleSheet
-                    from PySide6.QtGui import QColor, QFont
                     status_item.setForeground(QColor(status_color))
-                    font = QFont()
-                    font.setBold(True)
-                    status_item.setFont(font)
+                    status_font = QFont()
+                    status_font.setBold(True)
+                    status_item.setFont(status_font)
                     self.docs_table.setItem(row, 4, status_item)
                     
                     # Total
@@ -2477,11 +2597,10 @@ class DocumentManagementTab(QWidget):
 
     def on_table_double_click(self, row, column):
         """Handle double-click on table row - opens edit dialog"""
-        if not hasattr(self, '_document_ids') or row >= len(self._document_ids):
-            return
-
-        doc_id = self._document_ids[row]
+        raw_id = self._document_ids[row]
         try:
+            # Ensure doc_id is a UUID object if it's a string
+            doc_id = uuid.UUID(raw_id) if isinstance(raw_id, str) else raw_id
             with SessionLocal() as db:
                 doc = db.query(Document).filter(Document.id == doc_id).first()
                 if doc:
@@ -2493,9 +2612,11 @@ class DocumentManagementTab(QWidget):
     def view_document(self, document):
         """View document details"""
         try:
+            # Ensure ID is a UUID object
+            doc_id = uuid.UUID(str(document.id)) if not isinstance(document.id, uuid.UUID) else document.id
             with SessionLocal() as db:
                 # Reload document with relationships
-                doc = db.query(Document).options(joinedload(Document.client)).filter(Document.id == document.id).first()
+                doc = db.query(Document).options(joinedload(Document.client)).filter(Document.id == doc_id).first()
                 if not doc:
                     QMessageBox.warning(self, "❌ Error", "Documento no encontrado")
                     return
@@ -2582,8 +2703,10 @@ class DocumentManagementTab(QWidget):
     def edit_document(self, document):
         """Edit document - opens document dialog for editing"""
         try:
+            # Ensure ID is a UUID object
+            doc_id = uuid.UUID(str(document.id)) if not isinstance(document.id, uuid.UUID) else document.id
             with SessionLocal() as db:
-                doc = db.query(Document).filter(Document.id == document.id).first()
+                doc = db.query(Document).filter(Document.id == doc_id).first()
                 if not doc:
                     QMessageBox.warning(self, "❌ Error", "Documento no encontrado")
                     return
@@ -4289,17 +4412,9 @@ class SettingsDialog(QDialog):
             
             QMessageBox.information(self, "✅ Restablecido", "Configuración restablecida a valores por defecto")
     
-    def import_external_file(self):
+    def import_external_file(self, file_path):
         """Import external files"""
-        from PySide6.QtWidgets import QFileDialog
         import json
-        
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Seleccionar Archivo para Importar",
-            "",
-            "Todos los Archivos (*.csv *.json *.txt);;CSV Files (*.csv);;JSON Files (*.json);;Text Files (*.txt)"
-        )
         
         if file_path:
             try:
@@ -4415,7 +4530,8 @@ class LoginDialog(QDialog):
         """Setup modern login dialog"""
         self.setWindowTitle("Dragofactu - Iniciar Sesión")
         self.setModal(True)
-        self.setFixedSize(400, 420)
+        # Increased size to prevent overlapping elements
+        self.setFixedSize(460, 600)
 
         # Apply dialog style
         self.setStyleSheet(f"""
@@ -4425,8 +4541,8 @@ class LoginDialog(QDialog):
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(16)
+        layout.setContentsMargins(50, 50, 50, 50)
+        layout.setSpacing(20)
 
         # Logo/Title area
         title = QLabel("Dragofactu")

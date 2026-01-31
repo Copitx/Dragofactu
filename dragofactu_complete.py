@@ -4033,17 +4033,33 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def change_language(self, lang_code):
-        """Change application language"""
+        """Change application language and save preference"""
         try:
-            translator.set_language(lang_code)
-            QMessageBox.information(
-                self,
-                "Idioma Cambiado",
-                "El idioma ha sido cambiado. Por favor reinicie la aplicación para aplicar los cambios completamente."
-            )
+            lang_names = {'es': 'Español', 'en': 'English', 'de': 'Deutsch'}
+            lang_name = lang_names.get(lang_code, lang_code)
+
+            if translator.set_language(lang_code):
+                # Show message in the NEW language
+                messages = {
+                    'es': f"Idioma cambiado a {lang_name}.\n\nReinicie la aplicación para aplicar los cambios.",
+                    'en': f"Language changed to {lang_name}.\n\nRestart the application to apply changes.",
+                    'de': f"Sprache geändert zu {lang_name}.\n\nStarten Sie die Anwendung neu."
+                }
+                titles = {
+                    'es': "Idioma Guardado",
+                    'en': "Language Saved",
+                    'de': "Sprache Gespeichert"
+                }
+                QMessageBox.information(
+                    self,
+                    titles.get(lang_code, "Language"),
+                    messages.get(lang_code, messages['en'])
+                )
+            else:
+                QMessageBox.warning(self, "Error", f"Language {lang_code} not available")
         except Exception as e:
             logger.error(f"Error changing language: {e}")
-            QMessageBox.warning(self, "Error", f"No se pudo cambiar el idioma: {str(e)}")
+            QMessageBox.warning(self, "Error", f"Could not change language: {str(e)}")
 
     def import_external_file(self):
         """"Import external files - Fixed QAction/slot mismatch"""

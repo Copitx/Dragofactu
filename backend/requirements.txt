@@ -1,0 +1,33 @@
+# Dragofactu API Backend Dependencies
+
+# Web framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+alembic>=1.13.0
+
+# Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.1.0
+
+# Validation
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Utilities
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+
+# PDF generation (same as desktop)
+reportlab>=4.0.0
+
+# Email (optional)
+# aiosmtplib>=3.0.0
+
+# Development
+pytest>=7.4.0
+httpx>=0.26.0

@@ -1,0 +1,55 @@
+"""
+Dragofactu API - Main FastAPI application.
+
+Multi-tenant ERP backend for the Dragofactu desktop client.
+"""
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.config import get_settings
+
+settings = get_settings()
+
+# Create FastAPI app
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="API backend for Dragofactu ERP - Multi-tenant invoicing system",
+    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    debug=settings.DEBUG
+)
+
+# CORS middleware - Required for desktop client
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """Health check endpoint for monitoring."""
+    return {
+        "status": "healthy",
+        "version": settings.APP_VERSION,
+        "app": settings.APP_NAME
+    }
+
+
+@app.get("/", tags=["Root"])
+async def root():
+    """Root endpoint with API info."""
+    return {
+        "message": "Dragofactu API",
+        "version": settings.APP_VERSION,
+        "docs": "/docs"
+    }
+
+
+# TODO: Include routers when implemented
+# from app.api.router import api_router
+# app.include_router(api_router, prefix=settings.API_V1_PREFIX)

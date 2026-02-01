@@ -93,6 +93,92 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 | v1.0.0.6 | - | Sesión Claude - Rediseño UI Apple-inspired |
 | v1.0.0.7 | 2026-01-31 | Sesión Claude - Sistema de Traducción Completo |
 | v1.0.0.9 | 2026-02-01 | Sesión Claude - Mejoras DocumentDialog, Estados, Recordatorios |
+| v2.0.0 | 2026-02-01 | **EN DESARROLLO** - Migración Multi-tenant API |
+
+---
+
+## MIGRACIÓN MULTI-TENANT API (v2.0.0) - EN DESARROLLO
+
+**Rama Git:** `feature/multi-tenant-api`
+**Documento de Planificación:** `pasos a seguir migracion.md`
+**Estado:** Fase 1 - Setup Inicial
+
+### Objetivo
+Convertir Dragofactu de app desktop local a sistema multi-empresa con backend API centralizado.
+
+### Arquitectura Objetivo
+```
+Desktop Client (PySide6)  ──HTTP/REST──▶  FastAPI Backend  ──▶  PostgreSQL
+     └── APIClient                              └── Multi-tenancy (company_id)
+```
+
+### Estructura Backend Creada
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI entry point
+│   ├── config.py            # Pydantic Settings
+│   ├── database.py          # SQLAlchemy engine
+│   ├── models/
+│   │   ├── base.py          # Declarative Base
+│   │   └── company.py       # Modelo Company (tenant)
+│   ├── schemas/             # Pydantic schemas
+│   ├── api/v1/              # Routers
+│   ├── services/            # Business logic
+│   ├── core/                # Security, permissions
+│   └── middleware/          # Multi-tenancy
+├── alembic/
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+│       └── 001_create_companies_table.py
+├── tests/
+├── Dockerfile
+├── requirements.txt
+├── alembic.ini
+└── .env.example
+```
+
+### Fases de Implementación
+
+| Fase | Descripción | Estado |
+|------|-------------|--------|
+| 1 | Setup Inicial (estructura, Docker, Company) | ✅ COMPLETADA |
+| 2 | Backend Core (modelos, schemas) | ⏳ PENDIENTE |
+| 3 | Sistema de Autenticación (JWT) | ⏳ PENDIENTE |
+| 4 | CRUD Endpoints | ⏳ PENDIENTE |
+| 5 | Documentos e Inventario | ⏳ PENDIENTE |
+| 6 | Cliente Desktop (APIClient) | ⏳ PENDIENTE |
+| 7 | Testing e Integración | ⏳ PENDIENTE |
+| 8 | Despliegue Producción | ⏳ PENDIENTE |
+
+### Comandos Backend
+```bash
+# Desarrollo con Docker
+docker-compose up -d
+
+# Sin Docker (requiere PostgreSQL local)
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+
+# Migraciones
+alembic upgrade head
+alembic revision --autogenerate -m "descripcion"
+```
+
+### URLs de Desarrollo
+- API: http://localhost:8000
+- Docs Swagger: http://localhost:8000/docs
+- Adminer (BD): http://localhost:8080
+
+### Notas para Agentes
+1. **Versión estable:** `main` tiene la versión desktop funcional
+2. **Versión en desarrollo:** `feature/multi-tenant-api` tiene la migración
+3. **No romper:** La app desktop actual DEBE seguir funcionando
+4. **Multi-tenancy:** TODAS las entidades necesitan `company_id`
+5. **Hosting objetivo:** Railway (plan gratuito, 2 usuarios)
 
 ---
 

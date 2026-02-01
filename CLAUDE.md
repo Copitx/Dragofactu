@@ -101,7 +101,8 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 
 **Rama Git:** `feature/multi-tenant-api`
 **Documento de Planificación:** `pasos a seguir migracion.md`
-**Estado:** Fase 1 - Setup Inicial
+**Estado:** Fase 3 - Autenticación (EN PROGRESO)
+**Última actualización:** 2026-02-01
 
 ### Objetivo
 Convertir Dragofactu de app desktop local a sistema multi-empresa con backend API centralizado.
@@ -112,42 +113,50 @@ Desktop Client (PySide6)  ──HTTP/REST──▶  FastAPI Backend  ──▶  
      └── APIClient                              └── Multi-tenancy (company_id)
 ```
 
-### Estructura Backend Creada
+### Estructura Backend Actual
 ```
 backend/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py              # FastAPI entry point
-│   ├── config.py            # Pydantic Settings
+│   ├── main.py              # FastAPI entry point (funcionando)
+│   ├── config.py            # Pydantic Settings (SQLite dev)
 │   ├── database.py          # SQLAlchemy engine
-│   ├── models/
-│   │   ├── base.py          # Declarative Base
-│   │   └── company.py       # Modelo Company (tenant)
-│   ├── schemas/             # Pydantic schemas
-│   ├── api/v1/              # Routers
-│   ├── services/            # Business logic
-│   ├── core/                # Security, permissions
-│   └── middleware/          # Multi-tenancy
+│   ├── models/              # 9 archivos, 11 tablas
+│   │   ├── base.py          # Base + GUID type
+│   │   ├── company.py       # Tenant principal
+│   │   ├── user.py          # User + UserRole + RBAC
+│   │   ├── client.py        # Cliente con company_id
+│   │   ├── supplier.py      # Proveedor con company_id
+│   │   ├── product.py       # Producto con stock
+│   │   ├── document.py      # Document + DocumentLine + Status
+│   │   ├── worker.py        # Worker + Course
+│   │   ├── diary.py         # DiaryEntry
+│   │   └── reminder.py      # Reminder
+│   ├── schemas/             # 11 archivos Pydantic
+│   │   ├── base.py          # BaseSchema, PaginatedResponse
+│   │   ├── auth.py          # Login, Register, Tokens
+│   │   ├── company.py, client.py, supplier.py, product.py
+│   │   ├── document.py, worker.py, diary.py, reminder.py
+│   ├── api/v1/              # (Fase 3-4)
+│   ├── services/            # (Fase 3-4)
+│   ├── core/                # (Fase 3: security.py)
+│   └── middleware/          # (Fase 3: tenant.py)
 ├── alembic/
-│   ├── env.py
-│   ├── script.py.mako
-│   └── versions/
-│       └── 001_create_companies_table.py
-├── tests/
+├── venv/                    # Virtual environment
+├── dragofactu_api.db        # SQLite de desarrollo
 ├── Dockerfile
 ├── requirements.txt
-├── alembic.ini
 └── .env.example
 ```
 
 ### Fases de Implementación
 
-| Fase | Descripción | Estado |
-|------|-------------|--------|
-| 1 | Setup Inicial (estructura, Docker, Company) | ✅ COMPLETADA |
-| 2 | Backend Core (modelos, schemas) | ⏳ PENDIENTE |
-| 3 | Sistema de Autenticación (JWT) | ⏳ PENDIENTE |
-| 4 | CRUD Endpoints | ⏳ PENDIENTE |
+| Fase | Descripción | Estado | Commit |
+|------|-------------|--------|--------|
+| 1 | Setup Inicial (estructura, Docker, Company) | ✅ | `fb477b6` |
+| 2 | Backend Core (modelos, schemas) | ✅ | `bcca59d` |
+| 3 | Sistema de Autenticación (JWT) | 🔄 EN PROGRESO | - |
+| 4 | CRUD Endpoints | ⏳ | - |
 | 5 | Documentos e Inventario | ⏳ PENDIENTE |
 | 6 | Cliente Desktop (APIClient) | ⏳ PENDIENTE |
 | 7 | Testing e Integración | ⏳ PENDIENTE |

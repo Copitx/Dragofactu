@@ -2630,8 +2630,11 @@ class DocumentDialog(QDialog):
                 total = float(total_text.replace('EUR', '').replace('€', '').strip())
 
                 if self.is_edit_mode:
-                    # Update existing document
-                    document = db.query(Document).options(joinedload(Document.lines)).filter(Document.id == self.document_id).first()
+                    # Update existing document - convert string ID to UUID
+                    doc_id = self.document_id
+                    if isinstance(doc_id, str):
+                        doc_id = uuid.UUID(doc_id)
+                    document = db.query(Document).options(joinedload(Document.lines)).filter(Document.id == doc_id).first()
                     if not document:
                         QMessageBox.warning(self, "Error", "Documento no encontrado")
                         return
@@ -3559,33 +3562,24 @@ class DocumentManagementTab(QWidget):
                         due_text = doc.due_date.strftime('%d/%m/%Y')
                     self.docs_table.setItem(row, 6, QTableWidgetItem(due_text))
                     
-                    # Actions - create simple text buttons
+                    # Actions - create text buttons
                     actions_widget = QWidget()
                     actions_layout = QHBoxLayout(actions_widget)
-                    actions_layout.setContentsMargins(2, 2, 2, 2)
-                    actions_layout.setSpacing(2)
-
-                    view_btn = QPushButton("👁")
-                    view_btn.setToolTip("Ver Documento")
-                    view_btn.setFixedSize(28, 24)
-                    view_btn.clicked.connect(lambda checked, d=doc: self.view_document(d))
-                    actions_layout.addWidget(view_btn)
-
-                    edit_btn = QPushButton("✎")
-                    edit_btn.setToolTip("Editar Documento")
-                    edit_btn.setFixedSize(28, 24)
-                    edit_btn.clicked.connect(lambda checked, d=doc: self.edit_document(d))
-                    actions_layout.addWidget(edit_btn)
+                    actions_layout.setContentsMargins(4, 4, 4, 4)
+                    actions_layout.setSpacing(4)
 
                     pdf_btn = QPushButton("PDF")
                     pdf_btn.setToolTip("Generar PDF")
-                    pdf_btn.setFixedSize(36, 24)
+                    pdf_btn.setMinimumWidth(40)
+                    pdf_btn.setMaximumHeight(26)
                     pdf_btn.clicked.connect(lambda checked, d=doc: self.generate_pdf(d))
                     actions_layout.addWidget(pdf_btn)
 
-                    del_btn = QPushButton("🗑")
-                    del_btn.setToolTip("Eliminar Documento")
-                    del_btn.setFixedSize(28, 24)
+                    del_btn = QPushButton("X")
+                    del_btn.setToolTip("Eliminar")
+                    del_btn.setMinimumWidth(30)
+                    del_btn.setMaximumHeight(26)
+                    del_btn.setStyleSheet("color: red; font-weight: bold;")
                     del_btn.clicked.connect(lambda checked, d=doc: self.delete_document(d))
                     actions_layout.addWidget(del_btn)
 

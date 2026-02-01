@@ -101,8 +101,9 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 
 **Rama Git:** `feature/multi-tenant-api`
 **Documento de Planificación:** `pasos a seguir migracion.md`
-**Estado:** Fase 3 - Autenticación (EN PROGRESO)
+**Estado:** Fase 3 COMPLETADA - Siguiente: Fase 4 (CRUD Endpoints)
 **Última actualización:** 2026-02-01
+**Rama:** `feature/multi-tenant-api` (pushed to GitHub)
 
 ### Objetivo
 Convertir Dragofactu de app desktop local a sistema multi-empresa con backend API centralizado.
@@ -155,8 +156,12 @@ backend/
 |------|-------------|--------|--------|
 | 1 | Setup Inicial (estructura, Docker, Company) | ✅ | `fb477b6` |
 | 2 | Backend Core (modelos, schemas) | ✅ | `bcca59d` |
-| 3 | Sistema de Autenticación (JWT) | 🔄 EN PROGRESO | - |
-| 4 | CRUD Endpoints | ⏳ | - |
+| 3 | Sistema de Autenticación (JWT) | ✅ | `7c2d31e` |
+| 4 | CRUD Endpoints | 🔄 SIGUIENTE | - |
+| 5 | Documentos e Inventario | ⏳ | - |
+| 6 | Cliente Desktop (APIClient) | ⏳ | - |
+| 7 | Testing e Integración | ⏳ | - |
+| 8 | Despliegue (Railway free) | ⏳ | - |
 | 5 | Documentos e Inventario | ⏳ PENDIENTE |
 | 6 | Cliente Desktop (APIClient) | ⏳ PENDIENTE |
 | 7 | Testing e Integración | ⏳ PENDIENTE |

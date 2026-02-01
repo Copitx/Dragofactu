@@ -3,10 +3,9 @@ Company model - The tenant in multi-tenant architecture.
 Each company has isolated data from other companies.
 """
 from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Integer
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.models.base import Base
+from app.models.base import Base, GUID
 import uuid
 
 
@@ -17,7 +16,7 @@ class Company(Base):
     """
     __tablename__ = "companies"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
 
     # Identification
     code = Column(String(20), unique=True, nullable=False, index=True)
@@ -52,11 +51,15 @@ class Company(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Relationships (will be added as we create other models)
-    # users = relationship("User", back_populates="company")
-    # clients = relationship("Client", back_populates="company")
-    # products = relationship("Product", back_populates="company")
-    # documents = relationship("Document", back_populates="company")
+    # Relationships
+    users = relationship("User", back_populates="company")
+    clients = relationship("Client", back_populates="company")
+    suppliers = relationship("Supplier", back_populates="company")
+    products = relationship("Product", back_populates="company")
+    documents = relationship("Document", back_populates="company")
+    workers = relationship("Worker", back_populates="company")
+    diary_entries = relationship("DiaryEntry", back_populates="company")
+    reminders = relationship("Reminder", back_populates="company")
 
     def __repr__(self):
         return f"<Company {self.code}: {self.name}>"

@@ -7,12 +7,14 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# Create engine
+# Create engine - SQLite needs special handling
+connect_args = {}
+if settings.DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,  # Verify connections before use
-    pool_size=5,
-    max_overflow=10
+    connect_args=connect_args
 )
 
 # Session factory

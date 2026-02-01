@@ -179,6 +179,13 @@ alembic revision --autogenerate -m "descripcion"
 3. **No romper:** La app desktop actual DEBE seguir funcionando
 4. **Multi-tenancy:** TODAS las entidades necesitan `company_id`
 5. **Hosting objetivo:** Railway (plan gratuito, 2 usuarios)
+6. **BD Desarrollo:** SQLite (`dragofactu_api.db`) - NO usar Docker por ahora
+
+### Pendientes Post-Desarrollo
+- [ ] **Configurar Docker + PostgreSQL** cuando el código esté completo
+- [ ] Migrar de SQLite a PostgreSQL para pruebas de producción
+- [ ] Configurar Railway/Render para despliegue
+- [ ] Generar SECRET_KEY seguro para producción
 
 ---
 

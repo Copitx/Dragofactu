@@ -5,9 +5,24 @@ Multi-tenant ERP backend for the Dragofactu desktop client.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.config import get_settings
+from app.database import engine
+from app.models import Base
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events."""
+    # Startup: Create all tables
+    print("Creating database tables...")
+    Base.metadata.create_all(bind=engine)
+    print("Database tables created.")
+    yield
+    # Shutdown: Clean up if needed
+    print("Application shutting down.")
 
 # Create FastAPI app
 app = FastAPI(
@@ -17,7 +32,8 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
-    debug=settings.DEBUG
+    debug=settings.DEBUG,
+    lifespan=lifespan
 )
 
 # CORS middleware - Required for desktop client

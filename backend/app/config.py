@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 
-    # Database
-    DATABASE_URL: str = "postgresql://dragofactu:dragofactu@localhost:5432/dragofactu"
+    # Database - SQLite for development, PostgreSQL for production
+    DATABASE_URL: str = "sqlite:///./dragofactu_api.db"
 
     # Security
     SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"

@@ -93,7 +93,14 @@ Dragofactu/                    # Codigo fuente (11MB)
 - `debug_main.py`, `test_*.py`, `run.py`, `start_fixed.py`
 - `dashboard_view_fixed.py`, `inventory_view_fixed.py`
 
-### v1.0.0.9 (2026-02-01) - Documentos, Estados y Recordatorios
+### v1.0.0.9 (2026-02-01) - Documentos, Estados, Recordatorios y Config PDF
+
+**Configuración PDF Personalizable (Nuevo):**
+- **Datos de empresa editables**: Nombre, dirección, teléfono, email, CIF
+- **Logo de empresa**: Selector de archivo PNG/JPG con vista previa
+- **Texto pie de factura**: Campo multilinea para avisos legales personalizados
+- **Configuración persistente**: Guardado en `~/.dragofactu/pdf_settings.json`
+- **SettingsDialog rediseñado**: Estructura con tabs (PDF, Apariencia, Sistema)
 
 **Gestión de Documentos Mejorada:**
 - **Nuevos estados**: NOT_SENT, PARTIALLY_PAID, CANCELLED
@@ -179,7 +186,8 @@ Dragofactu/                    # Codigo fuente (11MB)
 | Diario | Estable | Notas diarias, recordatorios |
 | Recordatorios | Estable | CRUD, prioridades, fechas, estados |
 | Trabajadores | Estable | CRUD, cursos, formacion |
-| Config | Estable | Preferencias, idioma con cambio en vivo, tema |
+| Config | Estable | Preferencias, idioma en vivo, tema |
+| Config PDF | Estable | Datos empresa, logo, pie de factura personalizado |
 
 ---
 

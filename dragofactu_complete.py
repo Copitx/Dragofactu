@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QTimeEdit, QInputDialog, QFileDialog, QListWidget, QListWidgetItem
 )
 from PySide6.QtCore import Qt, QDate, QTime
-from PySide6.QtGui import QFont, QAction, QColor
+from PySide6.QtGui import QFont, QAction, QColor, QPixmap
 
 from sqlalchemy.orm import joinedload
 
@@ -344,6 +344,140 @@ from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from decimal import Decimal
+import json
+import shutil
+
+
+class PDFSettingsManager:
+    """
+    Manages PDF configuration settings with persistence.
+
+    Settings are stored in a JSON file in the config directory.
+    Allows users to customize company info, logo, and footer text.
+    """
+
+    # Default settings
+    DEFAULT_SETTINGS = {
+        'company_name': 'Your Company Name',
+        'company_address': 'Your Address',
+        'company_phone': 'Your Phone',
+        'company_email': 'your-email@company.com',
+        'company_cif': 'Your CIF',
+        'logo_path': '',
+        'footer_text': 'Este documento es valido como factura segun la normativa fiscal vigente.\nForma de pago: Transferencia bancaria | Plazo de pago: 30 dias\nGracias por confiar en nosotros.',
+    }
+
+    _instance = None
+    _settings = None
+    _config_path = None
+
+    @classmethod
+    def get_instance(cls):
+        """Get singleton instance"""
+        if cls._instance is None:
+            cls._instance = PDFSettingsManager()
+        return cls._instance
+
+    def __init__(self):
+        """Initialize settings manager"""
+        # Determine config file path
+        self._config_path = self._get_config_path()
+        self._settings = self._load_settings()
+
+    def _get_config_path(self):
+        """Get the path to the config file"""
+        # Try to use user's config directory
+        config_dir = os.path.join(os.path.expanduser('~'), '.dragofactu')
+        os.makedirs(config_dir, exist_ok=True)
+        return os.path.join(config_dir, 'pdf_settings.json')
+
+    def _load_settings(self):
+        """Load settings from file or return defaults"""
+        if os.path.exists(self._config_path):
+            try:
+                with open(self._config_path, 'r', encoding='utf-8') as f:
+                    loaded = json.load(f)
+                    # Merge with defaults to ensure all keys exist
+                    settings = self.DEFAULT_SETTINGS.copy()
+                    settings.update(loaded)
+                    return settings
+            except Exception as e:
+                logger.error(f"Error loading PDF settings: {e}")
+                return self.DEFAULT_SETTINGS.copy()
+        return self.DEFAULT_SETTINGS.copy()
+
+    def save_settings(self, settings):
+        """Save settings to file"""
+        try:
+            self._settings = settings
+            with open(self._config_path, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, indent=2, ensure_ascii=False)
+            logger.info(f"PDF settings saved to {self._config_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving PDF settings: {e}")
+            return False
+
+    def get_settings(self):
+        """Get current settings"""
+        return self._settings.copy()
+
+    def get(self, key, default=None):
+        """Get a specific setting"""
+        return self._settings.get(key, default)
+
+    def set(self, key, value):
+        """Set a specific setting and save"""
+        self._settings[key] = value
+        self.save_settings(self._settings)
+
+    def reset_to_defaults(self):
+        """Reset all settings to defaults"""
+        self._settings = self.DEFAULT_SETTINGS.copy()
+        self.save_settings(self._settings)
+
+    def copy_logo(self, source_path):
+        """
+        Copy logo file to config directory and update settings.
+
+        Args:
+            source_path: Path to the source logo file
+
+        Returns:
+            New path to the copied logo, or None on error
+        """
+        if not source_path or not os.path.exists(source_path):
+            return None
+
+        try:
+            config_dir = os.path.dirname(self._config_path)
+            ext = os.path.splitext(source_path)[1].lower()
+            logo_filename = f"company_logo{ext}"
+            dest_path = os.path.join(config_dir, logo_filename)
+
+            shutil.copy2(source_path, dest_path)
+            self.set('logo_path', dest_path)
+            logger.info(f"Logo copied to {dest_path}")
+            return dest_path
+        except Exception as e:
+            logger.error(f"Error copying logo: {e}")
+            return None
+
+    def remove_logo(self):
+        """Remove current logo"""
+        current_logo = self._settings.get('logo_path', '')
+        if current_logo and os.path.exists(current_logo):
+            try:
+                os.remove(current_logo)
+            except Exception as e:
+                logger.warning(f"Could not remove logo file: {e}")
+        self.set('logo_path', '')
+
+
+# Global function to get PDF settings
+def get_pdf_settings():
+    """Get PDF settings manager instance"""
+    return PDFSettingsManager.get_instance()
 
 
 class InvoicePDFGenerator:
@@ -372,15 +506,18 @@ class InvoicePDFGenerator:
     IVA_RATE = Decimal('0.21')
 
     def __init__(self):
-        """Initialize PDF generator with company configuration"""
-        from dragofactu.config.config import AppConfig
+        """Initialize PDF generator with company configuration from PDFSettingsManager"""
+        # Load settings from persistent config (user-editable via Settings dialog)
+        pdf_settings = get_pdf_settings()
+        settings = pdf_settings.get_settings()
 
-        self.company_name = AppConfig.PDF_COMPANY_NAME
-        self.company_address = AppConfig.PDF_COMPANY_ADDRESS
-        self.company_phone = AppConfig.PDF_COMPANY_PHONE
-        self.company_email = AppConfig.PDF_COMPANY_EMAIL
-        self.company_cif = AppConfig.PDF_COMPANY_CIF
-        self.logo_path = AppConfig.PDF_LOGO_PATH
+        self.company_name = settings.get('company_name', 'Your Company Name')
+        self.company_address = settings.get('company_address', 'Your Address')
+        self.company_phone = settings.get('company_phone', 'Your Phone')
+        self.company_email = settings.get('company_email', 'your-email@company.com')
+        self.company_cif = settings.get('company_cif', 'Your CIF')
+        self.logo_path = settings.get('logo_path', '')
+        self.footer_text = settings.get('footer_text', 'Este documento es valido como factura segun la normativa fiscal vigente.\nForma de pago: Transferencia bancaria | Plazo de pago: 30 dias\nGracias por confiar en nosotros.')
 
         # Page dimensions
         self.page_width, self.page_height = A4
@@ -535,7 +672,7 @@ class InvoicePDFGenerator:
         return styles
 
     def _create_header(self, document, styles):
-        """Create header with company info and invoice details"""
+        """Create header with company info, logo (optional) and invoice details"""
         # Determine document type label
         doc_type_labels = {
             DocumentType.INVOICE: 'FACTURA',
@@ -546,6 +683,25 @@ class InvoicePDFGenerator:
 
         # Company info (left side)
         company_info = []
+
+        # Add logo if exists
+        if self.logo_path and os.path.exists(self.logo_path):
+            try:
+                # Create logo image with max height of 20mm
+                logo = Image(self.logo_path)
+                # Scale logo to fit - max width 40mm, max height 20mm
+                logo_width, logo_height = logo.imageWidth, logo.imageHeight
+                max_width = 40 * mm
+                max_height = 20 * mm
+                # Calculate scale factor
+                scale = min(max_width / logo_width, max_height / logo_height)
+                logo.drawWidth = logo_width * scale
+                logo.drawHeight = logo_height * scale
+                company_info.append(logo)
+                company_info.append(Spacer(1, 2 * mm))
+            except Exception as e:
+                logger.warning(f"Could not load logo: {e}")
+
         company_info.append(Paragraph(self.company_name, styles['CompanyName']))
 
         company_details = f"""
@@ -776,14 +932,10 @@ class InvoicePDFGenerator:
         return container
 
     def _create_footer(self, styles):
-        """Create footer with legal text"""
-        footer_text = """
-        Este documento es valido como factura segun la normativa fiscal vigente.<br/>
-        Forma de pago: Transferencia bancaria | Plazo de pago: 30 dias<br/>
-        Gracias por confiar en nosotros.
-        """
-
-        return Paragraph(footer_text, styles['Footer'])
+        """Create footer with customizable legal text"""
+        # Use custom footer text, replacing newlines with <br/> for HTML
+        footer_content = self.footer_text.replace('\n', '<br/>')
+        return Paragraph(footer_content, styles['Footer'])
 
 
 class Dashboard(QWidget):
@@ -5746,190 +5898,402 @@ class MainWindow(QMainWindow):
 
 
 class SettingsDialog(QDialog):
-    """Functional Settings dialog"""
+    """Functional Settings dialog with PDF configuration"""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("⚙️ Configuración - DRAGOFACTU")
+        self.setWindowTitle("Configuracion - DRAGOFACTU")
         self.setModal(True)
-        self.resize(500, 600)
+        self.resize(600, 700)
+        self.pdf_settings = get_pdf_settings()
+        self.logo_path_temp = None
         self.setup_ui()
-    
+        self.load_pdf_settings()
+
     def setup_ui(self):
         layout = QVBoxLayout(self)
-        
-        # General settings
-        general_group = QGroupBox("🔧 Configuración General")
-        general_layout = QFormLayout(general_group)
-        
-        # Company info
-        self.company_name_edit = QLineEdit()
-        self.company_name_edit.setText("DRAGOFACTU Software")
-        general_layout.addRow("Nombre Empresa:", self.company_name_edit)
-        
-        self.company_email_edit = QLineEdit()
-        self.company_email_edit.setText("info@dragofactu.com")
-        general_layout.addRow("Email Empresa:", self.company_email_edit)
-        
-        self.company_phone_edit = QLineEdit()
-        self.company_phone_edit.setText("+34 900 000 000")
-        general_layout.addRow("Teléfono Empresa:", self.company_phone_edit)
-        
-        layout.addWidget(general_group)
-        
-        # UI settings
-        ui_group = QGroupBox("🎨 Apariencia")
-        ui_layout = QFormLayout(ui_group)
-        
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
+
+        # Create tab widget
+        tab_widget = QTabWidget()
+        tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #D2D2D7;
+                border-radius: 8px;
+                background: white;
+            }
+            QTabBar::tab {
+                padding: 8px 16px;
+                margin-right: 4px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                background: #F5F5F7;
+                border: 1px solid #D2D2D7;
+                border-bottom: none;
+            }
+            QTabBar::tab:selected {
+                background: white;
+                border-bottom: 1px solid white;
+            }
+        """)
+
+        # Tab 1: PDF Configuration
+        pdf_tab = QWidget()
+        pdf_layout = QVBoxLayout(pdf_tab)
+        pdf_layout.setContentsMargins(16, 16, 16, 16)
+        pdf_layout.setSpacing(12)
+
+        # Company info section
+        company_group = QGroupBox("Datos de la Empresa (PDF)")
+        company_group.setStyleSheet(UIStyles.get_group_box_style())
+        company_layout = QFormLayout(company_group)
+        company_layout.setSpacing(10)
+
+        self.pdf_company_name = QLineEdit()
+        self.pdf_company_name.setPlaceholderText("Nombre de tu empresa")
+        self.pdf_company_name.setStyleSheet(UIStyles.get_input_style())
+        company_layout.addRow("Nombre:", self.pdf_company_name)
+
+        self.pdf_company_address = QLineEdit()
+        self.pdf_company_address.setPlaceholderText("Direccion completa")
+        self.pdf_company_address.setStyleSheet(UIStyles.get_input_style())
+        company_layout.addRow("Direccion:", self.pdf_company_address)
+
+        self.pdf_company_phone = QLineEdit()
+        self.pdf_company_phone.setPlaceholderText("+34 XXX XXX XXX")
+        self.pdf_company_phone.setStyleSheet(UIStyles.get_input_style())
+        company_layout.addRow("Telefono:", self.pdf_company_phone)
+
+        self.pdf_company_email = QLineEdit()
+        self.pdf_company_email.setPlaceholderText("email@tuempresa.com")
+        self.pdf_company_email.setStyleSheet(UIStyles.get_input_style())
+        company_layout.addRow("Email:", self.pdf_company_email)
+
+        self.pdf_company_cif = QLineEdit()
+        self.pdf_company_cif.setPlaceholderText("B12345678")
+        self.pdf_company_cif.setStyleSheet(UIStyles.get_input_style())
+        company_layout.addRow("CIF/NIF:", self.pdf_company_cif)
+
+        pdf_layout.addWidget(company_group)
+
+        # Logo section
+        logo_group = QGroupBox("Logo de la Empresa")
+        logo_group.setStyleSheet(UIStyles.get_group_box_style())
+        logo_layout = QVBoxLayout(logo_group)
+        logo_layout.setSpacing(10)
+
+        # Logo preview
+        self.logo_preview = QLabel()
+        self.logo_preview.setFixedSize(150, 80)
+        self.logo_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.logo_preview.setStyleSheet("""
+            QLabel {
+                background-color: #F5F5F7;
+                border: 2px dashed #D2D2D7;
+                border-radius: 8px;
+            }
+        """)
+        self.logo_preview.setText("Sin logo")
+
+        logo_preview_container = QHBoxLayout()
+        logo_preview_container.addStretch()
+        logo_preview_container.addWidget(self.logo_preview)
+        logo_preview_container.addStretch()
+        logo_layout.addLayout(logo_preview_container)
+
+        # Logo buttons
+        logo_buttons = QHBoxLayout()
+        logo_buttons.setSpacing(10)
+
+        select_logo_btn = QPushButton("Seleccionar Logo")
+        select_logo_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        select_logo_btn.clicked.connect(self.select_logo)
+        logo_buttons.addWidget(select_logo_btn)
+
+        remove_logo_btn = QPushButton("Eliminar Logo")
+        remove_logo_btn.setStyleSheet(UIStyles.get_danger_button_style())
+        remove_logo_btn.clicked.connect(self.remove_logo)
+        logo_buttons.addWidget(remove_logo_btn)
+
+        logo_buttons.addStretch()
+        logo_layout.addLayout(logo_buttons)
+
+        logo_hint = QLabel("Formatos: PNG, JPG. Recomendado: PNG con fondo transparente.")
+        logo_hint.setStyleSheet("color: #6E6E73; font-size: 11px;")
+        logo_layout.addWidget(logo_hint)
+
+        pdf_layout.addWidget(logo_group)
+
+        # Footer text section
+        footer_group = QGroupBox("Texto del Pie de Factura")
+        footer_group.setStyleSheet(UIStyles.get_group_box_style())
+        footer_layout = QVBoxLayout(footer_group)
+        footer_layout.setSpacing(10)
+
+        footer_hint = QLabel("Este texto aparecera al final de todos los PDFs generados.")
+        footer_hint.setStyleSheet("color: #6E6E73; font-size: 11px;")
+        footer_layout.addWidget(footer_hint)
+
+        self.pdf_footer_text = QTextEdit()
+        self.pdf_footer_text.setMaximumHeight(100)
+        self.pdf_footer_text.setPlaceholderText("Ej: Este documento es valido como factura segun la normativa fiscal vigente...")
+        self.pdf_footer_text.setStyleSheet("""
+            QTextEdit {
+                border: 1px solid #D2D2D7;
+                border-radius: 6px;
+                padding: 8px;
+                font-size: 12px;
+                background: white;
+            }
+            QTextEdit:focus {
+                border-color: #007AFF;
+            }
+        """)
+        footer_layout.addWidget(self.pdf_footer_text)
+
+        pdf_layout.addWidget(footer_group)
+        pdf_layout.addStretch()
+
+        tab_widget.addTab(pdf_tab, "Configuracion PDF")
+
+        # Tab 2: UI Settings
+        ui_tab = QWidget()
+        ui_layout = QVBoxLayout(ui_tab)
+        ui_layout.setContentsMargins(16, 16, 16, 16)
+        ui_layout.setSpacing(12)
+
+        ui_group = QGroupBox("Apariencia")
+        ui_group.setStyleSheet(UIStyles.get_group_box_style())
+        ui_form = QFormLayout(ui_group)
+        ui_form.setSpacing(10)
+
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["Claro", "Oscuro", "Auto"])
         self.theme_combo.setCurrentText("Auto")
-        self.theme_combo.currentTextChanged.connect(self.preview_theme)
-        ui_layout.addRow("Tema:", self.theme_combo)
-        
+        self.theme_combo.setStyleSheet(UIStyles.get_input_style())
+        ui_form.addRow("Tema:", self.theme_combo)
+
         self.language_combo = QComboBox()
-        self.language_combo.addItems(["Español", "English", "Deutsch"])
-        self.language_combo.setCurrentText("Español")
-        ui_layout.addRow("Idioma:", self.language_combo)
-        
+        self.language_combo.addItems(["Espanol", "English", "Deutsch"])
+        self.language_combo.setCurrentText("Espanol")
+        self.language_combo.setStyleSheet(UIStyles.get_input_style())
+        ui_form.addRow("Idioma:", self.language_combo)
+
         self.font_size_spin = QSpinBox()
         self.font_size_spin.setRange(8, 24)
         self.font_size_spin.setValue(12)
-        ui_layout.addRow("Tamaño Fuente:", self.font_size_spin)
-        
-        layout.addWidget(ui_group)
-        
+        self.font_size_spin.setStyleSheet(UIStyles.get_input_style())
+        ui_form.addRow("Tamano Fuente:", self.font_size_spin)
+
+        ui_layout.addWidget(ui_group)
+
         # Business settings
-        business_group = QGroupBox("💼 Configuración Negocio")
-        business_layout = QFormLayout(business_group)
-        
+        business_group = QGroupBox("Configuracion Negocio")
+        business_group.setStyleSheet(UIStyles.get_group_box_style())
+        business_form = QFormLayout(business_group)
+        business_form.setSpacing(10)
+
         self.currency_combo = QComboBox()
-        self.currency_combo.addItems(["EUR - Euro €", "USD - Dólar $", "GBP - Libra £"])
-        self.currency_combo.setCurrentText("EUR - Euro €")
-        business_layout.addRow("Moneda:", self.currency_combo)
-        
+        self.currency_combo.addItems(["EUR - Euro", "USD - Dolar", "GBP - Libra"])
+        self.currency_combo.setCurrentText("EUR - Euro")
+        self.currency_combo.setStyleSheet(UIStyles.get_input_style())
+        business_form.addRow("Moneda:", self.currency_combo)
+
         self.tax_rate_spin = QDoubleSpinBox()
         self.tax_rate_spin.setRange(0, 50)
         self.tax_rate_spin.setDecimals(2)
         self.tax_rate_spin.setValue(21)
         self.tax_rate_spin.setSuffix("%")
-        business_layout.addRow("IVA Por Defecto:", self.tax_rate_spin)
-        
-        layout.addWidget(business_group)
-        
+        self.tax_rate_spin.setStyleSheet(UIStyles.get_input_style())
+        business_form.addRow("IVA Por Defecto:", self.tax_rate_spin)
+
+        ui_layout.addWidget(business_group)
+        ui_layout.addStretch()
+
+        tab_widget.addTab(ui_tab, "Apariencia")
+
+        # Tab 3: System Info
+        info_tab = QWidget()
+        info_layout = QVBoxLayout(info_tab)
+        info_layout.setContentsMargins(16, 16, 16, 16)
+        info_layout.setSpacing(12)
+
         # Database info
-        db_group = QGroupBox("🗄️ Información Base de Datos")
-        db_layout = QFormLayout(db_group)
-        
-        # Get database info
+        db_group = QGroupBox("Base de Datos")
+        db_group.setStyleSheet(UIStyles.get_group_box_style())
+        db_form = QFormLayout(db_group)
+        db_form.setSpacing(8)
+
         try:
             with SessionLocal() as db:
                 client_count = db.query(Client).count()
                 product_count = db.query(Product).count()
                 document_count = db.query(Document).count()
 
-                db_layout.addRow("Clientes:", QLabel(str(client_count)))
-                db_layout.addRow("Productos:", QLabel(str(product_count)))
-                db_layout.addRow("Documentos:", QLabel(str(document_count)))
+                db_form.addRow("Clientes:", QLabel(str(client_count)))
+                db_form.addRow("Productos:", QLabel(str(product_count)))
+                db_form.addRow("Documentos:", QLabel(str(document_count)))
         except Exception as e:
             logger.error(f"Error getting database info for settings: {e}")
-            db_layout.addRow("Estado:", QLabel("❌ Error de conexión"))
-        
-        layout.addWidget(db_group)
-        
+            db_form.addRow("Estado:", QLabel("Error de conexion"))
+
+        info_layout.addWidget(db_group)
+
         # App info
-        info_group = QGroupBox("ℹ️ Información Aplicación")
-        info_layout = QFormLayout(info_group)
-        
-        info_layout.addRow("Versión:", QLabel("V1.0.0.3"))
-        info_layout.addRow("Desarrollador:", QLabel("DRAGOFACTU Team"))
-        info_layout.addRow("GitHub:", QLabel("github.com/Copitx/Dragofactu"))
-        info_layout.addRow("Python:", QLabel(f"3.{sys.version_info.minor}.{sys.version_info.micro}"))
-        
-        layout.addWidget(info_group)
-        
+        app_group = QGroupBox("Informacion Aplicacion")
+        app_group.setStyleSheet(UIStyles.get_group_box_style())
+        app_form = QFormLayout(app_group)
+        app_form.setSpacing(8)
+
+        app_form.addRow("Version:", QLabel("V1.0.0.10"))
+        app_form.addRow("Desarrollador:", QLabel("DRAGOFACTU Team"))
+        app_form.addRow("GitHub:", QLabel("github.com/Copitx/Dragofactu"))
+        app_form.addRow("Python:", QLabel(f"3.{sys.version_info.minor}.{sys.version_info.micro}"))
+
+        info_layout.addWidget(app_group)
+        info_layout.addStretch()
+
+        tab_widget.addTab(info_tab, "Sistema")
+
+        layout.addWidget(tab_widget)
+
         # Buttons
         buttons_layout = QHBoxLayout()
-        
-        save_btn = QPushButton("💾 Guardar Configuración")
+        buttons_layout.setSpacing(10)
+
+        save_btn = QPushButton("Guardar Configuracion")
         save_btn.clicked.connect(self.save_settings)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 10px;
-                border: none;
-                border-radius: 5px;
-                font-weight: bold;
-                min-width: 120px;
-            }
-            QPushButton:hover { background-color: #229954; }
-        """)
+        save_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        save_btn.setMinimumWidth(150)
         buttons_layout.addWidget(save_btn)
-        
-        reset_btn = QPushButton("🔄 Restablecer")
+
+        reset_btn = QPushButton("Restablecer")
         reset_btn.clicked.connect(self.reset_settings)
-        reset_btn.setStyleSheet("background-color: #f39c12; color: white; padding: 10px; border-radius: 5px;")
+        reset_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         buttons_layout.addWidget(reset_btn)
-        
-        cancel_btn = QPushButton("❌ Cancelar")
+
+        cancel_btn = QPushButton("Cancelar")
         cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setStyleSheet("background-color: #95a5a6; color: white; padding: 10px; border-radius: 5px;")
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         buttons_layout.addWidget(cancel_btn)
-        
+
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
 
+    def load_pdf_settings(self):
+        """Load PDF settings from config file"""
+        settings = self.pdf_settings.get_settings()
+
+        self.pdf_company_name.setText(settings.get('company_name', ''))
+        self.pdf_company_address.setText(settings.get('company_address', ''))
+        self.pdf_company_phone.setText(settings.get('company_phone', ''))
+        self.pdf_company_email.setText(settings.get('company_email', ''))
+        self.pdf_company_cif.setText(settings.get('company_cif', ''))
+        self.pdf_footer_text.setPlainText(settings.get('footer_text', ''))
+
+        # Load logo preview
+        logo_path = settings.get('logo_path', '')
+        if logo_path and os.path.exists(logo_path):
+            self.update_logo_preview(logo_path)
+
+    def update_logo_preview(self, path):
+        """Update logo preview"""
+        if path and os.path.exists(path):
+            pixmap = QPixmap(path)
+            scaled = pixmap.scaled(140, 70, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            self.logo_preview.setPixmap(scaled)
+            self.logo_path_temp = path
+        else:
+            self.logo_preview.setText("Sin logo")
+            self.logo_preview.setPixmap(QPixmap())
+            self.logo_path_temp = None
+
+    def select_logo(self):
+        """Open file dialog to select logo"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Seleccionar Logo",
+            "",
+            "Imagenes (*.png *.jpg *.jpeg *.bmp);;PNG (*.png);;JPEG (*.jpg *.jpeg)"
+        )
+        if file_path:
+            self.update_logo_preview(file_path)
+
+    def remove_logo(self):
+        """Remove current logo"""
+        self.logo_preview.setText("Sin logo")
+        self.logo_preview.setPixmap(QPixmap())
+        self.logo_path_temp = ""
+
     def preview_theme(self, theme_name):
-        """Preview theme change (for now just show a message)"""
-        # In a full implementation, you would apply the theme here
-        # For now, we just inform the user
+        """Preview theme change"""
         pass
 
     def save_settings(self):
-        """Save settings"""
+        """Save all settings"""
         try:
-            # Get all values
-            settings = {
-                'company_name': self.company_name_edit.text(),
-                'company_email': self.company_email_edit.text(),
-                'company_phone': self.company_phone_edit.text(),
-                'theme': self.theme_combo.currentText(),
-                'language': self.language_combo.currentText(),
-                'font_size': self.font_size_spin.value(),
-                'currency': self.currency_combo.currentText(),
-                'tax_rate': self.tax_rate_spin.value()
+            # Save PDF settings
+            pdf_data = {
+                'company_name': self.pdf_company_name.text(),
+                'company_address': self.pdf_company_address.text(),
+                'company_phone': self.pdf_company_phone.text(),
+                'company_email': self.pdf_company_email.text(),
+                'company_cif': self.pdf_company_cif.text(),
+                'footer_text': self.pdf_footer_text.toPlainText(),
             }
 
-            # Here you would save to a config file or database
-            # For now, just show success message with info about restart
-            message = "Configuración guardada correctamente"
-            if settings['theme'] != "Auto" or settings['language'] != "Español":
-                message += "\n\nNota: Algunos cambios (tema e idioma) requerirán reiniciar la aplicación para aplicarse completamente."
+            # Handle logo
+            current_logo = self.pdf_settings.get('logo_path', '')
+            if self.logo_path_temp == "":
+                # Logo was removed
+                self.pdf_settings.remove_logo()
+                pdf_data['logo_path'] = ''
+            elif self.logo_path_temp and self.logo_path_temp != current_logo:
+                # New logo selected - copy it to config dir
+                new_path = self.pdf_settings.copy_logo(self.logo_path_temp)
+                if new_path:
+                    pdf_data['logo_path'] = new_path
+                else:
+                    pdf_data['logo_path'] = current_logo
+            else:
+                pdf_data['logo_path'] = current_logo
 
-            QMessageBox.information(self, "✅ Guardado", message)
+            self.pdf_settings.save_settings(pdf_data)
+
+            QMessageBox.information(
+                self,
+                "Guardado",
+                "Configuracion guardada correctamente.\n\nLos cambios en PDF se aplicaran a las proximas facturas generadas."
+            )
             self.accept()
 
         except Exception as e:
-            QMessageBox.critical(self, "❌ Error", f"Error guardando configuración: {str(e)}")
-    
+            logger.error(f"Error saving settings: {e}")
+            QMessageBox.critical(self, "Error", f"Error guardando configuracion: {str(e)}")
+
     def reset_settings(self):
         """Reset settings to defaults"""
         reply = QMessageBox.question(
-            self, "🔄 Restablecer", 
-            "¿Está seguro de restablecer la configuración a valores por defecto?"
+            self,
+            "Restablecer",
+            "¿Esta seguro de restablecer la configuracion PDF a valores por defecto?"
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
-            self.company_name_edit.setText("DRAGOFACTU Software")
-            self.company_email_edit.setText("info@dragofactu.com")
-            self.company_phone_edit.setText("+34 900 000 000")
+            self.pdf_settings.reset_to_defaults()
+            self.load_pdf_settings()
+            self.logo_path_temp = None
+            self.logo_preview.setText("Sin logo")
+            self.logo_preview.setPixmap(QPixmap())
+
+            # Reset other settings
             self.theme_combo.setCurrentText("Auto")
-            self.language_combo.setCurrentText("Español")
+            self.language_combo.setCurrentText("Espanol")
             self.font_size_spin.setValue(12)
-            self.currency_combo.setCurrentText("EUR - Euro €")
+            self.currency_combo.setCurrentText("EUR - Euro")
             self.tax_rate_spin.setValue(21)
-            
-            QMessageBox.information(self, "✅ Restablecido", "Configuración restablecida a valores por defecto")
+
+            QMessageBox.information(self, "Restablecido", "Configuracion restablecida a valores por defecto")
     
     def import_external_file(self, file_path):
         """Import external files"""

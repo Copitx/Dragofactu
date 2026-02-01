@@ -225,6 +225,80 @@ pending_statuses = [
 - `dragofactu/models/entities.py` - Nuevos estados en DocumentStatus, modelo Reminder
 - `dragofactu_complete.py` - DocumentDialog, filtros, recordatorios, sincronización
 
+### Sesión 2026-02-01: Configuración PDF Personalizable (Claude Opus 4.5)
+**AI Agent:** Claude Opus 4.5 (claude-opus-4-5-20251101) - Agente especializado en desarrollo de software
+**Fecha:** 2026-02-01
+
+**Objetivo:** Añadir herramienta en Ajustes para personalizar el contenido del PDF generado automáticamente (datos empresa, logo, texto pie de página)
+
+**Completado:**
+- [x] **Sistema de Configuración PDF Persistente**:
+  - Nueva clase `PDFSettingsManager` con patrón Singleton
+  - Archivo de configuración JSON en `~/.dragofactu/pdf_settings.json`
+  - Métodos `save_settings()`, `get_settings()`, `reset_to_defaults()`
+  - Gestión de logo: `copy_logo()`, `remove_logo()`
+- [x] **Datos de Empresa Personalizables**:
+  - Nombre de la empresa
+  - Dirección completa
+  - Teléfono
+  - Email
+  - CIF/NIF
+- [x] **Logo de Empresa**:
+  - Selector de archivo para PNG/JPG
+  - Vista previa del logo seleccionado
+  - Logo copiado a directorio de configuración
+  - Dimensiones automáticas (máx. 40x20mm en PDF)
+- [x] **Texto de Pie de Factura Personalizable**:
+  - Campo QTextEdit multilinea
+  - Soporte para saltos de línea
+  - Permite avisos legales, condiciones de pago, etc.
+- [x] **SettingsDialog Rediseñado**:
+  - Estructura con QTabWidget (3 pestañas)
+  - Tab "Configuración PDF" como primera pestaña
+  - Tab "Apariencia" con ajustes UI
+  - Tab "Sistema" con info BD y aplicación
+  - Estilo consistente con UIStyles existente
+- [x] **InvoicePDFGenerator Actualizado**:
+  - Lee configuración desde PDFSettingsManager en lugar de AppConfig
+  - Soporte para insertar logo en cabecera del PDF
+  - Footer dinámico desde configuración
+- [x] **Traducciones Añadidas**:
+  - Nueva sección `settings` en es.json, en.json, de.json
+  - 30+ nuevas claves de traducción
+
+**Detalles Técnicos:**
+```python
+# Uso del PDFSettingsManager
+from dragofactu_complete import get_pdf_settings
+
+settings_mgr = get_pdf_settings()
+settings = settings_mgr.get_settings()
+
+# Guardar configuración
+settings_mgr.save_settings({
+    'company_name': 'Mi Empresa',
+    'company_address': 'Calle Principal 123',
+    'company_phone': '+34 912 345 678',
+    'company_email': 'info@miempresa.com',
+    'company_cif': 'B12345678',
+    'logo_path': '/path/to/logo.png',
+    'footer_text': 'Texto personalizado...'
+})
+
+# Copiar logo a directorio de configuración
+new_path = settings_mgr.copy_logo('/path/to/source/logo.png')
+```
+
+**Archivos Modificados:**
+- `dragofactu_complete.py` - Añadido `PDFSettingsManager`, `get_pdf_settings()`, modificado `InvoicePDFGenerator`, `SettingsDialog`
+- `dragofactu/config/translations/es.json` - Nueva sección `settings`
+- `dragofactu/config/translations/en.json` - Nueva sección `settings`
+- `dragofactu/config/translations/de.json` - Nueva sección `settings`
+
+**Ubicación de Archivos de Configuración:**
+- Config: `~/.dragofactu/pdf_settings.json`
+- Logo: `~/.dragofactu/company_logo.png`
+
 ### V1.0.0.4: Estabilización Crítica (Claude)
 **Archivo:** `STABILIZATION_COMPLETE.md`
 

@@ -40,7 +40,7 @@ dragofactu/
 
 **Archivos Raíz Clave:**
 - `start_dragofactu.sh` → lanza `launch_dragofactu_fixed.py`
-- `dragofactu_complete.py` - Versión monolítica (~3500 líneas)
+- `dragofactu_complete.py` - Versión monolítica (~6200 líneas)
 - `pyproject.toml` - Dependencias y entry point
 - `.env` - Configuración (DATABASE_URL, DEBUG, SECRET_KEY)
 - `dragofactu.db` - BD SQLite
@@ -68,7 +68,8 @@ python3 scripts/init_db.py      # Reset BD + crear admin
 - Soft delete con `is_active=False`
 - UUIDs como PKs
 - Tipos documento: QUOTE, DELIVERY_NOTE, INVOICE
-- Estados: DRAFT → SENT → ACCEPTED → PAID
+- Estados: DRAFT, NOT_SENT, SENT, ACCEPTED, REJECTED, PAID, PARTIALLY_PAID, CANCELLED
+- Flujo típico: DRAFT → NOT_SENT → SENT → ACCEPTED → PAID
 - Códigos automáticos: PRE-*, FAC-*, ALB-*
 
 **Dependencias Críticas (pyproject.toml):**
@@ -91,6 +92,7 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 | v1.0.0.5 | - | Cambios interfaz visual |
 | v1.0.0.6 | - | Sesión Claude - Rediseño UI Apple-inspired |
 | v1.0.0.7 | 2026-01-31 | Sesión Claude - Sistema de Traducción Completo |
+| v1.0.0.9 | 2026-02-01 | Sesión Claude - Mejoras DocumentDialog, Estados, Recordatorios |
 
 ---
 
@@ -161,8 +163,67 @@ def retranslate_ui(self):
 - `dragofactu/config/translation.py` - Enhanced con persistencia y nested keys
 - `dragofactu_complete.py` - Añadidos métodos retranslate_ui() a todas las clases
 - `dragofactu/config/translations/es.json` - 50+ nuevas claves
-- `dragofactu/config/translations/en.json` - Traducciones completas  
+- `dragofactu/config/translations/en.json` - Traducciones completas
 - `dragofactu/config/translations/de.json` - Traducciones completas
+
+### Sesión 2026-02-01: Mejoras Documentos, Estados y Recordatorios (Claude)
+**AI Agent:** Claude Opus 4.5 - Agente especializado en desarrollo de software
+
+**Objetivo:** Mejorar gestión de documentos, añadir nuevos estados, sistema de recordatorios y fixes críticos
+
+**Completado:**
+- [x] **Nuevos Estados DocumentStatus**: Añadidos `NOT_SENT`, `PARTIALLY_PAID`, `CANCELLED`
+- [x] **Sistema de Traducción de Estados**: `STATUS_LABELS_ES`, `get_status_label()`, `get_status_value()`
+- [x] **Filtro por Estado**: ComboBox en DocumentManagementTab para filtrar por estado
+- [x] **Filtro Ordenar Por**: Ordenar documentos por fecha, código, cliente, total (asc/desc)
+- [x] **DocumentDialog Mejorado**:
+  - Modo edición completo con carga de datos existentes
+  - Selector de cantidad al añadir productos
+  - Tabla editable con spinboxes para cantidad/descuento
+  - Conversión UUID correcta para evitar errores SQL
+- [x] **Código Clickeable**: Click en código de documento abre editor completo
+- [x] **Deducción Automática de Stock**: Al marcar factura como PAID, descuenta stock
+- [x] **Sistema de Recordatorios**:
+  - Modelo `Reminder` en entities.py
+  - Botón "Nuevo Recordatorio" en Diario
+  - Botón "Ver Recordatorios" con lista completa
+  - Marcar completado/eliminar recordatorios
+  - Widget Recordatorios en Dashboard
+- [x] **Dashboard Mejorado**:
+  - Sección "Documentos Pendientes" (izquierda)
+  - Sección "Recordatorios" (derecha)
+  - Fecha/hora en tiempo real
+- [x] **Sincronización Entre Paneles**: Dashboard, Documentos, Inventario sincronizados
+
+**Fixes Críticos:**
+- Fix `'str' object has no attribute 'hex'` - Conversión UUID en `load_document_data()` y `save_document()`
+- Fix botones acciones invisibles - Simplificados a texto plano (PDF, X)
+- Fix comparación `due_date` con datetime vs date
+
+**Patrones Importantes para Agentes:**
+```python
+# Conversión UUID obligatoria cuando document_id viene como string
+doc_id = self.document_id
+if isinstance(doc_id, str):
+    doc_id = uuid.UUID(doc_id)
+
+# Traducción de estados
+status_text = get_status_label(doc.status)  # Devuelve "Pagado", "Borrador", etc.
+status_value = get_status_value("Pagado")    # Devuelve "paid"
+
+# Estados pendientes para Dashboard
+pending_statuses = [
+    DocumentStatus.DRAFT,
+    DocumentStatus.SENT,
+    DocumentStatus.ACCEPTED,
+    DocumentStatus.PARTIALLY_PAID,
+    DocumentStatus.NOT_SENT
+]
+```
+
+**Archivos Modificados:**
+- `dragofactu/models/entities.py` - Nuevos estados en DocumentStatus, modelo Reminder
+- `dragofactu_complete.py` - DocumentDialog, filtros, recordatorios, sincronización
 
 ### V1.0.0.4: Estabilización Crítica (Claude)
 **Archivo:** `STABILIZATION_COMPLETE.md`
@@ -284,6 +345,7 @@ PDF_COMPANY_EMAIL=info@empresa.com
 - **Worker**: code, first_name, last_name, position, department, salary
 - **Course**: worker_id, name, provider, issue_date, expiration_date
 - **DiaryEntry**: title, content, entry_date, user_id, tags
+- **Reminder**: title, description, due_date, priority (low/normal/high), is_completed, created_by
 
 ### Auditoría (dragofactu/models/audit.py)
 - **DocumentHistory**: acción, cambios, snapshots

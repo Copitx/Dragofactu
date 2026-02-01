@@ -1,6 +1,6 @@
 # DRAGOFACTU - Sistema de Gestion Empresarial
 
-**Version:** 1.0.0.8
+**Version:** 1.0.0.9
 **Estado:** Estable
 **Stack:** Python 3.10+ / PySide6 / SQLAlchemy / SQLite
 
@@ -16,11 +16,11 @@
 
 ERP de escritorio para gestion empresarial:
 - Facturacion (presupuestos, facturas, albaranes)
-- Inventario con alertas de stock
+- Inventario con alertas de stock y deduccion automatica
 - Gestion de clientes y proveedores
- - Gestion de trabajadores y formacion
- - Diario personal
- - Multi-idioma (ES/EN/DE) con cambio en vivo sin reinicio
+- Gestion de trabajadores y formacion
+- Diario personal con recordatorios
+- Multi-idioma (ES/EN/DE) con cambio en vivo sin reinicio
 
 ---
 
@@ -93,6 +93,33 @@ Dragofactu/                    # Codigo fuente (11MB)
 - `debug_main.py`, `test_*.py`, `run.py`, `start_fixed.py`
 - `dashboard_view_fixed.py`, `inventory_view_fixed.py`
 
+### v1.0.0.9 (2026-02-01) - Documentos, Estados y Recordatorios
+
+**Gestión de Documentos Mejorada:**
+- **Nuevos estados**: NOT_SENT, PARTIALLY_PAID, CANCELLED
+- **Filtro por estado**: ComboBox para filtrar documentos por estado
+- **Ordenar por**: Fecha, código, cliente, total (ascendente/descendente)
+- **Código clickeable**: Click en código abre editor completo
+- **Deducción automática stock**: Al marcar como PAID descuenta productos
+
+**Sistema de Recordatorios:**
+- Modelo Reminder con prioridad y fecha
+- Botón "Nuevo Recordatorio" en Diario
+- Botón "Ver Recordatorios" con lista completa
+- Marcar completado/eliminar
+- Widget en Dashboard
+
+**DocumentDialog Mejorado:**
+- Modo edición con carga de datos existentes
+- Selector cantidad al añadir productos
+- Tabla editable (cantidad, descuento)
+- Fix crítico UUID para guardar correctamente
+
+**Dashboard:**
+- Sección "Documentos Pendientes"
+- Sección "Recordatorios"
+- Fecha/hora en tiempo real
+
 ### v1.0.0.8 (2026-01-31) - Sistema de Traducción Completo
 
 - **Traducción de UI completa**: Dashboard + todas las tabs traducibles
@@ -144,12 +171,13 @@ Dragofactu/                    # Codigo fuente (11MB)
 
 | Modulo | Estado | Descripcion |
 |--------|--------|-------------|
-| Dashboard | Estable | Metricas, acciones rapidas, docs recientes |
+| Dashboard | Estable | Metricas, pendientes, recordatorios, fecha/hora |
 | Clientes | Estable | CRUD completo, busqueda, import/export |
 | Productos | Estable | CRUD, control stock, alertas |
-| Documentos | Estable | Presupuestos, facturas, albaranes |
-| Inventario | Estable | Stock en tiempo real, movimientos |
-| Diario | Estable | Notas diarias, etiquetas |
+| Documentos | Estable | Presupuestos, facturas, albaranes, filtros, ordenar |
+| Inventario | Estable | Stock en tiempo real, deduccion auto al pagar |
+| Diario | Estable | Notas diarias, recordatorios |
+| Recordatorios | Estable | CRUD, prioridades, fechas, estados |
 | Trabajadores | Estable | CRUD, cursos, formacion |
 | Config | Estable | Preferencias, idioma con cambio en vivo, tema |
 

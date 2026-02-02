@@ -124,7 +124,7 @@ Desktop Client (PySide6)  ──HTTP/REST──▶  FastAPI Backend  ──▶  
 | 5 | Documentos e Inventario | ✅ | `956ddde` |
 | 6 | Cliente Desktop (APIClient) | ✅ | `6b9d920` |
 | 7 | Testing (52 tests pytest) | ✅ | `aacae4e` |
-| 8 | Despliegue (Railway free) | ⏳ | - |
+| 8 | Despliegue (Railway free) | 🔄 | En curso |
 
 ### Estructura Backend Completa
 ```
@@ -259,12 +259,52 @@ python -m pytest tests/ -v
 - StaticPool para SQLite in-memory en tests
 - Correcto workflow de estados: DRAFT→NOT_SENT→SENT→ACCEPTED→PAID
 
+### Deployment Railway (Fase 8)
+
+**IMPORTANTE:** Railway debe usar `backend/` como directorio raíz, NO la raíz del repositorio.
+
+**Configuración en Railway Dashboard:**
+1. Service Settings → Root Directory: `backend`
+2. O usar el Dockerfile que ya está configurado
+
+**Archivos de configuración:**
+```
+backend/
+├── railway.toml      # Configuración Railway (builder, start command)
+├── Procfile          # Fallback para Heroku-style
+├── nixpacks.toml     # Configuración Nixpacks
+├── Dockerfile        # Docker build (usa PORT env var)
+└── .railwayignore    # Archivos a excluir del deploy
+```
+
+**Variables de entorno REQUERIDAS en Railway:**
+```bash
+DATABASE_URL=postgresql://user:pass@host:5432/dbname  # Railway PostgreSQL
+SECRET_KEY=<generar-32-chars-aleatorios>              # Para JWT
+DEBUG=false                                            # Producción
+ALLOWED_ORIGINS=http://localhost,https://tuapp.com    # CORS
+```
+
+**Generar SECRET_KEY seguro:**
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+**Comando de inicio:**
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+**URLs después del deploy:**
+- API: https://tu-app.railway.app
+- Health: https://tu-app.railway.app/health
+- Docs: https://tu-app.railway.app/docs
+
 ### Pendientes
-- [ ] Fase 8: Despliegue Railway (gratis)
-- [ ] Configurar Docker + PostgreSQL para producción
-- [ ] Generar SECRET_KEY seguro para producción
+- [x] Fase 8: Configuración Railway
+- [ ] Verificar deploy funciona en Railway
+- [ ] Configurar PostgreSQL en Railway
 - [ ] Integrar APIClient en UI de dragofactu_complete.py
-- [ ] Merge feature/multi-tenant-api a main
 
 ---
 

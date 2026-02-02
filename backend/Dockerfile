@@ -25,8 +25,11 @@ COPY . .
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose port
+# Expose port (Railway provides PORT env var)
 EXPOSE 8000
 
-# Default command
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Environment variable for port (Railway overrides this)
+ENV PORT=8000
+
+# Default command - uses PORT env var for Railway compatibility
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT

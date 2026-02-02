@@ -1,9 +1,8 @@
 # Dragofactu API - Dockerfile
-# For both development and production
+# For Railway deployment
 
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -12,24 +11,19 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (better caching)
+# Copy and install requirements
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
+COPY app/ ./app/
 
-# Create non-root user for security
+# Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose port (Railway provides PORT env var)
-EXPOSE 8000
-
-# Environment variable for port (Railway overrides this)
+# Railway provides PORT env var - default to 8000 for local
 ENV PORT=8000
 
-# Default command - uses PORT env var for Railway compatibility
-CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# Use shell form to expand $PORT variable
+CMD /bin/sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"

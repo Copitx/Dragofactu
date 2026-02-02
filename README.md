@@ -1,30 +1,48 @@
 # DRAGOFACTU - Sistema de Gestion Empresarial
 
-**Version:** 1.0.0.9
-**Estado:** Estable
-**Stack:** Python 3.10+ / PySide6 / SQLAlchemy / SQLite
+**Version:** 2.0.0 (Multi-tenant API)
+**Estado:** Beta - Backend API + Desktop Client
+**Stack:** Python 3.10+ / FastAPI / PySide6 / SQLAlchemy / SQLite|PostgreSQL
 
 ---
 
-## Screenshots
+## Arquitectura
 
-<!-- TODO: Añadir screenshots actualizados -->
+Dragofactu ahora soporta dos modos de operación:
+
+| Modo | Descripción | Uso |
+|------|-------------|-----|
+| **Desktop Local** | App standalone con SQLite local | Uso personal, sin internet |
+| **Multi-tenant API** | Backend FastAPI + Cliente Desktop | Multi-empresa, multi-usuario, cloud |
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Desktop App    │────▶│  FastAPI API    │────▶│  PostgreSQL     │
+│  (PySide6)      │ JWT │  (Backend)      │     │  (Cloud DB)     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                              │
+                              ▼
+                        Multi-tenancy
+                        (company_id)
+```
 
 ---
 
 ## Que es Dragofactu
 
-ERP de escritorio para gestion empresarial:
-- Facturacion (presupuestos, facturas, albaranes)
-- Inventario con alertas de stock y deduccion automatica
-- Gestion de clientes y proveedores
-- Gestion de trabajadores y formacion
-- Diario personal con recordatorios
-- Multi-idioma (ES/EN/DE) con cambio en vivo sin reinicio
+ERP para gestion empresarial:
+- **Facturacion**: Presupuestos, facturas, albaranes con workflow de estados
+- **Inventario**: Stock con alertas y deduccion automatica al facturar
+- **Clientes/Proveedores**: CRUD completo con busqueda
+- **Trabajadores**: Gestion de personal y cursos de formacion
+- **Diario**: Notas diarias con recordatorios
+- **Multi-idioma**: ES/EN/DE con cambio en vivo
 
 ---
 
 ## Instalacion Rapida
+
+### Modo Desktop Local (Standalone)
 
 ```bash
 # Clonar repositorio
@@ -35,213 +53,233 @@ cd Dragofactu
 ./start_dragofactu.sh
 ```
 
-**Primera ejecucion:** El launcher preguntara donde instalar:
-```
-DRAGOFACTU - First Time Setup
-Default installation directory: ~/.dragofactu
-Use default location? [Y/n/custom path]:
-```
-
 **Credenciales por defecto:** `admin` / `admin123`
+
+### Modo API Multi-tenant
+
+```bash
+# Backend
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Iniciar servidor
+uvicorn app.main:app --reload
+# API disponible en http://localhost:8000
+# Docs en http://localhost:8000/docs
+```
 
 ---
 
 ## Estructura del Proyecto
 
 ```
-Dragofactu/                    # Codigo fuente (11MB)
+Dragofactu/
+├── backend/                    # 🆕 FastAPI Backend (API Multi-tenant)
+│   ├── app/
+│   │   ├── api/v1/            # Endpoints REST
+│   │   │   ├── auth.py        # Login, register, JWT
+│   │   │   ├── clients.py     # CRUD clientes
+│   │   │   ├── products.py    # CRUD productos + stock
+│   │   │   ├── documents.py   # Documentos + workflow
+│   │   │   ├── suppliers.py   # CRUD proveedores
+│   │   │   ├── workers.py     # CRUD trabajadores
+│   │   │   ├── diary.py       # Entradas diario
+│   │   │   └── reminders.py   # Recordatorios
+│   │   ├── models/            # SQLAlchemy ORM (11 modelos)
+│   │   ├── schemas/           # Pydantic schemas
+│   │   ├── core/security.py   # JWT + bcrypt
+│   │   └── main.py            # FastAPI app
+│   ├── tests/                 # 🆕 Pytest suite (52 tests)
+│   └── requirements.txt
+│
+├── dragofactu/                # Paquete desktop modular
+│   ├── services/
+│   │   └── api_client.py      # 🆕 Cliente HTTP para API
+│   ├── models/
+│   ├── ui/
+│   └── config/
+│
+├── dragofactu_complete.py     # App monolitica (modo local)
 ├── start_dragofactu.sh        # Entry point
-├── launch_dragofactu_fixed.py # Launcher configurable
-├── dragofactu_complete.py     # App monolitica
-├── dragofactu/                # Paquete modular
-│   ├── models/                # SQLAlchemy ORM
-│   ├── services/              # Logica de negocio
-│   ├── ui/                    # PySide6 views
-│   └── config/                # Configuracion
-└── scripts/                   # Utilidades
-
-~/.dragofactu/                 # Datos de usuario (separado)
-├── venv/                      # Virtual environment
-├── data/
-│   └── dragofactu.db          # Base de datos
-├── exports/                   # Exportaciones
-└── attachments/               # Adjuntos
+└── docker-compose.yml         # 🆕 PostgreSQL para produccion
 ```
+
+---
+
+## API Endpoints
+
+### Autenticación
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| POST | `/api/v1/auth/register` | Registrar empresa + admin |
+| POST | `/api/v1/auth/login` | Login → access_token + refresh_token |
+| POST | `/api/v1/auth/refresh` | Renovar access_token |
+| GET | `/api/v1/auth/me` | Info usuario actual |
+
+### CRUD (Todos requieren JWT)
+| Recurso | Endpoints | Descripción |
+|---------|-----------|-------------|
+| `/clients` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Clientes |
+| `/products` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Productos |
+| `/products/:id/adjust-stock` | POST | Ajustar stock |
+| `/suppliers` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Proveedores |
+| `/documents` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Documentos |
+| `/documents/:id/change-status` | POST | Cambiar estado |
+| `/documents/:id/convert` | POST | Convertir PRE→FAC/ALB |
+| `/documents/stats/summary` | GET | Resumen dashboard |
+| `/workers` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Trabajadores |
+| `/workers/:id/courses` | POST | Añadir curso |
+| `/diary` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Diario |
+| `/reminders` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Recordatorios |
+| `/reminders/:id/complete` | POST | Marcar completado |
+
+---
+
+## Testing
+
+```bash
+cd backend
+source venv/bin/activate
+python -m pytest tests/ -v
+
+# Resultado: 52 tests passing
+# - test_auth.py: 13 tests
+# - test_clients.py: 12 tests
+# - test_products.py: 11 tests
+# - test_documents.py: 12 tests
+# - test_health.py: 4 tests
+```
+
+---
+
+## Multi-tenancy
+
+Cada empresa es un **tenant** aislado:
+
+```python
+# Modelo Company
+class Company(Base):
+    id = Column(GUID(), primary_key=True)
+    code = Column(String(20), unique=True)  # Ej: "ACME001"
+    name = Column(String(100))
+    # ...
+
+# Todos los modelos tienen company_id
+class Client(Base):
+    company_id = Column(GUID(), ForeignKey("companies.id"))
+    # Unique constraint per company
+    __table_args__ = (
+        UniqueConstraint('company_id', 'code'),
+    )
+```
+
+Los endpoints filtran automaticamente por `company_id` del usuario autenticado.
+
+---
+
+## Document Workflow
+
+```
+DRAFT → NOT_SENT → SENT → ACCEPTED → PAID
+                 ↘        ↘ REJECTED
+                  CANCELLED
+```
+
+- **DRAFT**: Editable, eliminable
+- **NOT_SENT**: Listo para enviar
+- **SENT**: Enviado al cliente
+- **ACCEPTED**: Aceptado, puede convertirse
+- **PAID**: Factura pagada (deduce stock automaticamente)
+- **PARTIALLY_PAID**: Pago parcial
+- **CANCELLED**: Cancelado
+
+Codigos automaticos: `PRE-2026-00001`, `FAC-2026-00001`, `ALB-2026-00001`
 
 ---
 
 ## Changelog
 
-### v1.0.0.7 (2026-01-31) - Clean Repo Structure
+### v2.0.0 (2026-02-02) - Multi-tenant API 🚀
 
-**Limpieza del repositorio:**
-- Reducido tamano de 457MB a 11MB
-- Eliminado `venv/` del historial de git (commiteado por error)
-- Creado `.gitignore` completo
-- Eliminados 15 archivos obsoletos (launchers duplicados, backups, tests)
+**Backend FastAPI Completo:**
+- Arquitectura multi-tenant con `company_id` en todas las entidades
+- 11 modelos SQLAlchemy con relaciones
+- 35+ endpoints REST documentados en OpenAPI
+- Autenticación JWT con access/refresh tokens
+- RBAC: admin, management, warehouse, read_only
+- Workflow de documentos con transiciones validadas
+- Deducción automática de stock al marcar PAID
+- Conversión de presupuestos a facturas/albaranes
 
-**Nuevo sistema de instalacion:**
-- El launcher pregunta ubicacion en primera ejecucion
-- Por defecto instala en `~/.dragofactu/`
-- Codigo fuente separado de datos de usuario
-- Configuracion guardada en `~/.dragofactu_config.json`
+**Testing:**
+- 52 tests pytest passing
+- Cobertura: auth, clients, products, documents, health
+- Fixtures con test database in-memory
 
-**Archivos eliminados:**
-- `launch_dragofactu.py`, `launch_simple.py`, `launch_final.py`
-- `simple_dragofactu_app.py`, `simple_dragofactu_app_fixed.py`
-- `complete_dragofactu_app.py`, `dragofactu_complete_backup.py`
-- `debug_main.py`, `test_*.py`, `run.py`, `start_fixed.py`
-- `dashboard_view_fixed.py`, `inventory_view_fixed.py`
+**Cliente Desktop:**
+- APIClient para comunicación con backend
+- Token storage en `~/.dragofactu/api_tokens.json`
+- Refresh token automático
 
-### v1.0.0.9 (2026-02-01) - Documentos, Estados, Recordatorios y Config PDF
+**Archivos nuevos:**
+- `backend/` - Estructura completa FastAPI
+- `dragofactu/services/api_client.py` - Cliente HTTP
+- `docker-compose.yml` - PostgreSQL para producción
 
-**Configuración PDF Personalizable (Nuevo):**
-- **Datos de empresa editables**: Nombre, dirección, teléfono, email, CIF
-- **Logo de empresa**: Selector de archivo PNG/JPG con vista previa
-- **Texto pie de factura**: Campo multilinea para avisos legales personalizados
-- **Configuración persistente**: Guardado en `~/.dragofactu/pdf_settings.json`
-- **SettingsDialog rediseñado**: Estructura con tabs (PDF, Apariencia, Sistema)
+### v1.0.0.9 (2026-02-01) - Documentos, Estados, Recordatorios
 
-**Gestión de Documentos Mejorada:**
-- **Nuevos estados**: NOT_SENT, PARTIALLY_PAID, CANCELLED
-- **Filtro por estado**: ComboBox para filtrar documentos por estado
-- **Ordenar por**: Fecha, código, cliente, total (ascendente/descendente)
-- **Código clickeable**: Click en código abre editor completo
-- **Deducción automática stock**: Al marcar como PAID descuenta productos
+- Configuración PDF personalizable (logo, datos empresa)
+- Nuevos estados: NOT_SENT, PARTIALLY_PAID, CANCELLED
+- Sistema de recordatorios completo
+- Dashboard mejorado con pendientes
 
-**Sistema de Recordatorios:**
-- Modelo Reminder con prioridad y fecha
-- Botón "Nuevo Recordatorio" en Diario
-- Botón "Ver Recordatorios" con lista completa
-- Marcar completado/eliminar
-- Widget en Dashboard
+### v1.0.0.8 (2026-01-31) - Sistema de Traducción
 
-**DocumentDialog Mejorado:**
-- Modo edición con carga de datos existentes
-- Selector cantidad al añadir productos
-- Tabla editable (cantidad, descuento)
-- Fix crítico UUID para guardar correctamente
+- Traducción UI completa ES/EN/DE
+- Cambio de idioma en vivo sin reinicio
 
-**Dashboard:**
-- Sección "Documentos Pendientes"
-- Sección "Recordatorios"
-- Fecha/hora en tiempo real
+### v1.0.0.7 (2026-01-31) - Clean Repo
 
-### v1.0.0.8 (2026-01-31) - Sistema de Traducción Completo
-
-- **Traducción de UI completa**: Dashboard + todas las tabs traducibles
-- **Cambio de idioma en vivo**: Sin requerir reinicio de aplicación
-- **Persistencia de idioma**: Guarda preferencia automáticamente
-- **Soporte multi-idioma**: Español, Inglés, Alemán 100% traducido
-- **Métodos retranslate_ui()**: Cada componente actualiza dinámicamente
-- **Archivos JSON completos**: 50+ nuevas claves de traducción por idioma
+- Reducido de 457MB a 11MB
+- Sistema de instalación mejorado
 
 ### v1.0.0.6 (2026-01-13) - UI Redesign
 
-- Sistema de diseno Apple-inspired
-- Clase `UIStyles` centralizada
-- Paleta de colores consistente (#007AFF accent)
-- Menus sin emojis + keyboard shortcuts
-- Dashboard con metricas y quick actions
-
-### v1.0.0.5 - Visual Interface
-
-- Pequenos cambios en interfaz visual
-
-### v1.0.0.4 - CRUD & Stability
-
-- CRUD completo implementado
-- Fix critico: Import error en `inventory_service.py`
-- Fix: Syntax error en launcher
-- Seguridad: Credenciales basadas en env vars
-- Arquitectura: Launcher unificado
-
-### v1.0.0.3 - Core Features
-
-- Dashboard principal estable
-- Gestion de clientes/productos/documentos
-- Sistema multi-idioma
-- Configuracion funcional
-
-### v1.0.0.2 - Session Fix
-
-- Fix critico: DetachedInstanceError en SQLAlchemy
-- Pre-extraccion de datos de usuario en LoginDialog
-
-### v1.0.0.1 - v1.0.0 - Initial Release
-
-- Version inicial con estructura modular
-
----
-
-## Funcionalidades
-
-| Modulo | Estado | Descripcion |
-|--------|--------|-------------|
-| Dashboard | Estable | Metricas, pendientes, recordatorios, fecha/hora |
-| Clientes | Estable | CRUD completo, busqueda, import/export |
-| Productos | Estable | CRUD, control stock, alertas |
-| Documentos | Estable | Presupuestos, facturas, albaranes, filtros, ordenar |
-| Inventario | Estable | Stock en tiempo real, deduccion auto al pagar |
-| Diario | Estable | Notas diarias, recordatorios |
-| Recordatorios | Estable | CRUD, prioridades, fechas, estados |
-| Trabajadores | Estable | CRUD, cursos, formacion |
-| Config | Estable | Preferencias, idioma en vivo, tema |
-| Config PDF | Estable | Datos empresa, logo, pie de factura personalizado |
-
----
-
-## Configuracion
-
-### Variables de Entorno (.env)
-
-```bash
-DATABASE_URL=sqlite:///dragofactu.db
-DEBUG=false
-SECRET_KEY=tu-clave-secreta-32-chars
-DEFAULT_LANGUAGE=es
-DEFAULT_ADMIN_USERNAME=admin
-DEFAULT_ADMIN_PASSWORD=admin123
-```
-
-### Ubicacion de Datos
-
-El launcher usa `~/.dragofactu/` por defecto. Para cambiar:
-
-```bash
-# Eliminar config actual
-rm ~/.dragofactu_config.json
-
-# Ejecutar de nuevo (preguntara ubicacion)
-./start_dragofactu.sh
-```
-
----
-
-## Desarrollo
-
-```bash
-# Activar entorno
-source ~/.dragofactu/venv/bin/activate
-
-# Ejecutar directamente
-python3 dragofactu_complete.py
-
-# Reset base de datos
-rm ~/.dragofactu/data/dragofactu.db
-python3 scripts/init_db.py
-```
+- Sistema de diseño Apple-inspired
+- Clase UIStyles centralizada
 
 ---
 
 ## Stack Tecnologico
 
-- **GUI:** PySide6 (Qt6)
-- **ORM:** SQLAlchemy 2.0
-- **DB:** SQLite (dev) / PostgreSQL (prod)
-- **Auth:** bcrypt + JWT
-- **PDF:** ReportLab
-- **i18n:** JSON translations (es/en/de)
+| Componente | Tecnología |
+|------------|------------|
+| Desktop GUI | PySide6 (Qt6) |
+| Backend API | FastAPI + Uvicorn |
+| ORM | SQLAlchemy 2.0 |
+| DB Dev | SQLite |
+| DB Prod | PostgreSQL |
+| Auth | bcrypt + JWT (python-jose) |
+| Validation | Pydantic v2 |
+| PDF | ReportLab |
+| Testing | pytest + httpx |
+| i18n | JSON translations |
+
+---
+
+## Despliegue (Próximo)
+
+El backend está preparado para desplegar en Railway (free tier):
+
+```bash
+# Variables de entorno necesarias
+DATABASE_URL=postgresql://...
+SECRET_KEY=<32-char-random>
+DEBUG=false
+ALLOWED_ORIGINS=http://localhost,https://tuapp.com
+```
 
 ---
 
@@ -251,4 +289,4 @@ MIT License
 
 ---
 
-**Desarrollado por DRAGOFACTU Team**
+**Desarrollado por DRAGOFACTU Team con asistencia de Claude (Anthropic)**

@@ -101,8 +101,8 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 
 **Rama Git:** `feature/multi-tenant-api`
 **Documento de Planificación:** `pasos a seguir migracion.md`
-**Estado:** Fase 3 COMPLETADA - Siguiente: Fase 4 (CRUD Endpoints)
-**Última actualización:** 2026-02-01
+**Estado:** Fase 4 COMPLETADA - Siguiente: Fase 5 (Documentos e Inventario)
+**Última actualización:** 2026-02-02
 **Rama:** `feature/multi-tenant-api` (pushed to GitHub)
 
 ### Objetivo
@@ -157,11 +157,30 @@ backend/
 | 1 | Setup Inicial (estructura, Docker, Company) | ✅ | `fb477b6` |
 | 2 | Backend Core (modelos, schemas) | ✅ | `bcca59d` |
 | 3 | Sistema de Autenticación (JWT) | ✅ | `7c2d31e` |
-| 4 | CRUD Endpoints | 🔄 SIGUIENTE | - |
-| 5 | Documentos e Inventario | ⏳ | - |
+| 4 | CRUD Endpoints (35+ endpoints) | ✅ | `9658b57` |
+| 5 | Documentos e Inventario | 🔄 SIGUIENTE | - |
 | 6 | Cliente Desktop (APIClient) | ⏳ | - |
 | 7 | Testing e Integración | ⏳ | - |
 | 8 | Despliegue (Railway free) | ⏳ | - |
+
+### Endpoints Implementados (Fase 4)
+```
+POST   /api/v1/auth/register, login, refresh, logout
+GET    /api/v1/auth/me
+
+GET    /api/v1/clients              POST   /api/v1/clients
+GET    /api/v1/clients/{id}         PUT    /api/v1/clients/{id}
+DELETE /api/v1/clients/{id}
+
+GET    /api/v1/products             POST   /api/v1/products
+GET    /api/v1/products/{id}        PUT    /api/v1/products/{id}
+DELETE /api/v1/products/{id}        POST   /api/v1/products/{id}/adjust-stock
+
+GET    /api/v1/suppliers            (mismo patron CRUD)
+GET    /api/v1/workers              (+ courses sub-resource)
+GET    /api/v1/diary                (CRUD entradas)
+GET    /api/v1/reminders            (+ /complete endpoint)
+```
 | 5 | Documentos e Inventario | ⏳ PENDIENTE |
 | 6 | Cliente Desktop (APIClient) | ⏳ PENDIENTE |
 | 7 | Testing e Integración | ⏳ PENDIENTE |

@@ -97,57 +97,20 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 
 ---
 
-## MIGRACIÓN MULTI-TENANT API (v2.0.0) - EN DESARROLLO
+## MIGRACIÓN MULTI-TENANT API (v2.0.0)
 
-**Rama Git:** `feature/multi-tenant-api`
+**Rama Git:** `feature/multi-tenant-api` (pushed to GitHub)
 **Documento de Planificación:** `pasos a seguir migracion.md`
-**Estado:** Fase 6 COMPLETADA - Siguiente: Fase 7 (Testing) o Fase 8 (Despliegue)
+**Estado:** Fase 6 COMPLETADA - Backend 100% funcional
 **Última actualización:** 2026-02-02
-**Rama:** `feature/multi-tenant-api` (pushed to GitHub)
 
 ### Objetivo
 Convertir Dragofactu de app desktop local a sistema multi-empresa con backend API centralizado.
 
-### Arquitectura Objetivo
+### Arquitectura
 ```
 Desktop Client (PySide6)  ──HTTP/REST──▶  FastAPI Backend  ──▶  PostgreSQL
      └── APIClient                              └── Multi-tenancy (company_id)
-```
-
-### Estructura Backend Actual
-```
-backend/
-├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI entry point (funcionando)
-│   ├── config.py            # Pydantic Settings (SQLite dev)
-│   ├── database.py          # SQLAlchemy engine
-│   ├── models/              # 9 archivos, 11 tablas
-│   │   ├── base.py          # Base + GUID type
-│   │   ├── company.py       # Tenant principal
-│   │   ├── user.py          # User + UserRole + RBAC
-│   │   ├── client.py        # Cliente con company_id
-│   │   ├── supplier.py      # Proveedor con company_id
-│   │   ├── product.py       # Producto con stock
-│   │   ├── document.py      # Document + DocumentLine + Status
-│   │   ├── worker.py        # Worker + Course
-│   │   ├── diary.py         # DiaryEntry
-│   │   └── reminder.py      # Reminder
-│   ├── schemas/             # 11 archivos Pydantic
-│   │   ├── base.py          # BaseSchema, PaginatedResponse
-│   │   ├── auth.py          # Login, Register, Tokens
-│   │   ├── company.py, client.py, supplier.py, product.py
-│   │   ├── document.py, worker.py, diary.py, reminder.py
-│   ├── api/v1/              # (Fase 3-4)
-│   ├── services/            # (Fase 3-4)
-│   ├── core/                # (Fase 3: security.py)
-│   └── middleware/          # (Fase 3: tenant.py)
-├── alembic/
-├── venv/                    # Virtual environment
-├── dragofactu_api.db        # SQLite de desarrollo
-├── Dockerfile
-├── requirements.txt
-└── .env.example
 ```
 
 ### Fases de Implementación
@@ -163,62 +126,213 @@ backend/
 | 7 | Testing e Integración | ⏳ | - |
 | 8 | Despliegue (Railway free) | ⏳ | - |
 
-### Endpoints Implementados (Fase 4)
+### Estructura Backend Completa
 ```
-POST   /api/v1/auth/register, login, refresh, logout
-GET    /api/v1/auth/me
-
-GET    /api/v1/clients              POST   /api/v1/clients
-GET    /api/v1/clients/{id}         PUT    /api/v1/clients/{id}
-DELETE /api/v1/clients/{id}
-
-GET    /api/v1/products             POST   /api/v1/products
-GET    /api/v1/products/{id}        PUT    /api/v1/products/{id}
-DELETE /api/v1/products/{id}        POST   /api/v1/products/{id}/adjust-stock
-
-GET    /api/v1/suppliers            (mismo patron CRUD)
-GET    /api/v1/workers              (+ courses sub-resource)
-GET    /api/v1/diary                (CRUD entradas)
-GET    /api/v1/reminders            (+ /complete endpoint)
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI app con lifespan
+│   ├── config.py            # Pydantic Settings
+│   ├── database.py          # SQLAlchemy engine (SQLite dev)
+│   ├── models/              # 9 archivos, 11 tablas
+│   │   ├── base.py          # Base + GUID type portable
+│   │   ├── company.py       # Tenant principal
+│   │   ├── user.py          # User + UserRole + RBAC
+│   │   ├── client.py        # company_id
+│   │   ├── supplier.py      # company_id
+│   │   ├── product.py       # company_id + stock
+│   │   ├── document.py      # Document + DocumentLine + Status
+│   │   ├── worker.py        # Worker + Course
+│   │   ├── diary.py         # DiaryEntry
+│   │   └── reminder.py      # Reminder
+│   ├── schemas/             # 11 archivos Pydantic
+│   │   ├── base.py, auth.py, company.py, client.py
+│   │   ├── supplier.py, product.py, document.py
+│   │   ├── worker.py, diary.py, reminder.py
+│   ├── api/
+│   │   ├── deps.py          # get_db, get_current_user, require_permission
+│   │   ├── router.py        # Router principal
+│   │   └── v1/
+│   │       ├── auth.py      # login, register, refresh, me, logout
+│   │       ├── clients.py   # CRUD
+│   │       ├── products.py  # CRUD + adjust-stock
+│   │       ├── suppliers.py # CRUD
+│   │       ├── workers.py   # CRUD + courses
+│   │       ├── diary.py     # CRUD
+│   │       ├── reminders.py # CRUD + complete
+│   │       └── documents.py # CRUD + change-status + convert + stats
+│   └── core/
+│       └── security.py      # hash_password, verify_password, JWT tokens
+├── alembic/
+├── venv/
+├── dragofactu_api.db        # SQLite desarrollo
+├── Dockerfile
+├── docker-compose.yml       # PostgreSQL + API + Adminer
+├── requirements.txt
+└── .env.example
 ```
-| 5 | Documentos e Inventario | ⏳ PENDIENTE |
-| 6 | Cliente Desktop (APIClient) | ⏳ PENDIENTE |
-| 7 | Testing e Integración | ⏳ PENDIENTE |
-| 8 | Despliegue Producción | ⏳ PENDIENTE |
+
+### APIClient Desktop
+**Archivo:** `dragofactu/services/api_client.py`
+```python
+from dragofactu.services.api_client import get_api_client
+
+client = get_api_client("http://localhost:8000")
+client.login("admin", "password")
+clientes = client.list_clients()
+factura = client.create_document("invoice", client_id, issue_date, lines)
+client.change_document_status(doc_id, "paid")  # Descuenta stock
+```
+
+### Endpoints API (45+ totales)
+```
+# Auth
+POST /api/v1/auth/register     # Crear empresa + admin
+POST /api/v1/auth/login        # JWT tokens
+POST /api/v1/auth/refresh      # Renovar token
+GET  /api/v1/auth/me           # Usuario actual
+POST /api/v1/auth/logout
+
+# CRUD (patrón repetido para cada entidad)
+GET    /api/v1/clients         # Listar con filtros
+POST   /api/v1/clients         # Crear
+GET    /api/v1/clients/{id}    # Obtener
+PUT    /api/v1/clients/{id}    # Actualizar
+DELETE /api/v1/clients/{id}    # Soft delete
+
+# Products (extra)
+POST /api/v1/products/{id}/adjust-stock
+
+# Documents (extra)
+POST /api/v1/documents/{id}/change-status  # Valida transiciones, descuenta stock
+POST /api/v1/documents/{id}/convert        # Presupuesto -> Factura
+GET  /api/v1/documents/stats/summary       # Dashboard
+
+# Reminders (extra)
+POST /api/v1/reminders/{id}/complete
+```
+
+### Lógica de Negocio Implementada
+- **Códigos automáticos:** `PRE-2026-00001`, `FAC-2026-00001`, `ALB-2026-00001`
+- **Cálculos:** subtotal, IVA 21%, total
+- **Transiciones de estado validadas:** DRAFT→NOT_SENT→SENT→ACCEPTED→PAID
+- **Deducción stock:** Al marcar factura como PAID
+- **Multi-tenancy:** Todas las queries filtradas por company_id
+- **Permisos RBAC:** admin, management, warehouse, read_only
 
 ### Comandos Backend
 ```bash
-# Desarrollo con Docker
-docker-compose up -d
-
-# Sin Docker (requiere PostgreSQL local)
+# Desarrollo (SQLite)
 cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+source venv/bin/activate
+uvicorn app.main:app --reload --port 8000
 
-# Migraciones
-alembic upgrade head
-alembic revision --autogenerate -m "descripcion"
+# Con Docker (PostgreSQL) - PENDIENTE configurar
+docker-compose up -d
 ```
 
-### URLs de Desarrollo
+### URLs
 - API: http://localhost:8000
-- Docs Swagger: http://localhost:8000/docs
-- Adminer (BD): http://localhost:8080
+- Swagger: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-### Notas para Agentes
-1. **Versión estable:** `main` tiene la versión desktop funcional
-2. **Versión en desarrollo:** `feature/multi-tenant-api` tiene la migración
-3. **No romper:** La app desktop actual DEBE seguir funcionando
-4. **Multi-tenancy:** TODAS las entidades necesitan `company_id`
-5. **Hosting objetivo:** Railway (plan gratuito, 2 usuarios)
-6. **BD Desarrollo:** SQLite (`dragofactu_api.db`) - NO usar Docker por ahora
+### Pendientes
+- [ ] Fase 7: Tests automatizados (pytest)
+- [ ] Fase 8: Despliegue Railway (gratis)
+- [ ] Configurar Docker + PostgreSQL para producción
+- [ ] Generar SECRET_KEY seguro
+- [ ] Integrar APIClient en UI de dragofactu_complete.py
 
-### Pendientes Post-Desarrollo
-- [ ] **Configurar Docker + PostgreSQL** cuando el código esté completo
-- [ ] Migrar de SQLite a PostgreSQL para pruebas de producción
-- [ ] Configurar Railway/Render para despliegue
-- [ ] Generar SECRET_KEY seguro para producción
+---
+
+## SESIÓN 2026-02-02: Migración Multi-Tenant API (Claude Opus 4.5)
+**AI Agent:** Claude Opus 4.5 (claude-opus-4-5-20251101)
+**Fecha:** 2026-02-02
+**Duración:** Sesión completa de implementación
+
+### Resumen
+Implementación completa del backend FastAPI multi-tenant para Dragofactu. Se creó toda la infraestructura desde cero en la rama `feature/multi-tenant-api`.
+
+### Fases Completadas en Esta Sesión
+
+**Fase 1: Setup Inicial**
+- Estructura de carpetas backend/
+- docker-compose.yml con PostgreSQL
+- Modelo Company (tenant)
+- Configuración Alembic
+
+**Fase 2: Modelos y Schemas**
+- 11 modelos SQLAlchemy con company_id
+- Tipo GUID portable (SQLite/PostgreSQL)
+- 11 schemas Pydantic con validación
+- Enums: UserRole, DocumentType, DocumentStatus
+
+**Fase 3: Autenticación JWT**
+- core/security.py: bcrypt + JWT
+- api/deps.py: get_current_user, require_permission
+- Endpoints: login, register, refresh, me, logout
+- Persistencia tokens en cliente
+
+**Fase 4: CRUD Endpoints**
+- 6 routers: clients, products, suppliers, workers, diary, reminders
+- 35+ endpoints con filtros y paginación
+- Soft delete, búsqueda, ordenación
+
+**Fase 5: Documentos e Inventario**
+- Router documents con lógica completa
+- Códigos automáticos por tipo y año
+- Transiciones de estado validadas
+- Deducción automática de stock
+- Conversión presupuesto→factura
+- Endpoint stats para dashboard
+
+**Fase 6: APIClient Desktop**
+- Clase APIClient completa
+- Métodos para todos los endpoints
+- Manejo de tokens y refresh
+- Singleton para acceso global
+
+### Commits de Esta Sesión
+```
+fb477b6 - feat: Fase 1 - Setup inicial backend multi-tenant
+bcca59d - feat: Fase 2 - Modelos y schemas completos con multi-tenancy
+7c2d31e - feat: Fase 3 - Sistema de autenticacion JWT completo
+9658b57 - feat: Fase 4 - CRUD endpoints completos
+956ddde - feat: Fase 5 - Documents e inventario completo
+6b9d920 - feat: Fase 6 - APIClient para cliente desktop
+45dce7e - docs: Actualizar progreso Fase 6 completada
+```
+
+### Archivos Creados (principales)
+```
+backend/app/main.py
+backend/app/config.py
+backend/app/database.py
+backend/app/models/*.py (9 archivos)
+backend/app/schemas/*.py (11 archivos)
+backend/app/api/deps.py
+backend/app/api/router.py
+backend/app/api/v1/*.py (8 routers)
+backend/app/core/security.py
+dragofactu/services/api_client.py
+docker-compose.yml
+```
+
+### Testing Verificado
+- Register empresa + usuario admin
+- Login con JWT tokens
+- CRUD clientes, productos
+- Crear factura con líneas
+- Flujo: DRAFT→NOT_SENT→SENT→ACCEPTED→PAID
+- Stock descontado correctamente (50-5=45)
+- APIClient funciona contra backend
+
+### Decisiones Técnicas
+1. **SQLite para desarrollo** en lugar de Docker/PostgreSQL (simplicidad)
+2. **GUID type portable** para UUIDs (funciona en SQLite y PostgreSQL)
+3. **bcrypt directo** en lugar de passlib (compatibilidad)
+4. **Códigos con año:** PRE-2026-00001 para reinicio anual
+5. **Soft delete:** is_active=False para mantener historial
 
 ---
 

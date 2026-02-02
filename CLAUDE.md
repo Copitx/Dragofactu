@@ -101,7 +101,7 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 
 **Rama Git:** `feature/multi-tenant-api`
 **Documento de Planificación:** `pasos a seguir migracion.md`
-**Estado:** Fase 4 COMPLETADA - Siguiente: Fase 5 (Documentos e Inventario)
+**Estado:** Fase 5 COMPLETADA - Siguiente: Fase 6 (Cliente Desktop APIClient)
 **Última actualización:** 2026-02-02
 **Rama:** `feature/multi-tenant-api` (pushed to GitHub)
 
@@ -158,7 +158,7 @@ backend/
 | 2 | Backend Core (modelos, schemas) | ✅ | `bcca59d` |
 | 3 | Sistema de Autenticación (JWT) | ✅ | `7c2d31e` |
 | 4 | CRUD Endpoints (35+ endpoints) | ✅ | `9658b57` |
-| 5 | Documentos e Inventario | 🔄 SIGUIENTE | - |
+| 5 | Documentos e Inventario | ✅ | `956ddde` |
 | 6 | Cliente Desktop (APIClient) | ⏳ | - |
 | 7 | Testing e Integración | ⏳ | - |
 | 8 | Despliegue (Railway free) | ⏳ | - |

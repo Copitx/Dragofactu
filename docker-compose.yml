@@ -1,0 +1,54 @@
+# Dragofactu - Docker Compose para desarrollo local
+# Uso: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: dragofactu-db
+    environment:
+      POSTGRES_USER: dragofactu
+      POSTGRES_PASSWORD: dragofactu
+      POSTGRES_DB: dragofactu
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dragofactu"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dragofactu-api
+    environment:
+      - DATABASE_URL=postgresql://dragofactu:dragofactu@db:5432/dragofactu
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - DEBUG=true
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Adminer - Database management UI (optional)
+  adminer:
+    image: adminer:latest
+    container_name: dragofactu-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

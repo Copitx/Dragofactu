@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import get_settings
 from app.database import engine
-from app.models import Base
+from app.models.base import Base
 
 settings = get_settings()
 

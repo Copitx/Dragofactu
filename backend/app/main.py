@@ -3,6 +3,8 @@ Dragofactu API - Main FastAPI application.
 
 Multi-tenant ERP backend for the Dragofactu desktop client.
 """
+import os
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -12,17 +14,27 @@ from app.models.base import Base
 
 settings = get_settings()
 
+# Startup logging
+print(f"[STARTUP] Python version: {sys.version}", flush=True)
+print(f"[STARTUP] PORT env: {os.environ.get('PORT', 'not set')}", flush=True)
+print(f"[STARTUP] DATABASE_URL: {settings.DATABASE_URL[:30]}...", flush=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup: Create all tables
-    print("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
-    print("Database tables created.")
+    print("[STARTUP] Creating database tables...", flush=True)
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("[STARTUP] Database tables created successfully.", flush=True)
+    except Exception as e:
+        print(f"[STARTUP ERROR] Failed to create tables: {e}", flush=True)
+        raise
+    print("[STARTUP] Application ready to receive requests.", flush=True)
     yield
     # Shutdown: Clean up if needed
-    print("Application shutting down.")
+    print("[SHUTDOWN] Application shutting down.", flush=True)
 
 # Create FastAPI app
 app = FastAPI(
@@ -67,5 +79,11 @@ async def root():
 
 
 # Include API routers
-from app.api.router import api_router
-app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+print("[STARTUP] Loading API routers...", flush=True)
+try:
+    from app.api.router import api_router
+    app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+    print("[STARTUP] API routers loaded successfully.", flush=True)
+except Exception as e:
+    print(f"[STARTUP ERROR] Failed to load routers: {e}", flush=True)
+    raise

@@ -854,3 +854,595 @@ Todos los servicios usan `@require_permission('resource.action')` para autorizac
 - Patrones de traducción e internacionalización
 - Diseño UI/UX consistente
 - Gestión de archivos JSON y configuración
+
+---
+
+## SESIÓN 2026-02-02: DEPLOYMENT RAILWAY COMPLETADO (Claude Opus 4.5)
+
+**AI Agent:** Claude Opus 4.5 (claude-opus-4-5-20251101)
+**Fecha:** 2026-02-02
+**Estado:** ✅ Backend desplegado y funcionando en Railway
+
+### Progreso de Esta Sesión
+
+**Problema inicial:** Railway build OK pero healthcheck fallaba (service unavailable)
+
+**Causa raíz:** El Dockerfile usaba exec form `CMD [...]` que no expande variables de entorno. Railway proporciona `$PORT` pero no se usaba.
+
+**Solución aplicada:**
+1. Cambiar Dockerfile de exec form a shell form:
+   ```dockerfile
+   # ANTES (no funcionaba)
+   CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+   # DESPUÉS (funciona)
+   CMD /bin/sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"
+   ```
+
+2. Eliminar `startCommand` redundante de `railway.toml`
+
+3. Añadir logging de startup en `main.py` para debug:
+   ```python
+   print(f"[STARTUP] PORT env: {os.environ.get('PORT', 'not set')}", flush=True)
+   print(f"[STARTUP] DATABASE_URL: {settings.DATABASE_URL[:30]}...", flush=True)
+   ```
+
+4. Corregir `openapi_url` para que `/docs` funcione:
+   ```python
+   openapi_url="/openapi.json",  # Era: f"{settings.API_V1_PREFIX}/openapi.json"
+   ```
+
+**Commits de esta sesión:**
+- `c206db6` - fix: Use shell form in Dockerfile CMD for PORT variable expansion
+- `1381f0f` - fix: Add startup logging and remove redundant startCommand
+- (pendiente) - fix: Corregir openapi_url para /docs
+
+**URLs de producción:**
+- API: https://dragofactu-production.up.railway.app (o la URL que Railway asigne)
+- Health: /health
+- Docs Swagger: /docs
+- ReDoc: /redoc
+
+**Configuración Railway actual:**
+- Root Directory: `/backend`
+- Branch: `main`
+- Build: Dockerfile
+- Healthcheck: `/health` (timeout 60s)
+
+---
+
+## FASES PENDIENTES - GUÍA DETALLADA PARA AGENTES IA
+
+**IMPORTANTE:** Esta sección contiene instrucciones paso a paso para completar la migración. Léela completa antes de comenzar cualquier fase.
+
+### Estado Actual del Proyecto
+
+```
+✅ COMPLETADO:
+- Backend FastAPI multi-tenant (45+ endpoints)
+- 52 tests pytest passing
+- Deployment en Railway funcionando
+- APIClient clase completa (dragofactu/services/api_client.py)
+
+🔄 PENDIENTE:
+- Integrar APIClient en dragofactu_complete.py (la app desktop)
+- Login contra backend remoto
+- Sincronización datos locales ↔ remotos
+- PostgreSQL en Railway (actualmente SQLite)
+```
+
+### FASE 9: INTEGRAR APICLIENT EN APP DESKTOP
+
+**Objetivo:** Que `dragofactu_complete.py` use el backend API en lugar de SQLite local.
+
+**Archivo principal a modificar:** `/Users/jaimeruiz/Dragofactu/dragofactu_complete.py`
+
+**Archivo APIClient ya creado:** `/Users/jaimeruiz/Dragofactu/dragofactu/services/api_client.py`
+
+#### Paso 9.1: Añadir configuración de servidor
+
+En `dragofactu_complete.py`, buscar la clase `SettingsDialog` (aproximadamente línea 5800+) y añadir un nuevo tab "Servidor":
+
+```python
+# Añadir en SettingsDialog.__init__():
+server_tab = QWidget()
+server_layout = QVBoxLayout(server_tab)
+
+# Campo URL del servidor
+url_group = QGroupBox("Servidor API")
+url_layout = QFormLayout()
+self.server_url_input = QLineEdit()
+self.server_url_input.setPlaceholderText("https://tu-app.railway.app")
+url_layout.addRow("URL del servidor:", self.server_url_input)
+url_group.setLayout(url_layout)
+server_layout.addWidget(url_group)
+
+# Botón de prueba de conexión
+self.test_connection_btn = QPushButton("Probar conexión")
+self.test_connection_btn.clicked.connect(self.test_server_connection)
+server_layout.addWidget(self.test_connection_btn)
+
+tabs.addTab(server_tab, "Servidor")
+```
+
+#### Paso 9.2: Modificar LoginDialog para usar API
+
+El `LoginDialog` actual (línea ~300) usa SQLite local. Hay que cambiarlo:
+
+```python
+# ANTES (SQLite local):
+def authenticate(self, username, password):
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.username == username).first()
+        if user and bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+            return user
+    return None
+
+# DESPUÉS (API remota):
+def authenticate(self, username, password):
+    from dragofactu.services.api_client import get_api_client
+
+    server_url = self.get_server_url()  # Leer de settings
+    if not server_url:
+        # Fallback a modo local
+        return self.authenticate_local(username, password)
+
+    try:
+        client = get_api_client(server_url)
+        if client.login(username, password):
+            # Guardar datos del usuario desde API
+            user_data = client.get_current_user()
+            return user_data  # dict, no ORM object
+        return None
+    except Exception as e:
+        QMessageBox.warning(self, "Error", f"Error conectando al servidor: {e}")
+        return None
+```
+
+#### Paso 9.3: Crear modo híbrido (local/remoto)
+
+La app debe funcionar en dos modos:
+1. **Modo local:** SQLite, sin conexión (como ahora)
+2. **Modo remoto:** API backend
+
+Añadir al inicio de `dragofactu_complete.py`:
+
+```python
+# Constantes de modo
+MODE_LOCAL = "local"
+MODE_REMOTE = "remote"
+
+class AppMode:
+    """Singleton para gestionar el modo de la aplicación."""
+    _instance = None
+    _mode = MODE_LOCAL
+    _api_client = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @property
+    def mode(self):
+        return self._mode
+
+    def set_remote(self, server_url):
+        from dragofactu.services.api_client import get_api_client
+        self._api_client = get_api_client(server_url)
+        self._mode = MODE_REMOTE
+
+    def set_local(self):
+        self._api_client = None
+        self._mode = MODE_LOCAL
+
+    @property
+    def api(self):
+        return self._api_client
+
+def get_app_mode():
+    return AppMode.get_instance()
+```
+
+#### Paso 9.4: Modificar cada Tab para usar API
+
+Cada tab de gestión tiene métodos `load_data()`, `save_item()`, `delete_item()`. Hay que modificarlos:
+
+**Ejemplo para ClientManagementTab:**
+
+```python
+# ANTES (SQLite):
+def load_clients(self):
+    with SessionLocal() as db:
+        clients = db.query(Client).filter(Client.is_active == True).all()
+        # ... llenar tabla
+
+# DESPUÉS (híbrido):
+def load_clients(self):
+    app_mode = get_app_mode()
+
+    if app_mode.mode == MODE_REMOTE:
+        # Usar API
+        try:
+            clients = app_mode.api.list_clients()  # Devuelve lista de dicts
+            self.fill_table_from_dicts(clients)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Error cargando clientes: {e}")
+    else:
+        # Usar SQLite local
+        with SessionLocal() as db:
+            clients = db.query(Client).filter(Client.is_active == True).all()
+            self.fill_table_from_orm(clients)
+```
+
+**Patrón para todas las tabs:**
+```python
+def load_data(self):
+    if get_app_mode().mode == MODE_REMOTE:
+        self._load_from_api()
+    else:
+        self._load_from_local()
+
+def _load_from_api(self):
+    # Usar get_app_mode().api.list_*()
+    pass
+
+def _load_from_local(self):
+    # Usar SessionLocal() como antes
+    pass
+```
+
+#### Paso 9.5: Gestión de tokens JWT
+
+El APIClient ya maneja tokens internamente, pero hay que persistirlos:
+
+```python
+# En api_client.py, añadir al final de login():
+def login(self, username, password):
+    response = self._post("/auth/login", data={"username": username, "password": password})
+    if response:
+        self.access_token = response["access_token"]
+        self.refresh_token = response["refresh_token"]
+        # Persistir tokens
+        self._save_tokens()
+        return True
+    return False
+
+def _save_tokens(self):
+    """Guardar tokens en archivo seguro."""
+    import json
+    from pathlib import Path
+
+    config_dir = Path.home() / ".dragofactu"
+    config_dir.mkdir(exist_ok=True)
+
+    tokens_file = config_dir / "tokens.json"
+    with open(tokens_file, "w") as f:
+        json.dump({
+            "access_token": self.access_token,
+            "refresh_token": self.refresh_token
+        }, f)
+
+def _load_tokens(self):
+    """Cargar tokens guardados."""
+    import json
+    from pathlib import Path
+
+    tokens_file = Path.home() / ".dragofactu" / "tokens.json"
+    if tokens_file.exists():
+        with open(tokens_file) as f:
+            data = json.load(f)
+            self.access_token = data.get("access_token")
+            self.refresh_token = data.get("refresh_token")
+            return True
+    return False
+```
+
+### FASE 10: CONFIGURAR POSTGRESQL EN RAILWAY
+
+**Objetivo:** Usar PostgreSQL en lugar de SQLite para persistencia real.
+
+#### Paso 10.1: Añadir PostgreSQL en Railway
+
+1. En Railway dashboard, click "New" → "Database" → "PostgreSQL"
+2. Railway crea automáticamente la variable `DATABASE_URL`
+3. Conectar el servicio backend al PostgreSQL
+
+#### Paso 10.2: Verificar configuración
+
+El código ya soporta PostgreSQL. Verificar que `backend/app/config.py` usa:
+```python
+DATABASE_URL: str = "sqlite:///./dragofactu_api.db"  # Default para dev
+```
+
+En Railway, la variable `DATABASE_URL` del PostgreSQL sobreescribe este default.
+
+#### Paso 10.3: Migrar datos (si hay)
+
+```bash
+# En Railway, ejecutar via CLI o Console:
+python -c "
+from app.database import engine
+from app.models.base import Base
+Base.metadata.create_all(bind=engine)
+print('Tables created')
+"
+```
+
+### FASE 11: REGISTRO DE EMPRESA (ONBOARDING)
+
+**Objetivo:** Permitir que nuevos usuarios creen su empresa.
+
+#### Paso 11.1: Crear OnboardingDialog
+
+Nuevo archivo o añadir a `dragofactu_complete.py`:
+
+```python
+class OnboardingDialog(QDialog):
+    """Diálogo para registro de nueva empresa."""
+
+    def __init__(self, server_url, parent=None):
+        super().__init__(parent)
+        self.server_url = server_url
+        self.setWindowTitle("Registrar Nueva Empresa")
+        self.setMinimumSize(500, 600)
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+
+        # Datos de empresa
+        company_group = QGroupBox("Datos de la Empresa")
+        company_layout = QFormLayout()
+
+        self.company_name = QLineEdit()
+        self.company_tax_id = QLineEdit()
+        self.company_tax_id.setPlaceholderText("B12345678")
+        self.company_address = QLineEdit()
+        self.company_phone = QLineEdit()
+        self.company_email = QLineEdit()
+
+        company_layout.addRow("Nombre empresa*:", self.company_name)
+        company_layout.addRow("CIF/NIF*:", self.company_tax_id)
+        company_layout.addRow("Dirección:", self.company_address)
+        company_layout.addRow("Teléfono:", self.company_phone)
+        company_layout.addRow("Email:", self.company_email)
+        company_group.setLayout(company_layout)
+        layout.addWidget(company_group)
+
+        # Datos de admin
+        admin_group = QGroupBox("Usuario Administrador")
+        admin_layout = QFormLayout()
+
+        self.username = QLineEdit()
+        self.password = QLineEdit()
+        self.password.setEchoMode(QLineEdit.Password)
+        self.password_confirm = QLineEdit()
+        self.password_confirm.setEchoMode(QLineEdit.Password)
+        self.full_name = QLineEdit()
+        self.email = QLineEdit()
+
+        admin_layout.addRow("Usuario*:", self.username)
+        admin_layout.addRow("Contraseña*:", self.password)
+        admin_layout.addRow("Confirmar contraseña*:", self.password_confirm)
+        admin_layout.addRow("Nombre completo*:", self.full_name)
+        admin_layout.addRow("Email*:", self.email)
+        admin_group.setLayout(admin_layout)
+        layout.addWidget(admin_group)
+
+        # Botones
+        btn_layout = QHBoxLayout()
+        self.register_btn = QPushButton("Registrar")
+        self.register_btn.clicked.connect(self.register)
+        self.cancel_btn = QPushButton("Cancelar")
+        self.cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(self.cancel_btn)
+        btn_layout.addWidget(self.register_btn)
+        layout.addLayout(btn_layout)
+
+    def register(self):
+        # Validar campos
+        if self.password.text() != self.password_confirm.text():
+            QMessageBox.warning(self, "Error", "Las contraseñas no coinciden")
+            return
+
+        # Llamar API
+        from dragofactu.services.api_client import get_api_client
+
+        try:
+            client = get_api_client(self.server_url)
+            result = client.register(
+                company_name=self.company_name.text(),
+                company_tax_id=self.company_tax_id.text(),
+                username=self.username.text(),
+                password=self.password.text(),
+                email=self.email.text(),
+                full_name=self.full_name.text()
+            )
+            if result:
+                QMessageBox.information(self, "Éxito", "Empresa registrada correctamente")
+                self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al registrar: {e}")
+```
+
+#### Paso 11.2: Modificar LoginDialog para mostrar opción de registro
+
+```python
+# En LoginDialog, añadir botón:
+self.register_btn = QPushButton("Registrar nueva empresa")
+self.register_btn.clicked.connect(self.show_onboarding)
+
+def show_onboarding(self):
+    server_url = self.get_server_url()
+    if not server_url:
+        QMessageBox.warning(self, "Error", "Configure la URL del servidor primero")
+        return
+
+    dialog = OnboardingDialog(server_url, self)
+    if dialog.exec() == QDialog.Accepted:
+        # Auto-login después de registro
+        self.username_input.setText(dialog.username.text())
+        self.password_input.setText(dialog.password.text())
+```
+
+### FASE 12: SINCRONIZACIÓN Y MODO OFFLINE
+
+**Objetivo:** Permitir trabajo offline con sincronización posterior.
+
+Esta fase es más compleja y puede dividirse:
+
+#### Paso 12.1: Cache local de datos
+
+```python
+class LocalCache:
+    """Cache local para modo offline."""
+
+    def __init__(self):
+        self.cache_dir = Path.home() / ".dragofactu" / "cache"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def save_clients(self, clients: list):
+        with open(self.cache_dir / "clients.json", "w") as f:
+            json.dump(clients, f)
+
+    def load_clients(self) -> list:
+        cache_file = self.cache_dir / "clients.json"
+        if cache_file.exists():
+            with open(cache_file) as f:
+                return json.load(f)
+        return []
+
+    # Repetir para products, documents, etc.
+```
+
+#### Paso 12.2: Cola de operaciones pendientes
+
+```python
+class OperationQueue:
+    """Cola de operaciones para sincronizar cuando haya conexión."""
+
+    def __init__(self):
+        self.queue_file = Path.home() / ".dragofactu" / "pending_operations.json"
+        self.operations = self._load()
+
+    def add(self, operation_type: str, entity_type: str, data: dict):
+        self.operations.append({
+            "type": operation_type,  # create, update, delete
+            "entity": entity_type,   # client, product, document
+            "data": data,
+            "timestamp": datetime.now().isoformat()
+        })
+        self._save()
+
+    def sync(self, api_client):
+        """Sincronizar operaciones pendientes con el servidor."""
+        synced = []
+        for op in self.operations:
+            try:
+                if op["type"] == "create":
+                    if op["entity"] == "client":
+                        api_client.create_client(**op["data"])
+                    # ... otros entities
+                elif op["type"] == "update":
+                    # ...
+                elif op["type"] == "delete":
+                    # ...
+                synced.append(op)
+            except Exception as e:
+                print(f"Error syncing {op}: {e}")
+
+        # Eliminar operaciones sincronizadas
+        self.operations = [op for op in self.operations if op not in synced]
+        self._save()
+        return len(synced)
+```
+
+### FASE 13: TESTING DE INTEGRACIÓN
+
+**Objetivo:** Asegurar que todo funciona end-to-end.
+
+#### Tests manuales a realizar:
+
+1. **Login remoto:**
+   - [ ] Configurar URL del servidor en Settings
+   - [ ] Login con credenciales válidas
+   - [ ] Login con credenciales inválidas
+   - [ ] Token refresh automático
+
+2. **CRUD via API:**
+   - [ ] Crear cliente → aparece en tabla
+   - [ ] Editar cliente → cambios guardados
+   - [ ] Eliminar cliente → desaparece (soft delete)
+   - [ ] Repetir para productos, documentos, etc.
+
+3. **Documentos:**
+   - [ ] Crear presupuesto
+   - [ ] Convertir a factura
+   - [ ] Cambiar estado a PAID
+   - [ ] Verificar stock descontado
+
+4. **Multi-tenant:**
+   - [ ] Registrar 2 empresas diferentes
+   - [ ] Verificar que datos están aislados
+
+---
+
+## RESUMEN DE ARCHIVOS CLAVE PARA AGENTES
+
+### Backend (Railway)
+```
+backend/
+├── app/main.py           # Entry point FastAPI
+├── app/config.py         # Settings (DATABASE_URL, SECRET_KEY)
+├── app/database.py       # SQLAlchemy engine
+├── app/api/v1/*.py       # Todos los endpoints
+├── Dockerfile            # Build para Railway
+└── railway.toml          # Configuración Railway
+```
+
+### Desktop (PySide6)
+```
+dragofactu_complete.py    # App monolítica (~7000 líneas)
+dragofactu/services/api_client.py  # Cliente HTTP para backend
+```
+
+### Configuración usuario
+```
+~/.dragofactu/
+├── pdf_settings.json     # Config PDF (empresa, logo)
+├── tokens.json           # JWT tokens (crear en Fase 9)
+└── cache/                # Cache offline (crear en Fase 12)
+```
+
+---
+
+## COMANDOS ÚTILES
+
+```bash
+# Backend local
+cd backend && source venv/bin/activate && uvicorn app.main:app --reload
+
+# Tests backend
+cd backend && python -m pytest tests/ -v
+
+# App desktop
+python3 dragofactu_complete.py
+
+# Git
+git status
+git add -A && git commit -m "mensaje"
+git push origin main
+```
+
+---
+
+## NOTAS FINALES PARA AGENTES
+
+1. **Siempre leer archivos antes de modificar** - No asumas el contenido
+2. **Probar cambios localmente** antes de commit
+3. **Commits pequeños y descriptivos** - Un commit por feature/fix
+4. **Mantener compatibilidad** - La app debe funcionar en modo local Y remoto
+5. **No romper lo que funciona** - El backend en Railway está funcionando, no tocar a menos que sea necesario
+6. **Actualizar CLAUDE.md** al final de cada sesión con el progreso

@@ -9,6 +9,7 @@ from uuid import UUID
 
 from app.database import SessionLocal
 from app.core.security import verify_access_token, create_access_token, verify_refresh_token
+from app.core.security_utils import token_blacklist
 from app.models import User
 
 # Security scheme for Swagger UI
@@ -45,6 +46,15 @@ async def get_current_user(
         )
 
     token = credentials.credentials
+
+    # Check if token has been invalidated (logout)
+    if token_blacklist.is_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalidado",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
     user_id = verify_access_token(token)
 
     if not user_id:

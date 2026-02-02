@@ -5,8 +5,10 @@ Multi-tenant ERP backend for the Dragofactu desktop client.
 """
 import os
 import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 from app.config import get_settings
 from app.database import engine
@@ -18,6 +20,42 @@ settings = get_settings()
 print(f"[STARTUP] Python version: {sys.version}", flush=True)
 print(f"[STARTUP] PORT env: {os.environ.get('PORT', 'not set')}", flush=True)
 print(f"[STARTUP] DATABASE_URL: {settings.DATABASE_URL[:30]}...", flush=True)
+print(f"[STARTUP] DEBUG mode: {settings.DEBUG}", flush=True)
+
+
+# ============================================================================
+# SECURITY HEADERS MIDDLEWARE
+# ============================================================================
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        # Prevent clickjacking
+        response.headers["X-Frame-Options"] = "DENY"
+
+        # Prevent MIME type sniffing
+        response.headers["X-Content-Type-Options"] = "nosniff"
+
+        # XSS Protection (legacy, but still useful)
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+
+        # Referrer policy
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # Content Security Policy (basic)
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
+
+        # Strict Transport Security (only in production)
+        if not settings.DEBUG:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        # Remove server header (don't reveal tech stack)
+        response.headers["Server"] = "Dragofactu"
+
+        return response
 
 
 @asynccontextmanager
@@ -48,13 +86,19 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
 # CORS middleware - Required for desktop client
+# In production, set ALLOWED_ORIGINS to specific domains
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+    expose_headers=["X-Total-Count"],  # For pagination
+    max_age=600,  # Cache preflight for 10 minutes
 )
 
 

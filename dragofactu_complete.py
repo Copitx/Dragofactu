@@ -2146,72 +2146,88 @@ class ClientDialog(QDialog):
         layout.addRow(btn_layout)
 
     def load_client_data(self):
-        """Load existing client data for editing"""
+        """Load existing client data for editing - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                client = db.query(Client).filter(Client.id == self.client_id).first()
-                if client:
-                    self.code_edit.setText(client.code or "")
-                    self.name_edit.setText(client.name or "")
-                    self.email_edit.setText(client.email or "")
-                    self.phone_edit.setText(client.phone or "")
-                    self.address_edit.setText(client.address or "")
-                    self.city_edit.setText(client.city or "")
-                    self.postal_code_edit.setText(client.postal_code or "")
-                    self.nif_edit.setText(client.tax_id or "")
-                    self.notes_edit.setPlainText(client.notes or "")
-                    self.active_check.setChecked(client.is_active)
-                else:
-                    QMessageBox.warning(self, "❌ Error", "Cliente no encontrado")
-                    self.reject()
+            if app_mode.is_remote:
+                client = app_mode.api.get_client(str(self.client_id))
+                self.code_edit.setText(client.get("code", ""))
+                self.name_edit.setText(client.get("name", ""))
+                self.email_edit.setText(client.get("email", "") or "")
+                self.phone_edit.setText(client.get("phone", "") or "")
+                self.address_edit.setText(client.get("address", "") or "")
+                self.city_edit.setText(client.get("city", "") or "")
+                self.postal_code_edit.setText(client.get("postal_code", "") or "")
+                self.nif_edit.setText(client.get("tax_id", "") or "")
+                self.notes_edit.setPlainText(client.get("notes", "") or "")
+                self.active_check.setChecked(client.get("is_active", True))
+            else:
+                with SessionLocal() as db:
+                    client = db.query(Client).filter(Client.id == self.client_id).first()
+                    if client:
+                        self.code_edit.setText(client.code or "")
+                        self.name_edit.setText(client.name or "")
+                        self.email_edit.setText(client.email or "")
+                        self.phone_edit.setText(client.phone or "")
+                        self.address_edit.setText(client.address or "")
+                        self.city_edit.setText(client.city or "")
+                        self.postal_code_edit.setText(client.postal_code or "")
+                        self.nif_edit.setText(client.tax_id or "")
+                        self.notes_edit.setPlainText(client.notes or "")
+                        self.active_check.setChecked(client.is_active)
+                    else:
+                        QMessageBox.warning(self, "Error", "Cliente no encontrado")
+                        self.reject()
         except Exception as e:
             logger.error(f"Error loading client data: {e}")
-            QMessageBox.critical(self, "❌ Error", f"Error cargando cliente: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error cargando cliente: {str(e)}")
             self.reject()
 
     def accept(self):
-        """Save or update client"""
+        """Save or update client - supports local and remote"""
         if not self.name_edit.text().strip():
-            QMessageBox.warning(self, "❌ Error", "El nombre es obligatorio")
+            QMessageBox.warning(self, "Error", "El nombre es obligatorio")
             return
 
+        app_mode = get_app_mode()
+        client_data = {
+            "name": self.name_edit.text().strip(),
+            "email": self.email_edit.text().strip() or None,
+            "phone": self.phone_edit.text().strip() or None,
+            "address": self.address_edit.text().strip() or None,
+            "city": self.city_edit.text().strip() or None,
+            "postal_code": self.postal_code_edit.text().strip() or None,
+            "tax_id": self.nif_edit.text().strip() or None,
+            "notes": self.notes_edit.toPlainText().strip() or None,
+            "is_active": self.active_check.isChecked()
+        }
+
         try:
-            with SessionLocal() as db:
+            if app_mode.is_remote:
                 if self.is_edit_mode:
-                    # Update existing client
-                    client = db.query(Client).filter(Client.id == self.client_id).first()
-                    if not client:
-                        QMessageBox.warning(self, "❌ Error", "Cliente no encontrado")
-                        return
-                    client.name = self.name_edit.text().strip()
-                    client.email = self.email_edit.text().strip() or None
-                    client.phone = self.phone_edit.text().strip() or None
-                    client.address = self.address_edit.text().strip() or None
-                    client.city = self.city_edit.text().strip() or None
-                    client.postal_code = self.postal_code_edit.text().strip() or None
-                    client.tax_id = self.nif_edit.text().strip() or None
-                    client.notes = self.notes_edit.toPlainText().strip() or None
-                    client.is_active = self.active_check.isChecked()
+                    app_mode.api.update_client(str(self.client_id), **client_data)
                 else:
-                    # Create new client
-                    client = Client(
-                        code=self.code_edit.text().strip() or f"C-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                        name=self.name_edit.text().strip(),
-                        email=self.email_edit.text().strip() or None,
-                        phone=self.phone_edit.text().strip() or None,
-                        address=self.address_edit.text().strip() or None,
-                        city=self.city_edit.text().strip() or None,
-                        postal_code=self.postal_code_edit.text().strip() or None,
-                        tax_id=self.nif_edit.text().strip() or None,
-                        notes=self.notes_edit.toPlainText().strip() or None,
-                        is_active=self.active_check.isChecked()
-                    )
-                    db.add(client)
-                db.commit()
+                    code = self.code_edit.text().strip() or f"C-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    app_mode.api.create_client(code=code, **client_data)
                 super().accept()
+            else:
+                with SessionLocal() as db:
+                    if self.is_edit_mode:
+                        client = db.query(Client).filter(Client.id == self.client_id).first()
+                        if not client:
+                            QMessageBox.warning(self, "Error", "Cliente no encontrado")
+                            return
+                        for key, value in client_data.items():
+                            setattr(client, key, value)
+                    else:
+                        code = self.code_edit.text().strip() or f"C-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                        client = Client(code=code, **client_data)
+                        db.add(client)
+                    db.commit()
+                    super().accept()
         except Exception as e:
             logger.error(f"Error saving client: {e}")
-            QMessageBox.critical(self, "❌ Error", f"Error al guardar cliente: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error al guardar: {str(e)}")
 
 class ProductDialog(QDialog):
     """Dialog for creating and editing products"""
@@ -3145,35 +3161,72 @@ class ClientManagementTab(QWidget):
         layout.addWidget(self.status_label)
     
     def refresh_data(self):
-        """Refresh clients data"""
-        self.client_ids = []  # Store client IDs for reference
+        """Refresh clients data - supports local and remote modes"""
+        self.client_ids = []
+        app_mode = get_app_mode()
+
         try:
-            with SessionLocal() as db:
-                clients = db.query(Client).order_by(Client.name).all()
-
-                self.clients_table.setRowCount(0)
-                self.client_ids = []
-
-                for row, client in enumerate(clients):
-                    self.clients_table.insertRow(row)
-                    self.client_ids.append(client.id)  # Store ID
-
-                    self.clients_table.setItem(row, 0, QTableWidgetItem(client.code or ""))
-                    self.clients_table.setItem(row, 1, QTableWidgetItem(client.name or ""))
-                    self.clients_table.setItem(row, 2, QTableWidgetItem(client.email or ""))
-                    self.clients_table.setItem(row, 3, QTableWidgetItem(client.phone or ""))
-                    self.clients_table.setItem(row, 4, QTableWidgetItem(client.address or ""))
-                    self.clients_table.setItem(row, 5, QTableWidgetItem(client.tax_id or ""))
-
-                    status_text = "✅ Activo" if client.is_active else "❌ Inactivo"
-                    status_item = QTableWidgetItem(status_text)
-                    self.clients_table.setItem(row, 6, status_item)
-
-                self.status_label.setText(f"📊 Mostrando {len(clients)} clientes")
-
+            if app_mode.is_remote:
+                self._refresh_from_api(app_mode.api)
+            else:
+                self._refresh_from_local()
         except Exception as e:
             logger.error(f"Error refreshing clients: {e}")
-            self.status_label.setText(f"❌ Error: {str(e)}")
+            self.status_label.setText(f"Error: {str(e)}")
+
+    def _refresh_from_api(self, api):
+        """Refresh clients from remote API."""
+        try:
+            response = api.list_clients(limit=500, active_only=False)
+            clients = response.get("items", [])
+
+            self.clients_table.setRowCount(0)
+            self.client_ids = []
+
+            for row, client in enumerate(clients):
+                self.clients_table.insertRow(row)
+                self.client_ids.append(client.get("id", ""))
+
+                self.clients_table.setItem(row, 0, QTableWidgetItem(client.get("code", "")))
+                self.clients_table.setItem(row, 1, QTableWidgetItem(client.get("name", "")))
+                self.clients_table.setItem(row, 2, QTableWidgetItem(client.get("email", "") or ""))
+                self.clients_table.setItem(row, 3, QTableWidgetItem(client.get("phone", "") or ""))
+                self.clients_table.setItem(row, 4, QTableWidgetItem(client.get("address", "") or ""))
+                self.clients_table.setItem(row, 5, QTableWidgetItem(client.get("tax_id", "") or ""))
+
+                is_active = client.get("is_active", True)
+                status_text = "Activo" if is_active else "Inactivo"
+                self.clients_table.setItem(row, 6, QTableWidgetItem(status_text))
+
+            self.status_label.setText(f"Mostrando {len(clients)} clientes (servidor)")
+
+        except Exception as e:
+            logger.error(f"Error fetching clients from API: {e}")
+            raise
+
+    def _refresh_from_local(self):
+        """Refresh clients from local SQLite database."""
+        with SessionLocal() as db:
+            clients = db.query(Client).order_by(Client.name).all()
+
+            self.clients_table.setRowCount(0)
+            self.client_ids = []
+
+            for row, client in enumerate(clients):
+                self.clients_table.insertRow(row)
+                self.client_ids.append(client.id)
+
+                self.clients_table.setItem(row, 0, QTableWidgetItem(client.code or ""))
+                self.clients_table.setItem(row, 1, QTableWidgetItem(client.name or ""))
+                self.clients_table.setItem(row, 2, QTableWidgetItem(client.email or ""))
+                self.clients_table.setItem(row, 3, QTableWidgetItem(client.phone or ""))
+                self.clients_table.setItem(row, 4, QTableWidgetItem(client.address or ""))
+                self.clients_table.setItem(row, 5, QTableWidgetItem(client.tax_id or ""))
+
+                status_text = "Activo" if client.is_active else "Inactivo"
+                self.clients_table.setItem(row, 6, QTableWidgetItem(status_text))
+
+            self.status_label.setText(f"Mostrando {len(clients)} clientes (local)")
 
     def filter_clients(self):
         """Filter clients based on search text"""
@@ -3213,14 +3266,14 @@ class ClientManagementTab(QWidget):
             QMessageBox.information(self, "✅ Éxito", "Cliente actualizado correctamente")
 
     def delete_client(self):
-        """Delete selected client"""
+        """Delete selected client - supports local and remote modes"""
         current_row = self.clients_table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "❌ Error", "Seleccione un cliente para eliminar")
+            QMessageBox.warning(self, "Error", "Seleccione un cliente para eliminar")
             return
 
         if current_row >= len(self.client_ids):
-            QMessageBox.warning(self, "❌ Error", "Error al obtener datos del cliente")
+            QMessageBox.warning(self, "Error", "Error al obtener datos del cliente")
             return
 
         client_name = self.clients_table.item(current_row, 1).text()
@@ -3229,41 +3282,43 @@ class ClientManagementTab(QWidget):
         # Custom confirmation dialog
         dialog = ConfirmationDialog(
             self,
-            title="🗑️ Confirmar Eliminación",
-            message=f"¿Está seguro de eliminar al cliente '{client_name}'?\n\n"
-                    "Se eliminarán también todos los documentos asociados.\n"
-                    "Esta acción no se puede deshacer.",
+            title="Confirmar Eliminacion",
+            message=f"¿Seguro de eliminar '{client_name}'?\n\nEsta accion no se puede deshacer.",
             confirm_text="Eliminar",
             is_danger=True
         )
-        
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            try:
-                with SessionLocal() as db:
-                    # Check for associated documents
-                    doc_count = db.query(Document).filter(Document.client_id == client_id).count()
-                    if doc_count > 0:
-                        confirm = QMessageBox.warning(
-                            self, "⚠️ Advertencia",
-                            f"Este cliente tiene {doc_count} documento(s) asociado(s).\n"
-                            "¿Desea eliminar el cliente y todos sus documentos?",
-                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                            QMessageBox.StandardButton.No
-                        )
-                        if confirm != QMessageBox.StandardButton.Yes:
-                            return
-                        # Delete associated documents first
-                        db.query(Document).filter(Document.client_id == client_id).delete()
 
-                    # Delete the client
-                    client = db.query(Client).filter(Client.id == client_id).first()
-                    if client:
-                        db.delete(client)
-                        db.commit()
-                        self.refresh_data()
-                        QMessageBox.information(self, "✅ Éxito", f"Cliente '{client_name}' eliminado correctamente")
-                    else:
-                        QMessageBox.warning(self, "❌ Error", "Cliente no encontrado")
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            app_mode = get_app_mode()
+            try:
+                if app_mode.is_remote:
+                    app_mode.api.delete_client(str(client_id))
+                    self.refresh_data()
+                    QMessageBox.information(self, "Exito", f"Cliente '{client_name}' eliminado")
+                else:
+                    with SessionLocal() as db:
+                        # Check for associated documents
+                        doc_count = db.query(Document).filter(Document.client_id == client_id).count()
+                        if doc_count > 0:
+                            confirm = QMessageBox.warning(
+                                self, "Advertencia",
+                                f"Este cliente tiene {doc_count} documento(s) asociado(s).\n"
+                                "¿Desea eliminar el cliente y todos sus documentos?",
+                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                QMessageBox.StandardButton.No
+                            )
+                            if confirm != QMessageBox.StandardButton.Yes:
+                                return
+                            db.query(Document).filter(Document.client_id == client_id).delete()
+
+                        client = db.query(Client).filter(Client.id == client_id).first()
+                        if client:
+                            db.delete(client)
+                            db.commit()
+                            self.refresh_data()
+                            QMessageBox.information(self, "Exito", f"Cliente '{client_name}' eliminado")
+                        else:
+                            QMessageBox.warning(self, "Error", "Cliente no encontrado")
 
             except Exception as e:
                 logger.error(f"Error deleting client: {e}")
@@ -3403,41 +3458,73 @@ class ProductManagementTab(QWidget):
         layout.addWidget(self.status_label)
     
     def refresh_data(self):
-        """Refresh products data"""
-        self.product_ids = []  # Store product IDs for reference
+        """Refresh products data - supports local and remote modes"""
+        self.product_ids = []
+        app_mode = get_app_mode()
+
         try:
-            with SessionLocal() as db:
-                products = db.query(Product).order_by(Product.name).all()
-
-                self.products_table.setRowCount(0)
-                self.product_ids = []
-
-                for row, product in enumerate(products):
-                    self.products_table.insertRow(row)
-                    self.product_ids.append(product.id)  # Store ID
-
-                    self.products_table.setItem(row, 0, QTableWidgetItem(product.code or ""))
-                    self.products_table.setItem(row, 1, QTableWidgetItem(product.name or ""))
-                    self.products_table.setItem(row, 2, QTableWidgetItem(product.description or ""))
-                    self.products_table.setItem(row, 3, QTableWidgetItem(f"{product.purchase_price or 0:.2f} €"))
-                    self.products_table.setItem(row, 4, QTableWidgetItem(f"{product.sale_price or 0:.2f} €"))
-                    self.products_table.setItem(row, 5, QTableWidgetItem(str(product.current_stock or 0)))
-                    self.products_table.setItem(row, 6, QTableWidgetItem(str(product.minimum_stock or 0)))
-
-                    # Stock status
-                    stock_text = "✅ OK"
-                    if product.current_stock <= product.minimum_stock:
-                        stock_text = "⚠️ BAJO"
-
-                    status_text = f"✅ Activo ({stock_text})" if product.is_active else "❌ Inactivo"
-                    status_item = QTableWidgetItem(status_text)
-                    self.products_table.setItem(row, 7, status_item)
-
-                self.status_label.setText(f"📊 Mostrando {len(products)} productos")
-
+            if app_mode.is_remote:
+                self._refresh_from_api(app_mode.api)
+            else:
+                self._refresh_from_local()
         except Exception as e:
             logger.error(f"Error refreshing products: {e}")
-            self.status_label.setText(f"❌ Error: {str(e)}")
+            self.status_label.setText(f"Error: {str(e)}")
+
+    def _refresh_from_api(self, api):
+        """Refresh products from remote API."""
+        response = api.list_products(limit=500)
+        products = response.get("items", [])
+
+        self.products_table.setRowCount(0)
+        self.product_ids = []
+
+        for row, product in enumerate(products):
+            self.products_table.insertRow(row)
+            self.product_ids.append(product.get("id", ""))
+
+            self.products_table.setItem(row, 0, QTableWidgetItem(product.get("code", "")))
+            self.products_table.setItem(row, 1, QTableWidgetItem(product.get("name", "")))
+            self.products_table.setItem(row, 2, QTableWidgetItem(product.get("description", "") or ""))
+            self.products_table.setItem(row, 3, QTableWidgetItem(f"{product.get('purchase_price', 0):.2f} €"))
+            self.products_table.setItem(row, 4, QTableWidgetItem(f"{product.get('sale_price', 0):.2f} €"))
+            self.products_table.setItem(row, 5, QTableWidgetItem(str(product.get("current_stock", 0))))
+            self.products_table.setItem(row, 6, QTableWidgetItem(str(product.get("minimum_stock", 0))))
+
+            current_stock = product.get("current_stock", 0)
+            minimum_stock = product.get("minimum_stock", 0)
+            is_active = product.get("is_active", True)
+            stock_status = "OK" if current_stock > minimum_stock else "BAJO"
+            status_text = f"Activo ({stock_status})" if is_active else "Inactivo"
+            self.products_table.setItem(row, 7, QTableWidgetItem(status_text))
+
+        self.status_label.setText(f"Mostrando {len(products)} productos (servidor)")
+
+    def _refresh_from_local(self):
+        """Refresh products from local SQLite database."""
+        with SessionLocal() as db:
+            products = db.query(Product).order_by(Product.name).all()
+
+            self.products_table.setRowCount(0)
+            self.product_ids = []
+
+            for row, product in enumerate(products):
+                self.products_table.insertRow(row)
+                self.product_ids.append(product.id)
+
+                self.products_table.setItem(row, 0, QTableWidgetItem(product.code or ""))
+                self.products_table.setItem(row, 1, QTableWidgetItem(product.name or ""))
+                self.products_table.setItem(row, 2, QTableWidgetItem(product.description or ""))
+                self.products_table.setItem(row, 3, QTableWidgetItem(f"{product.purchase_price or 0:.2f} €"))
+                self.products_table.setItem(row, 4, QTableWidgetItem(f"{product.sale_price or 0:.2f} €"))
+                self.products_table.setItem(row, 5, QTableWidgetItem(str(product.current_stock or 0)))
+                self.products_table.setItem(row, 6, QTableWidgetItem(str(product.minimum_stock or 0)))
+
+                stock_status = "OK" if product.current_stock > product.minimum_stock else "BAJO"
+                status_text = f"Activo ({stock_status})" if product.is_active else "Inactivo"
+                self.products_table.setItem(row, 7, QTableWidgetItem(status_text))
+
+            self.status_label.setText(f"Mostrando {len(products)} productos (local)")
 
     def filter_products(self):
         """Filter products based on search text"""

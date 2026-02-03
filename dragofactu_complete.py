@@ -1494,48 +1494,83 @@ class Dashboard(QWidget):
             self._populate_user_reminders()
 
     def _get_pending_items(self):
-        """Get pending documents (drafts, sent, accepted, partially paid, not_sent)"""
+        """Get pending documents (drafts, sent, accepted, partially paid, not_sent) - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                # Build list of pending statuses
-                pending_statuses = [
-                    DocumentStatus.DRAFT,
-                    DocumentStatus.SENT,
-                    DocumentStatus.ACCEPTED,
-                    DocumentStatus.PARTIALLY_PAID,
-                    DocumentStatus.NOT_SENT
-                ]
-
-                # Get all documents that are pending action
-                pending_docs = db.query(Document).options(joinedload(Document.client)).filter(
-                    Document.status.in_(pending_statuses)
-                ).order_by(Document.issue_date.desc()).limit(10).all()
-
+            if app_mode.is_remote:
+                # Fetch from API
+                response = app_mode.api.list_documents(limit=10, doc_status="pending")
+                docs = response.get("items", [])
                 result = []
-                for doc in pending_docs:
-                    status_text = get_status_label(doc.status)
+                for doc in docs:
+                    status_value = doc.get("status", "draft")
+                    status_text = get_status_label(status_value)
 
-                    # Determine urgency
                     urgency = "normal"
-                    if doc.status == DocumentStatus.DRAFT:
+                    if status_value == "draft":
                         urgency = "warning"
-                    elif doc.due_date:
+                    elif doc.get("due_date"):
                         try:
-                            due = doc.due_date.date() if hasattr(doc.due_date, 'date') else doc.due_date
+                            due_str = doc["due_date"][:10]  # YYYY-MM-DD
+                            due = datetime.strptime(due_str, "%Y-%m-%d").date()
                             if due < date.today():
                                 urgency = "danger"
                         except:
                             pass
 
+                    doc_type = doc.get("type", "quote")
+                    type_text = "Factura" if doc_type == "invoice" else "Presupuesto" if doc_type == "quote" else "Albaran"
+
                     result.append({
-                        'code': doc.code or 'N/A',
-                        'client': doc.client.name if doc.client else 'Sin cliente',
-                        'total': float(doc.total or 0),
+                        'code': doc.get('code', 'N/A'),
+                        'client': doc.get('client_name', 'Sin cliente'),
+                        'total': float(doc.get('total', 0)),
                         'status': status_text,
                         'urgency': urgency,
-                        'type': "Factura" if doc.type == DocumentType.INVOICE else "Presupuesto" if doc.type == DocumentType.QUOTE else "Albaran"
+                        'type': type_text
                     })
                 return result
+            else:
+                with SessionLocal() as db:
+                    # Build list of pending statuses
+                    pending_statuses = [
+                        DocumentStatus.DRAFT,
+                        DocumentStatus.SENT,
+                        DocumentStatus.ACCEPTED,
+                        DocumentStatus.PARTIALLY_PAID,
+                        DocumentStatus.NOT_SENT
+                    ]
+
+                    # Get all documents that are pending action
+                    pending_docs = db.query(Document).options(joinedload(Document.client)).filter(
+                        Document.status.in_(pending_statuses)
+                    ).order_by(Document.issue_date.desc()).limit(10).all()
+
+                    result = []
+                    for doc in pending_docs:
+                        status_text = get_status_label(doc.status)
+
+                        # Determine urgency
+                        urgency = "normal"
+                        if doc.status == DocumentStatus.DRAFT:
+                            urgency = "warning"
+                        elif doc.due_date:
+                            try:
+                                due = doc.due_date.date() if hasattr(doc.due_date, 'date') else doc.due_date
+                                if due < date.today():
+                                    urgency = "danger"
+                            except:
+                                pass
+
+                        result.append({
+                            'code': doc.code or 'N/A',
+                            'client': doc.client.name if doc.client else 'Sin cliente',
+                            'total': float(doc.total or 0),
+                            'status': status_text,
+                            'urgency': urgency,
+                            'type': "Factura" if doc.type == DocumentType.INVOICE else "Presupuesto" if doc.type == DocumentType.QUOTE else "Albaran"
+                        })
+                    return result
         except Exception as e:
             logger.error(f"Error getting pending items: {e}")
             import traceback
@@ -1853,30 +1888,50 @@ class Dashboard(QWidget):
         return row
 
     def _get_recent_documents(self):
-        """Get recent documents from database"""
+        """Get recent documents from database - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                documents = db.query(Document).options(joinedload(Document.client)).order_by(
-                    Document.created_at.desc()
-                ).limit(5).all()
-
+            if app_mode.is_remote:
+                # Fetch from API
+                response = app_mode.api.list_documents(limit=5)
+                docs = response.get("items", [])
                 result = []
-                for doc in documents:
-                    status_value = doc.status.value if doc.status else 'draft'
+                for doc in docs:
+                    status_value = doc.get("status", "draft")
                     result.append({
-                        'code': doc.code or 'N/A',
-                        'client': doc.client.name if doc.client else 'Sin cliente',
-                        'total': float(doc.total or 0),
+                        'code': doc.get('code', 'N/A'),
+                        'client': doc.get('client_name', 'Sin cliente'),
+                        'total': float(doc.get('total', 0)),
                         'status_value': status_value,
                         'status_label': get_status_label(status_value),
                     })
                 return result
+            else:
+                with SessionLocal() as db:
+                    documents = db.query(Document).options(joinedload(Document.client)).order_by(
+                        Document.created_at.desc()
+                    ).limit(5).all()
+
+                    result = []
+                    for doc in documents:
+                        status_value = doc.status.value if doc.status else 'draft'
+                        result.append({
+                            'code': doc.code or 'N/A',
+                            'client': doc.client.name if doc.client else 'Sin cliente',
+                            'total': float(doc.total or 0),
+                            'status_value': status_value,
+                            'status_label': get_status_label(status_value),
+                        })
+                    return result
         except Exception as e:
             logger.error(f"Error getting recent documents: {e}")
             return []
 
     def refresh_data(self):
-        """Refresh dashboard data"""
+        """Refresh dashboard data - supports local and remote"""
+        # Invalidate cache to force fresh fetch
+        self._invalidate_stats_cache()
+
         # Update metric values
         if 'clients' in self.metric_labels:
             self.metric_labels['clients'].setText(str(self.get_client_count()))
@@ -1917,41 +1972,75 @@ class Dashboard(QWidget):
         if hasattr(self, '_populate_quick_actions'):
             self._populate_quick_actions()
 
+    def _get_remote_stats(self):
+        """Fetch stats from remote API (cached for session)."""
+        if not hasattr(self, '_cached_stats') or self._cached_stats is None:
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                try:
+                    self._cached_stats = app_mode.api.get_dashboard_stats()
+                except Exception as e:
+                    logger.error(f"Error fetching remote stats: {e}")
+                    self._cached_stats = {}
+            else:
+                self._cached_stats = {}
+        return self._cached_stats
+
+    def _invalidate_stats_cache(self):
+        """Invalidate cached stats (call after data changes)."""
+        self._cached_stats = None
+
     def get_client_count(self):
-        """Get total clients"""
+        """Get total clients - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                return db.query(Client).filter(Client.is_active == True).count()
+            if app_mode.is_remote:
+                return self._get_remote_stats().get("clients", 0)
+            else:
+                with SessionLocal() as db:
+                    return db.query(Client).filter(Client.is_active == True).count()
         except Exception as e:
             logger.error(f"Error getting client count: {e}")
             return 0
 
     def get_product_count(self):
-        """Get total products"""
+        """Get total products - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                return db.query(Product).filter(Product.is_active == True).count()
+            if app_mode.is_remote:
+                return self._get_remote_stats().get("products", 0)
+            else:
+                with SessionLocal() as db:
+                    return db.query(Product).filter(Product.is_active == True).count()
         except Exception as e:
             logger.error(f"Error getting product count: {e}")
             return 0
 
     def get_document_count(self):
-        """Get total documents"""
+        """Get total documents - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                return db.query(Document).count()
+            if app_mode.is_remote:
+                return self._get_remote_stats().get("pending_documents", 0)
+            else:
+                with SessionLocal() as db:
+                    return db.query(Document).count()
         except Exception as e:
             logger.error(f"Error getting document count: {e}")
             return 0
 
     def get_low_stock_count(self):
-        """Get products with low stock"""
+        """Get products with low stock - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                return db.query(Product).filter(
-                    Product.current_stock <= Product.minimum_stock,
-                    Product.is_active == True
-                ).count()
+            if app_mode.is_remote:
+                return self._get_remote_stats().get("low_stock", 0)
+            else:
+                with SessionLocal() as db:
+                    return db.query(Product).filter(
+                        Product.current_stock <= Product.minimum_stock,
+                        Product.is_active == True
+                    ).count()
         except Exception as e:
             logger.error(f"Error getting low stock count: {e}")
             return 0
@@ -3789,176 +3878,363 @@ class DocumentManagementTab(QWidget):
         layout.addWidget(self.status_label)
     
     def refresh_data(self):
-        """Refresh documents data"""
+        """Refresh documents data - supports local and remote modes"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                # Get type filter
-                filter_type = self.filter_combo.currentText()
-
-                # Build query with eager loading for client relationship
-                query = db.query(Document).options(joinedload(Document.client))
-                if filter_type != "Todos":
-                    if filter_type == "Presupuestos":
-                        query = query.filter(Document.type == DocumentType.QUOTE)
-                    elif filter_type == "Facturas":
-                        query = query.filter(Document.type == DocumentType.INVOICE)
-                    elif filter_type == "Albaranes":
-                        query = query.filter(Document.type == DocumentType.DELIVERY_NOTE)
-
-                # Get status filter
-                if hasattr(self, 'status_filter_combo'):
-                    status_filter = self.status_filter_combo.currentText()
-                    status_map = {
-                        "Borrador": DocumentStatus.DRAFT,
-                        "No Enviado": DocumentStatus.NOT_SENT,
-                        "Enviado": DocumentStatus.SENT,
-                        "Aceptado": DocumentStatus.ACCEPTED,
-                        "Rechazado": DocumentStatus.REJECTED,
-                        "Pagado": DocumentStatus.PAID,
-                        "Pago Parcial": DocumentStatus.PARTIALLY_PAID,
-                        "Cancelado": DocumentStatus.CANCELLED,
-                    }
-                    if status_filter in status_map:
-                        query = query.filter(Document.status == status_map[status_filter])
-
-                # Apply sort order
-                sort_option = self.sort_combo.currentText() if hasattr(self, 'sort_combo') else "Fecha (más reciente)"
-
-                if sort_option == "Fecha (más reciente)":
-                    query = query.order_by(Document.issue_date.desc())
-                elif sort_option == "Fecha (más antiguo)":
-                    query = query.order_by(Document.issue_date.asc())
-                elif sort_option == "Código (A-Z)":
-                    query = query.order_by(Document.code.asc())
-                elif sort_option == "Código (Z-A)":
-                    query = query.order_by(Document.code.desc())
-                elif sort_option == "Cliente (A-Z)":
-                    query = query.join(Client).order_by(Client.name.asc())
-                elif sort_option == "Cliente (Z-A)":
-                    query = query.join(Client).order_by(Client.name.desc())
-                elif sort_option == "Total (mayor)":
-                    query = query.order_by(Document.total.desc())
-                elif sort_option == "Total (menor)":
-                    query = query.order_by(Document.total.asc())
-                else:
-                    query = query.order_by(Document.updated_at.desc())
-
-                documents = query.limit(100).all()
-                
-                self.docs_table.setRowCount(0)
-                # Store document IDs for double-click lookup
-                self._document_ids = []
-
-                for row, doc in enumerate(documents):
-                    self.docs_table.insertRow(row)
-                    # Store document ID for this row
-                    self._document_ids.append(str(doc.id))
-
-                    # Document code - store ID in item data, make it look clickable
-                    code_item = QTableWidgetItem(doc.code or "")
-                    code_item.setData(Qt.ItemDataRole.UserRole, str(doc.id))
-                    code_font = QFont()
-                    code_font.setUnderline(True)
-                    code_font.setBold(True)
-                    code_item.setFont(code_font)
-                    code_item.setForeground(QColor("#007AFF"))  # Blue link color
-                    self.docs_table.setItem(row, 0, code_item)
-                    
-                    # Document type
-                    type_text = ""
-                    if doc.type == DocumentType.QUOTE:
-                        type_text = "Presupuesto"
-                    elif doc.type == DocumentType.INVOICE:
-                        type_text = "Factura"
-                    elif doc.type == DocumentType.DELIVERY_NOTE:
-                        type_text = "Albarán"
-                    
-                    type_item = QTableWidgetItem(type_text)
-                    type_font = QFont()
-                    type_font.setBold(True)
-                    type_item.setFont(type_font)
-                    
-                    if doc.type == DocumentType.QUOTE:
-                        type_item.setForeground(QColor("#9b59b6"))
-                    elif doc.type == DocumentType.INVOICE:
-                        type_item.setForeground(QColor("#e67e22"))
-                    elif doc.type == DocumentType.DELIVERY_NOTE:
-                        type_item.setForeground(QColor("#3498db"))
-                    
-                    self.docs_table.setItem(row, 1, type_item)
-                    
-                    # Client name (with relationship loading)
-                    try:
-                        client_name = doc.client.name if doc.client else "N/A"
-                    except Exception as e:
-                        logger.warning(f"Could not load client name for document {doc.code}: {e}")
-                        client_name = "N/A"
-                    self.docs_table.setItem(row, 2, QTableWidgetItem(client_name))
-                    
-                    # Date
-                    date_text = ""
-                    if doc.issue_date:
-                        date_text = doc.issue_date.strftime('%d/%m/%Y')
-                    self.docs_table.setItem(row, 3, QTableWidgetItem(date_text))
-                    
-                    # Status - use translated labels
-                    status_text = get_status_label(doc.status)
-                    status_colors = {
-                        DocumentStatus.DRAFT: "#6E6E73",       # Gray
-                        DocumentStatus.NOT_SENT: "#FF9500",    # Orange
-                        DocumentStatus.SENT: "#007AFF",        # Blue
-                        DocumentStatus.ACCEPTED: "#34C759",    # Green
-                        DocumentStatus.REJECTED: "#FF3B30",    # Red
-                        DocumentStatus.PAID: "#5856D6",        # Purple
-                        DocumentStatus.PARTIALLY_PAID: "#FF9500", # Orange
-                        DocumentStatus.CANCELLED: "#8E8E93",   # Dark gray
-                    }
-                    status_color = status_colors.get(doc.status, "#6E6E73")
-
-                    status_item = QTableWidgetItem(status_text)
-                    status_item.setForeground(QColor(status_color))
-                    status_font = QFont()
-                    status_font.setBold(True)
-                    status_item.setFont(status_font)
-                    self.docs_table.setItem(row, 4, status_item)
-                    
-                    # Total
-                    total_text = f"{doc.total or 0:.2f} €"
-                    self.docs_table.setItem(row, 5, QTableWidgetItem(total_text))
-                    
-                    # Due date
-                    due_text = ""
-                    if doc.due_date:
-                        due_text = doc.due_date.strftime('%d/%m/%Y')
-                    self.docs_table.setItem(row, 6, QTableWidgetItem(due_text))
-                    
-                    # Actions - create text buttons
-                    actions_widget = QWidget()
-                    actions_layout = QHBoxLayout(actions_widget)
-                    actions_layout.setContentsMargins(4, 4, 4, 4)
-                    actions_layout.setSpacing(4)
-
-                    pdf_btn = QPushButton("PDF")
-                    pdf_btn.setToolTip("Generar PDF")
-                    pdf_btn.setMinimumWidth(40)
-                    pdf_btn.setMaximumHeight(26)
-                    pdf_btn.clicked.connect(lambda checked, d=doc: self.generate_pdf(d))
-                    actions_layout.addWidget(pdf_btn)
-
-                    del_btn = QPushButton("X")
-                    del_btn.setToolTip("Eliminar")
-                    del_btn.setMinimumWidth(30)
-                    del_btn.setMaximumHeight(26)
-                    del_btn.setStyleSheet("color: red; font-weight: bold;")
-                    del_btn.clicked.connect(lambda checked, d=doc: self.delete_document(d))
-                    actions_layout.addWidget(del_btn)
-
-                    self.docs_table.setCellWidget(row, 7, actions_widget)
-                
-                self.status_label.setText(f"📊 Mostrando {len(documents)} documentos - Filtro: {filter_type}")
-                
+            if app_mode.is_remote:
+                self._refresh_from_api(app_mode.api)
+            else:
+                self._refresh_from_local()
         except Exception as e:
-            self.status_label.setText(f"❌ Error: {str(e)}")
+            logger.error(f"Error refreshing documents: {e}")
+            self.status_label.setText(f"Error: {str(e)}")
+
+    def _get_doc_type_filter(self):
+        """Get document type filter for API."""
+        filter_type = self.filter_combo.currentText()
+        type_map = {
+            "Presupuestos": "quote",
+            "Facturas": "invoice",
+            "Albaranes": "delivery_note"
+        }
+        return type_map.get(filter_type)
+
+    def _get_status_filter(self):
+        """Get status filter for API."""
+        if hasattr(self, 'status_filter_combo'):
+            status_filter = self.status_filter_combo.currentText()
+            status_map = {
+                "Borrador": "draft",
+                "No Enviado": "not_sent",
+                "Enviado": "sent",
+                "Aceptado": "accepted",
+                "Rechazado": "rejected",
+                "Pagado": "paid",
+                "Pago Parcial": "partially_paid",
+                "Cancelado": "cancelled",
+            }
+            return status_map.get(status_filter)
+        return None
+
+    def _refresh_from_api(self, api):
+        """Refresh documents from remote API."""
+        try:
+            doc_type = self._get_doc_type_filter()
+            doc_status = self._get_status_filter()
+
+            response = api.list_documents(limit=100, doc_type=doc_type, doc_status=doc_status)
+            documents = response.get("items", [])
+
+            self.docs_table.setRowCount(0)
+            self._document_ids = []
+
+            for row, doc in enumerate(documents):
+                self._add_document_row(row, doc, is_remote=True)
+
+            filter_type = self.filter_combo.currentText()
+            self.status_label.setText(f"Mostrando {len(documents)} documentos (servidor) - Filtro: {filter_type}")
+
+        except Exception as e:
+            logger.error(f"Error fetching documents from API: {e}")
+            raise
+
+    def _refresh_from_local(self):
+        """Refresh documents from local SQLite database."""
+        with SessionLocal() as db:
+            # Get type filter
+            filter_type = self.filter_combo.currentText()
+
+            # Build query with eager loading for client relationship
+            query = db.query(Document).options(joinedload(Document.client))
+            if filter_type != "Todos":
+                if filter_type == "Presupuestos":
+                    query = query.filter(Document.type == DocumentType.QUOTE)
+                elif filter_type == "Facturas":
+                    query = query.filter(Document.type == DocumentType.INVOICE)
+                elif filter_type == "Albaranes":
+                    query = query.filter(Document.type == DocumentType.DELIVERY_NOTE)
+
+            # Get status filter
+            if hasattr(self, 'status_filter_combo'):
+                status_filter = self.status_filter_combo.currentText()
+                status_map = {
+                    "Borrador": DocumentStatus.DRAFT,
+                    "No Enviado": DocumentStatus.NOT_SENT,
+                    "Enviado": DocumentStatus.SENT,
+                    "Aceptado": DocumentStatus.ACCEPTED,
+                    "Rechazado": DocumentStatus.REJECTED,
+                    "Pagado": DocumentStatus.PAID,
+                    "Pago Parcial": DocumentStatus.PARTIALLY_PAID,
+                    "Cancelado": DocumentStatus.CANCELLED,
+                }
+                if status_filter in status_map:
+                    query = query.filter(Document.status == status_map[status_filter])
+
+            # Apply sort order
+            sort_option = self.sort_combo.currentText() if hasattr(self, 'sort_combo') else "Fecha (más reciente)"
+
+            if sort_option == "Fecha (más reciente)":
+                query = query.order_by(Document.issue_date.desc())
+            elif sort_option == "Fecha (más antiguo)":
+                query = query.order_by(Document.issue_date.asc())
+            elif sort_option == "Código (A-Z)":
+                query = query.order_by(Document.code.asc())
+            elif sort_option == "Código (Z-A)":
+                query = query.order_by(Document.code.desc())
+            elif sort_option == "Cliente (A-Z)":
+                query = query.join(Client).order_by(Client.name.asc())
+            elif sort_option == "Cliente (Z-A)":
+                query = query.join(Client).order_by(Client.name.desc())
+            elif sort_option == "Total (mayor)":
+                query = query.order_by(Document.total.desc())
+            elif sort_option == "Total (menor)":
+                query = query.order_by(Document.total.asc())
+            else:
+                query = query.order_by(Document.updated_at.desc())
+
+            documents = query.limit(100).all()
+
+            self.docs_table.setRowCount(0)
+            self._document_ids = []
+
+            for row, doc in enumerate(documents):
+                self._add_document_row_local(row, doc)
+
+            self.status_label.setText(f"Mostrando {len(documents)} documentos (local) - Filtro: {filter_type}")
+
+    def _add_document_row(self, row, doc, is_remote=False):
+        """Add a document row to the table (for API data)."""
+        self.docs_table.insertRow(row)
+        doc_id = doc.get("id", "")
+        self._document_ids.append(str(doc_id))
+
+        # Document code - make it look clickable
+        code_item = QTableWidgetItem(doc.get("code", ""))
+        code_item.setData(Qt.ItemDataRole.UserRole, str(doc_id))
+        code_font = QFont()
+        code_font.setUnderline(True)
+        code_font.setBold(True)
+        code_item.setFont(code_font)
+        code_item.setForeground(QColor("#007AFF"))
+        self.docs_table.setItem(row, 0, code_item)
+
+        # Document type
+        doc_type = doc.get("type", "quote")
+        type_map = {"quote": "Presupuesto", "invoice": "Factura", "delivery_note": "Albarán"}
+        type_colors = {"quote": "#9b59b6", "invoice": "#e67e22", "delivery_note": "#3498db"}
+        type_item = QTableWidgetItem(type_map.get(doc_type, doc_type))
+        type_font = QFont()
+        type_font.setBold(True)
+        type_item.setFont(type_font)
+        type_item.setForeground(QColor(type_colors.get(doc_type, "#6E6E73")))
+        self.docs_table.setItem(row, 1, type_item)
+
+        # Client name
+        client_name = doc.get("client_name", "N/A") or "N/A"
+        self.docs_table.setItem(row, 2, QTableWidgetItem(client_name))
+
+        # Date
+        date_str = doc.get("issue_date", "")
+        if date_str:
+            try:
+                date_text = datetime.fromisoformat(date_str.replace("Z", "+00:00")).strftime('%d/%m/%Y')
+            except:
+                date_text = date_str[:10] if len(date_str) >= 10 else date_str
+        else:
+            date_text = ""
+        self.docs_table.setItem(row, 3, QTableWidgetItem(date_text))
+
+        # Status
+        status_value = doc.get("status", "draft")
+        status_text = get_status_label(status_value)
+        status_colors = {
+            "draft": "#6E6E73", "not_sent": "#FF9500", "sent": "#007AFF",
+            "accepted": "#34C759", "rejected": "#FF3B30", "paid": "#5856D6",
+            "partially_paid": "#FF9500", "cancelled": "#8E8E93"
+        }
+        status_item = QTableWidgetItem(status_text)
+        status_item.setForeground(QColor(status_colors.get(status_value, "#6E6E73")))
+        status_font = QFont()
+        status_font.setBold(True)
+        status_item.setFont(status_font)
+        self.docs_table.setItem(row, 4, status_item)
+
+        # Total
+        total = doc.get("total", 0)
+        self.docs_table.setItem(row, 5, QTableWidgetItem(f"{total:.2f} €"))
+
+        # Due date
+        due_str = doc.get("due_date", "")
+        if due_str:
+            try:
+                due_text = datetime.fromisoformat(due_str.replace("Z", "+00:00")).strftime('%d/%m/%Y')
+            except:
+                due_text = due_str[:10] if len(due_str) >= 10 else due_str
+        else:
+            due_text = ""
+        self.docs_table.setItem(row, 6, QTableWidgetItem(due_text))
+
+        # Actions - placeholder for now (PDF/delete need special handling in remote mode)
+        actions_widget = QWidget()
+        actions_layout = QHBoxLayout(actions_widget)
+        actions_layout.setContentsMargins(4, 4, 4, 4)
+        actions_layout.setSpacing(4)
+
+        pdf_btn = QPushButton("PDF")
+        pdf_btn.setToolTip("Generar PDF")
+        pdf_btn.setMinimumWidth(40)
+        pdf_btn.setMaximumHeight(26)
+        pdf_btn.clicked.connect(lambda checked, did=doc_id: self.generate_pdf_by_id(did))
+        actions_layout.addWidget(pdf_btn)
+
+        del_btn = QPushButton("X")
+        del_btn.setToolTip("Eliminar")
+        del_btn.setMinimumWidth(30)
+        del_btn.setMaximumHeight(26)
+        del_btn.setStyleSheet("color: red; font-weight: bold;")
+        del_btn.clicked.connect(lambda checked, did=doc_id: self.delete_document_by_id(did))
+        actions_layout.addWidget(del_btn)
+
+        self.docs_table.setCellWidget(row, 7, actions_widget)
+
+    def _add_document_row_local(self, row, doc):
+        """Add a document row to the table (for local ORM objects)."""
+        self.docs_table.insertRow(row)
+        self._document_ids.append(str(doc.id))
+
+        # Document code
+        code_item = QTableWidgetItem(doc.code or "")
+        code_item.setData(Qt.ItemDataRole.UserRole, str(doc.id))
+        code_font = QFont()
+        code_font.setUnderline(True)
+        code_font.setBold(True)
+        code_item.setFont(code_font)
+        code_item.setForeground(QColor("#007AFF"))
+        self.docs_table.setItem(row, 0, code_item)
+
+        # Document type
+        type_text = ""
+        if doc.type == DocumentType.QUOTE:
+            type_text = "Presupuesto"
+        elif doc.type == DocumentType.INVOICE:
+            type_text = "Factura"
+        elif doc.type == DocumentType.DELIVERY_NOTE:
+            type_text = "Albarán"
+
+        type_item = QTableWidgetItem(type_text)
+        type_font = QFont()
+        type_font.setBold(True)
+        type_item.setFont(type_font)
+
+        if doc.type == DocumentType.QUOTE:
+            type_item.setForeground(QColor("#9b59b6"))
+        elif doc.type == DocumentType.INVOICE:
+            type_item.setForeground(QColor("#e67e22"))
+        elif doc.type == DocumentType.DELIVERY_NOTE:
+            type_item.setForeground(QColor("#3498db"))
+
+        self.docs_table.setItem(row, 1, type_item)
+
+        # Client name
+        try:
+            client_name = doc.client.name if doc.client else "N/A"
+        except:
+            client_name = "N/A"
+        self.docs_table.setItem(row, 2, QTableWidgetItem(client_name))
+
+        # Date
+        date_text = doc.issue_date.strftime('%d/%m/%Y') if doc.issue_date else ""
+        self.docs_table.setItem(row, 3, QTableWidgetItem(date_text))
+
+        # Status
+        status_text = get_status_label(doc.status)
+        status_colors = {
+            DocumentStatus.DRAFT: "#6E6E73",
+            DocumentStatus.NOT_SENT: "#FF9500",
+            DocumentStatus.SENT: "#007AFF",
+            DocumentStatus.ACCEPTED: "#34C759",
+            DocumentStatus.REJECTED: "#FF3B30",
+            DocumentStatus.PAID: "#5856D6",
+            DocumentStatus.PARTIALLY_PAID: "#FF9500",
+            DocumentStatus.CANCELLED: "#8E8E93",
+        }
+        status_color = status_colors.get(doc.status, "#6E6E73")
+
+        status_item = QTableWidgetItem(status_text)
+        status_item.setForeground(QColor(status_color))
+        status_font = QFont()
+        status_font.setBold(True)
+        status_item.setFont(status_font)
+        self.docs_table.setItem(row, 4, status_item)
+
+        # Total
+        self.docs_table.setItem(row, 5, QTableWidgetItem(f"{doc.total or 0:.2f} €"))
+
+        # Due date
+        due_text = doc.due_date.strftime('%d/%m/%Y') if doc.due_date else ""
+        self.docs_table.setItem(row, 6, QTableWidgetItem(due_text))
+
+        # Actions
+        actions_widget = QWidget()
+        actions_layout = QHBoxLayout(actions_widget)
+        actions_layout.setContentsMargins(4, 4, 4, 4)
+        actions_layout.setSpacing(4)
+
+        pdf_btn = QPushButton("PDF")
+        pdf_btn.setToolTip("Generar PDF")
+        pdf_btn.setMinimumWidth(40)
+        pdf_btn.setMaximumHeight(26)
+        pdf_btn.clicked.connect(lambda checked, d=doc: self.generate_pdf(d))
+        actions_layout.addWidget(pdf_btn)
+
+        del_btn = QPushButton("X")
+        del_btn.setToolTip("Eliminar")
+        del_btn.setMinimumWidth(30)
+        del_btn.setMaximumHeight(26)
+        del_btn.setStyleSheet("color: red; font-weight: bold;")
+        del_btn.clicked.connect(lambda checked, d=doc: self.delete_document(d))
+        actions_layout.addWidget(del_btn)
+
+        self.docs_table.setCellWidget(row, 7, actions_widget)
+
+    def generate_pdf_by_id(self, doc_id):
+        """Generate PDF for document by ID (used in remote mode)."""
+        app_mode = get_app_mode()
+        try:
+            if app_mode.is_remote:
+                # In remote mode, we'd need to fetch document data and generate locally
+                # For now, show message
+                QMessageBox.information(self, "PDF", "Generacion de PDF en modo remoto no implementada aun")
+            else:
+                with SessionLocal() as db:
+                    doc = db.query(Document).filter(Document.id == uuid.UUID(doc_id)).first()
+                    if doc:
+                        self.generate_pdf(doc)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error generando PDF: {str(e)}")
+
+    def delete_document_by_id(self, doc_id):
+        """Delete document by ID (supports remote mode)."""
+        app_mode = get_app_mode()
+        reply = QMessageBox.question(
+            self, "Confirmar", "¿Eliminar este documento?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            if app_mode.is_remote:
+                app_mode.api.delete_document(str(doc_id))
+                self.refresh_data()
+                QMessageBox.information(self, "Exito", "Documento eliminado")
+            else:
+                with SessionLocal() as db:
+                    doc = db.query(Document).filter(Document.id == uuid.UUID(doc_id)).first()
+                    if doc:
+                        self.delete_document(doc)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error eliminando documento: {str(e)}")
     
     def create_document(self, doc_type):
         """Create new document"""

@@ -99,10 +99,11 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 
 ## MIGRACIÓN MULTI-TENANT API (v2.0.0)
 
-**Rama Git:** `feature/multi-tenant-api` (pushed to GitHub, listo para merge a main)
+**Rama Git:** `main` (merged from feature/multi-tenant-api)
 **Documento de Planificación:** `pasos a seguir migracion.md`
-**Estado:** Fase 7 COMPLETADA - Backend testeado, listo para deployment
-**Última actualización:** 2026-02-02 18:45
+**Estado:** Fase 10 EN PROGRESO - Integración UI híbrida local/remoto
+**Última actualización:** 2026-02-03
+**URL Producción:** https://dragofactu-production.up.railway.app
 
 ### Objetivo
 Convertir Dragofactu de app desktop local a sistema multi-empresa con backend API centralizado.
@@ -126,7 +127,7 @@ Desktop Client (PySide6)  ──HTTP/REST──▶  FastAPI Backend  ──▶  
 | 7 | Testing (52 tests pytest) | ✅ | `aacae4e` |
 | 8 | Despliegue (Railway) + Seguridad | ✅ | `0d8220a` |
 | 9 | Integración Desktop (modo híbrido) | ✅ | `3771702` |
-| 10 | Tabs con API remota | 🔄 | `642a9ce` (parcial) |
+| 10 | Tabs con API remota | ✅ | (esta sesión) |
 
 ### Estructura Backend Completa
 ```
@@ -162,7 +163,8 @@ backend/
 │   │       ├── workers.py   # CRUD + courses
 │   │       ├── diary.py     # CRUD
 │   │       ├── reminders.py # CRUD + complete
-│   │       └── documents.py # CRUD + change-status + convert + stats
+│   │       ├── documents.py # CRUD + change-status + convert + stats
+│   │       └── dashboard.py # /stats para Dashboard
 │   └── core/
 │       └── security.py      # hash_password, verify_password, JWT tokens
 ├── alembic/
@@ -212,6 +214,9 @@ GET  /api/v1/documents/stats/summary       # Dashboard
 
 # Reminders (extra)
 POST /api/v1/reminders/{id}/complete
+
+# Dashboard (Fase 10)
+GET  /api/v1/dashboard/stats   # Stats agregados para dashboard
 ```
 
 ### Lógica de Negocio Implementada
@@ -304,9 +309,101 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
 ### Pendientes
 - [x] Fase 8: Configuración Railway
-- [ ] Verificar deploy funciona en Railway
-- [ ] Configurar PostgreSQL en Railway
-- [ ] Integrar APIClient en UI de dragofactu_complete.py
+- [x] Verificar deploy funciona en Railway
+- [x] Configurar PostgreSQL en Railway
+- [x] Integrar APIClient en UI de dragofactu_complete.py
+- [x] Dashboard híbrido (local/remoto)
+- [x] ClientManagementTab híbrido
+- [x] ProductManagementTab híbrido
+- [x] DocumentManagementTab híbrido
+- [ ] PDF generation en modo remoto (requiere backend endpoint)
+- [ ] InventoryManagementTab híbrido
+- [ ] DiaryManagementTab híbrido
+
+---
+
+## SESIÓN 2026-02-03: Fase 10 - Integración UI Híbrida (Claude Opus 4.5)
+**AI Agent:** Claude Opus 4.5 (claude-opus-4-5-20251101)
+**Fecha:** 2026-02-03
+
+### Resumen
+Completar la integración del modo híbrido (local/remoto) en la UI de Dragofactu. Permitir que la app desktop funcione tanto con SQLite local como con el backend API desplegado en Railway.
+
+### Problema Detectado
+Después de conectar al servidor Railway, el Dashboard y otras tabs seguían mostrando datos locales en lugar de datos del servidor. Los clientes creados no aparecían después de refresh.
+
+### Solución Implementada
+
+**1. Nuevo endpoint `/api/v1/dashboard/stats`**
+- Archivo: `backend/app/api/v1/dashboard.py`
+- Devuelve estadísticas agregadas: clients, products, low_stock, pending_documents, etc.
+- Registrado en `backend/app/api/router.py`
+
+**2. APIClient actualizado**
+- Archivo: `dragofactu/services/api_client.py`
+- Nuevo método: `get_dashboard_stats()` → GET /dashboard/stats
+
+**3. Dashboard híbrido**
+- Archivo: `dragofactu_complete.py` (clase Dashboard)
+- Métodos actualizados:
+  - `get_client_count()` - Usa API en modo remoto
+  - `get_product_count()` - Usa API en modo remoto
+  - `get_document_count()` - Usa API en modo remoto
+  - `get_low_stock_count()` - Usa API en modo remoto
+  - `_get_pending_items()` - Usa API en modo remoto
+  - `_get_recent_documents()` - Usa API en modo remoto
+- Cache de stats con `_get_remote_stats()` y `_invalidate_stats_cache()`
+
+**4. DocumentManagementTab híbrido**
+- Refactorizado `refresh_data()` en tres métodos:
+  - `_refresh_from_api()` - Datos del servidor
+  - `_refresh_from_local()` - Datos locales SQLite
+  - `_add_document_row()` / `_add_document_row_local()` - Separación de renderizado
+- Nuevos métodos:
+  - `generate_pdf_by_id()` - PDF por ID (pendiente implementar en remoto)
+  - `delete_document_by_id()` - Eliminar documento por ID (soporta API)
+
+**5. DocumentSummary schema actualizado**
+- Archivo: `backend/app/schemas/document.py`
+- Añadido campo `client_name` para mostrar nombre de cliente en listas
+
+**6. list_documents endpoint mejorado**
+- Archivo: `backend/app/api/v1/documents.py`
+- Usa `joinedload(Document.client)` para cargar cliente
+- Soporta filtro `doc_status="pending"` para múltiples estados pendientes
+- Construye respuesta con `client_name` incluido
+
+### Patrón de Modo Híbrido
+```python
+def refresh_data(self):
+    app_mode = get_app_mode()
+    try:
+        if app_mode.is_remote:
+            self._refresh_from_api(app_mode.api)
+        else:
+            self._refresh_from_local()
+    except Exception as e:
+        logger.error(f"Error: {e}")
+```
+
+### Archivos Modificados
+- `backend/app/api/v1/dashboard.py` (NUEVO)
+- `backend/app/api/router.py`
+- `backend/app/api/v1/documents.py`
+- `backend/app/schemas/document.py`
+- `dragofactu/services/api_client.py`
+- `dragofactu_complete.py`
+
+### Estado de Tabs
+| Tab | Modo Local | Modo Remoto |
+|-----|------------|-------------|
+| Dashboard | ✅ | ✅ |
+| Clientes | ✅ | ✅ |
+| Productos | ✅ | ✅ |
+| Documentos | ✅ | ✅ |
+| Inventario | ✅ | 🔄 Pendiente |
+| Diario | ✅ | 🔄 Pendiente |
+| Trabajadores | ✅ | 🔄 Pendiente |
 
 ---
 

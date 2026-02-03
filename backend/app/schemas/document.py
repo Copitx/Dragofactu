@@ -101,6 +101,7 @@ class DocumentSummary(BaseSchema):
     issue_date: datetime
     due_date: Optional[datetime] = None
     client_id: UUID
+    client_name: Optional[str] = None  # Added for dashboard display
     total: float
     created_at: Optional[datetime] = None
 

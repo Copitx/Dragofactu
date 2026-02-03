@@ -5,7 +5,7 @@ Handles quotes, delivery notes, and invoices.
 from typing import Optional, List
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from uuid import UUID
 
@@ -87,7 +87,9 @@ async def list_documents(
     current_user: User = Depends(require_permission("documents.read"))
 ):
     """Listar documentos con filtros."""
-    query = db.query(Document).filter(Document.company_id == current_user.company_id)
+    query = db.query(Document).options(
+        joinedload(Document.client)
+    ).filter(Document.company_id == current_user.company_id)
 
     if doc_type:
         try:
@@ -96,10 +98,18 @@ async def list_documents(
             raise HTTPException(status_code=400, detail=f"Tipo invalido: {doc_type}")
 
     if doc_status:
-        try:
-            query = query.filter(Document.status == DocumentStatus(doc_status))
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Estado invalido: {doc_status}")
+        # Special case: "pending" returns all pending statuses
+        if doc_status == "pending":
+            pending_statuses = [
+                DocumentStatus.DRAFT, DocumentStatus.NOT_SENT, DocumentStatus.SENT,
+                DocumentStatus.ACCEPTED, DocumentStatus.PARTIALLY_PAID
+            ]
+            query = query.filter(Document.status.in_(pending_statuses))
+        else:
+            try:
+                query = query.filter(Document.status == DocumentStatus(doc_status))
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Estado invalido: {doc_status}")
 
     if client_id:
         query = query.filter(Document.client_id == client_id)
@@ -113,8 +123,25 @@ async def list_documents(
     total = query.count()
     documents = query.order_by(Document.issue_date.desc()).offset(skip).limit(limit).all()
 
+    # Build response with client_name
+    items = []
+    for doc in documents:
+        item = DocumentSummary(
+            id=doc.id,
+            code=doc.code,
+            type=doc.type.value,
+            status=doc.status.value,
+            issue_date=doc.issue_date,
+            due_date=doc.due_date,
+            client_id=doc.client_id,
+            client_name=doc.client.name if doc.client else None,
+            total=float(doc.total or 0),
+            created_at=doc.created_at
+        )
+        items.append(item)
+
     return DocumentList(
-        items=[DocumentSummary.model_validate(d) for d in documents],
+        items=items,
         total=total,
         skip=skip,
         limit=limit

@@ -432,6 +432,12 @@ class APIClient:
     def delete_reminder(self, reminder_id: str) -> Dict:
         return self._request("DELETE", f"/reminders/{reminder_id}")
 
+    # ==================== DASHBOARD ====================
+
+    def get_dashboard_stats(self) -> Dict:
+        """Get aggregated dashboard statistics."""
+        return self._request("GET", "/dashboard/stats")
+
     # ==================== HEALTH ====================
 
     def health_check(self) -> Dict:

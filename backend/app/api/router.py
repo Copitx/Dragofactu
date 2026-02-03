@@ -2,7 +2,7 @@
 Main API router that includes all sub-routers.
 """
 from fastapi import APIRouter
-from app.api.v1 import auth, clients, products, suppliers, workers, diary, reminders, documents
+from app.api.v1 import auth, clients, products, suppliers, workers, diary, reminders, documents, dashboard
 
 # Main API router
 api_router = APIRouter()
@@ -20,3 +20,6 @@ api_router.include_router(reminders.router)
 
 # Documents router (Fase 5)
 api_router.include_router(documents.router)
+
+# Dashboard stats (Fase 10)
+api_router.include_router(dashboard.router)

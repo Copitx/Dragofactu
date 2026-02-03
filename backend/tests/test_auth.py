@@ -13,13 +13,13 @@ class TestAuthEndpoints:
     """Test auth endpoints."""
 
     def test_register_company(self, client: TestClient):
-        """Test company registration creates company and admin user."""
+        """Test successful company registration."""
         response = client.post("/api/v1/auth/register", json={
-            "company_code": "NEW001",
-            "company_name": "New Company S.L.",
+            "company_code": "NEWCO",
+            "company_name": "New Company",
             "username": "newadmin",
             "email": "admin@newcompany.com",
-            "password": "securepass123"
+            "password": "SecurePass123"  # Password must have uppercase, lowercase, number
         })
 
         assert response.status_code == 201
@@ -37,11 +37,11 @@ class TestAuthEndpoints:
             "company_name": "Another Company",
             "username": "admin2",
             "email": "admin2@company.com",
-            "password": "password123"
+            "password": "MiClaveSegura123"  # Not in weak passwords list
         })
 
         assert response.status_code == 400
-        assert "existe" in response.json()["detail"].lower()
+        assert "ya existe" in response.json()["detail"].lower()
 
     def test_login_success(self, client: TestClient, test_user: User):
         """Test successful login."""
@@ -64,7 +64,7 @@ class TestAuthEndpoints:
         })
 
         assert response.status_code == 401
-        assert "incorrectas" in response.json()["detail"].lower()
+        assert "incorrectos" in response.json()["detail"].lower()
 
     def test_login_nonexistent_user(self, client: TestClient):
         """Test login fails with nonexistent user."""
@@ -130,7 +130,9 @@ class TestPasswordSecurity:
     def test_password_is_hashed(self, db: Session, test_user: User):
         """Verify password is not stored in plain text."""
         assert test_user.password_hash != "testpass123"
-        assert len(test_user.password_hash) > 50  # bcrypt hashes are long
+        # Access the actual string value to check length
+        password_hash_str = str(test_user.password_hash)
+        assert len(password_hash_str) > 50  # bcrypt hashes are long
 
     def test_password_verification_works(self, client: TestClient, test_user: User):
         """Test that correct password works."""
@@ -142,6 +144,10 @@ class TestPasswordSecurity:
 
     def test_password_case_sensitive(self, client: TestClient, test_user: User):
         """Test passwords are case sensitive."""
+        # Clear rate limiter for this test
+        from app.core.security_utils import login_rate_limiter
+        login_rate_limiter.requests.clear()
+        
         response = client.post("/api/v1/auth/login", json={
             "username": "testadmin",
             "password": "TESTPASS123"  # Wrong case

@@ -37,7 +37,7 @@ class TestHealthEndpoints:
 
     def test_openapi_json(self, client: TestClient):
         """Test OpenAPI JSON schema is accessible."""
-        response = client.get("/api/v1/openapi.json")
+        response = client.get("/openapi.json")
 
         assert response.status_code == 200
         data = response.json()

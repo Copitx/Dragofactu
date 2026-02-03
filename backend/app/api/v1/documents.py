@@ -517,3 +517,44 @@ async def get_documents_summary(
         "month_invoices": month_invoices,
         "month_total": float(month_total)
     }
+
+
+@router.get("/{document_id}/pdf")
+async def generate_document_pdf(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("documents.read"))
+):
+    """Generate PDF for document."""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.company_id == current_user.company_id
+    ).options(
+        joinedload(Document.client),
+        joinedload(Document.lines).joinedload(DocumentLine.product)
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    from app.core.pdf import InvoicePDFGenerator
+    from fastapi.responses import Response
+    import io
+
+    # Generate PDF in memory
+    generator = InvoicePDFGenerator()
+    pdf_buffer = io.BytesIO()
+    
+    # Generate PDF content
+    generator.generate_pdf(document, pdf_buffer)
+    pdf_buffer.seek(0)
+
+    # Return PDF as response
+    pdf_content = pdf_buffer.getvalue()
+    filename = f"{document.code}.pdf"
+
+    return Response(
+        content=pdf_content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"}
+    )

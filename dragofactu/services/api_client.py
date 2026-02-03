@@ -437,6 +437,25 @@ class APIClient:
     def get_dashboard_stats(self) -> Dict:
         """Get aggregated dashboard statistics."""
         return self._request("GET", "/dashboard/stats")
+    
+    def get_document_pdf(self, document_id: str) -> bytes:
+        """Get PDF for document as bytes."""
+        response = self._session.get(
+            f"{self.base_url}{self.api_prefix}/documents/{document_id}/pdf",
+            headers=self._get_headers(),
+            timeout=30
+        )
+        if response.status_code == 200:
+            return response.content
+        else:
+            error_msg = f"HTTP {response.status_code}"
+            try:
+                error_detail = response.json().get("detail", "")
+                if error_detail:
+                    error_msg = f"{error_msg}: {error_detail}"
+            except:
+                pass
+            raise APIError(f"Error generating PDF: {error_msg}", response.status_code)
 
     # ==================== HEALTH ====================
 

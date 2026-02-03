@@ -4504,9 +4504,47 @@ class DocumentManagementTab(QWidget):
         app_mode = get_app_mode()
         try:
             if app_mode.is_remote:
-                # In remote mode, we'd need to fetch document data and generate locally
-                # For now, show message
-                QMessageBox.information(self, "PDF", "Generacion de PDF en modo remoto no implementada aun")
+                # In remote mode, get PDF from API
+                pdf_bytes = app_mode.api.get_document_pdf(str(doc_id))
+                
+                # Save to file
+                import os
+                from datetime import datetime
+                
+                # Get document info for filename
+                response = app_mode.api.get_document(str(doc_id))
+                code = response.get("code", f"document_{doc_id}")
+                safe_code = code.replace("/", "-").replace("\\", "-")
+                
+                # Create downloads directory if needed
+                downloads_dir = os.path.join(os.path.expanduser("~"), "Downloads", "Dragofactu")
+                os.makedirs(downloads_dir, exist_ok=True)
+                
+                # Save PDF
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"{safe_code}_{timestamp}.pdf"
+                filepath = os.path.join(downloads_dir, filename)
+                
+                with open(filepath, "wb") as f:
+                    f.write(pdf_bytes)
+                
+                QMessageBox.information(
+                    self, "PDF Generado",
+                    f"PDF guardado en:\n{filepath}"
+                )
+                
+                # Optionally open the file
+                import subprocess
+                import platform
+                try:
+                    if platform.system() == "Darwin":  # macOS
+                        subprocess.run(["open", filepath])
+                    elif platform.system() == "Windows":
+                        os.startfile(filepath)
+                    else:  # Linux
+                        subprocess.run(["xdg-open", filepath])
+                except:
+                    pass  # Ignore if can't open
             else:
                 with SessionLocal() as db:
                     doc = db.query(Document).filter(Document.id == uuid.UUID(doc_id)).first()

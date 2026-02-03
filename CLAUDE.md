@@ -124,7 +124,9 @@ Desktop Client (PySide6)  ──HTTP/REST──▶  FastAPI Backend  ──▶  
 | 5 | Documentos e Inventario | ✅ | `956ddde` |
 | 6 | Cliente Desktop (APIClient) | ✅ | `6b9d920` |
 | 7 | Testing (52 tests pytest) | ✅ | `aacae4e` |
-| 8 | Despliegue (Railway free) | 🔄 | En curso |
+| 8 | Despliegue (Railway) + Seguridad | ✅ | `0d8220a` |
+| 9 | Integración Desktop (modo híbrido) | ✅ | `3771702` |
+| 10 | Tabs con API remota | 🔄 | Pendiente |
 
 ### Estructura Backend Completa
 ```
@@ -923,49 +925,41 @@ Todos los servicios usan `@require_permission('resource.action')` para autorizac
 - 52 tests pytest passing
 - Deployment en Railway funcionando
 - APIClient clase completa (dragofactu/services/api_client.py)
+- ✅ Fase 9: Integración APIClient en desktop (login local/remoto)
+- ✅ Mejoras seguridad backend (rate limiting, password validation, etc.)
 
 🔄 PENDIENTE:
-- Integrar APIClient en dragofactu_complete.py (la app desktop)
-- Login contra backend remoto
-- Sincronización datos locales ↔ remotos
+- Modificar tabs de gestión para usar API en modo remoto
 - PostgreSQL en Railway (actualmente SQLite)
+- Sincronización/cache offline
 ```
 
-### FASE 9: INTEGRAR APICLIENT EN APP DESKTOP
+### FASE 9: INTEGRAR APICLIENT EN APP DESKTOP ✅ COMPLETADA
 
-**Objetivo:** Que `dragofactu_complete.py` use el backend API en lugar de SQLite local.
+**Fecha:** 2026-02-03
+**Estado:** ✅ COMPLETADA
 
-**Archivo principal a modificar:** `/Users/jaimeruiz/Dragofactu/dragofactu_complete.py`
+**Implementado:**
+- `AppMode` singleton para gestionar modo local/remoto
+- `LoginDialog` con soporte dual (SQLite local o API remota)
+- `ServerConfigDialog` para configurar URL del servidor
+- `RegisterCompanyDialog` para registro de nuevas empresas
+- Tab "Servidor" en `SettingsDialog` para cambiar modo
+- Indicador visual de modo en login
+- Persistencia en `~/.dragofactu/app_mode.json`
+- Añadido `requests>=2.28.0` a dependencias
 
-**Archivo APIClient ya creado:** `/Users/jaimeruiz/Dragofactu/dragofactu/services/api_client.py`
+**Archivos modificados:**
+- `dragofactu_complete.py` - +670 líneas (AppMode, diálogos, tab servidor)
+- `pyproject.toml` - Añadido requests, versión 2.0.0
 
-#### Paso 9.1: Añadir configuración de servidor
+**Cómo usar:**
+1. Login → "Configurar Servidor" → Ingresar URL Railway
+2. "Probar Conexión" → Verificar servidor online
+3. "Conectar al Servidor" → Cambiar a modo remoto
+4. Login con credenciales del servidor
 
-En `dragofactu_complete.py`, buscar la clase `SettingsDialog` (aproximadamente línea 5800+) y añadir un nuevo tab "Servidor":
-
-```python
-# Añadir en SettingsDialog.__init__():
-server_tab = QWidget()
-server_layout = QVBoxLayout(server_tab)
-
-# Campo URL del servidor
-url_group = QGroupBox("Servidor API")
-url_layout = QFormLayout()
-self.server_url_input = QLineEdit()
-self.server_url_input.setPlaceholderText("https://tu-app.railway.app")
-url_layout.addRow("URL del servidor:", self.server_url_input)
-url_group.setLayout(url_layout)
-server_layout.addWidget(url_group)
-
-# Botón de prueba de conexión
-self.test_connection_btn = QPushButton("Probar conexión")
-self.test_connection_btn.clicked.connect(self.test_server_connection)
-server_layout.addWidget(self.test_connection_btn)
-
-tabs.addTab(server_tab, "Servidor")
-```
-
-#### Paso 9.2: Modificar LoginDialog para usar API
+#### Paso 9.2 (Ya implementado): LoginDialog híbrido
 
 El `LoginDialog` actual (línea ~300) usa SQLite local. Hay que cambiarlo:
 

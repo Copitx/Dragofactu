@@ -126,7 +126,7 @@ Desktop Client (PySide6)  ──HTTP/REST──▶  FastAPI Backend  ──▶  
 | 7 | Testing (52 tests pytest) | ✅ | `aacae4e` |
 | 8 | Despliegue (Railway) + Seguridad | ✅ | `0d8220a` |
 | 9 | Integración Desktop (modo híbrido) | ✅ | `3771702` |
-| 10 | Tabs con API remota | 🔄 | Pendiente |
+| 10 | Tabs con API remota | 🔄 | `642a9ce` (parcial) |
 
 ### Estructura Backend Completa
 ```
@@ -1133,7 +1133,48 @@ def _load_tokens(self):
     return False
 ```
 
-### FASE 10: CONFIGURAR POSTGRESQL EN RAILWAY
+### FASE 10: TABS CON SOPORTE API REMOTO 🔄 EN PROGRESO
+
+**Fecha inicio:** 2026-02-03
+**Estado:** Parcialmente completado
+
+**Objetivo:** Que todos los tabs de gestión usen API cuando en modo remoto.
+
+**Completado:**
+- [x] `ClientManagementTab` - refresh_data, delete_client
+- [x] `ClientDialog` - load_client_data, accept
+- [x] `ProductManagementTab` - refresh_data
+
+**Pendiente:**
+- [ ] `ProductDialog` - load_product_data, accept
+- [ ] `DocumentManagementTab` - refresh_data, delete_document
+- [ ] `DocumentDialog` - CRUD completo
+- [ ] `InventoryManagementTab`
+- [ ] `DiaryManagementTab`
+
+**Patrón implementado:**
+```python
+def refresh_data(self):
+    app_mode = get_app_mode()
+    if app_mode.is_remote:
+        self._refresh_from_api(app_mode.api)
+    else:
+        self._refresh_from_local()
+
+def _refresh_from_api(self, api):
+    response = api.list_clients(limit=500)
+    items = response.get("items", [])
+    # Fill table from dicts
+
+def _refresh_from_local(self):
+    with SessionLocal() as db:
+        items = db.query(Model).all()
+        # Fill table from ORM objects
+```
+
+---
+
+### FASE 11: CONFIGURAR POSTGRESQL EN RAILWAY
 
 **Objetivo:** Usar PostgreSQL en lugar de SQLite para persistencia real.
 

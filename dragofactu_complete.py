@@ -2323,7 +2323,10 @@ class ClientDialog(QDialog):
                     super().accept()
         except Exception as e:
             logger.error(f"Error saving client: {e}")
-            QMessageBox.critical(self, "Error", f"Error al guardar: {str(e)}")
+            error_msg = str(e)
+            if hasattr(e, 'detail') and e.detail:
+                error_msg = e.detail
+            QMessageBox.critical(self, "Error", f"Error al guardar: {error_msg}")
 
 class ProductDialog(QDialog):
     """Dialog for creating and editing products"""
@@ -2418,25 +2421,44 @@ class ProductDialog(QDialog):
     def load_product_data(self):
         """Load existing product data for editing"""
         try:
-            with SessionLocal() as db:
-                product = db.query(Product).filter(Product.id == self.product_id).first()
-                if product:
-                    self.code_edit.setText(product.code or "")
-                    self.name_edit.setText(product.name or "")
-                    self.description_edit.setPlainText(product.description or "")
-                    self.category_edit.setText(product.category or "")
-                    self.cost_price_edit.setValue(float(product.purchase_price or 0))
-                    self.sale_price_edit.setValue(float(product.sale_price or 0))
-                    self.stock_spin.setValue(product.current_stock or 0)
-                    self.min_stock_spin.setValue(product.minimum_stock or 0)
-                    # Set unit combo
-                    unit_index = self.unit_combo.findText(product.stock_unit or "Unidades")
-                    if unit_index >= 0:
-                        self.unit_combo.setCurrentIndex(unit_index)
-                    self.active_check.setChecked(product.is_active)
-                else:
-                    QMessageBox.warning(self, "❌ Error", "Producto no encontrado")
-                    self.reject()
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                product = app_mode.api.get_product(str(self.product_id))
+                self.code_edit.setText(product.get("code", ""))
+                self.name_edit.setText(product.get("name", ""))
+                self.description_edit.setPlainText(product.get("description", "") or "")
+                self.category_edit.setText(product.get("category", "") or "")
+                self.cost_price_edit.setValue(float(product.get("purchase_price", 0) or 0))
+                self.sale_price_edit.setValue(float(product.get("sale_price", 0) or 0))
+                self.stock_spin.setValue(int(product.get("current_stock", 0) or 0))
+                self.min_stock_spin.setValue(int(product.get("minimum_stock", 0) or 0))
+
+                unit_value = product.get("stock_unit", "Unidades") or "Unidades"
+                for i in range(self.unit_combo.count()):
+                    if self.unit_combo.itemText(i).lower() == str(unit_value).lower():
+                        self.unit_combo.setCurrentIndex(i)
+                        break
+                self.active_check.setChecked(product.get("is_active", True))
+            else:
+                with SessionLocal() as db:
+                    product = db.query(Product).filter(Product.id == self.product_id).first()
+                    if product:
+                        self.code_edit.setText(product.code or "")
+                        self.name_edit.setText(product.name or "")
+                        self.description_edit.setPlainText(product.description or "")
+                        self.category_edit.setText(product.category or "")
+                        self.cost_price_edit.setValue(float(product.purchase_price or 0))
+                        self.sale_price_edit.setValue(float(product.sale_price or 0))
+                        self.stock_spin.setValue(product.current_stock or 0)
+                        self.min_stock_spin.setValue(product.minimum_stock or 0)
+                        # Set unit combo
+                        unit_index = self.unit_combo.findText(product.stock_unit or "Unidades")
+                        if unit_index >= 0:
+                            self.unit_combo.setCurrentIndex(unit_index)
+                        self.active_check.setChecked(product.is_active)
+                    else:
+                        QMessageBox.warning(self, "❌ Error", "Producto no encontrado")
+                        self.reject()
         except Exception as e:
             logger.error(f"Error loading product data: {e}")
             QMessageBox.critical(self, "❌ Error", f"Error cargando producto: {str(e)}")
@@ -2449,6 +2471,37 @@ class ProductDialog(QDialog):
             QMessageBox.warning(self, "Error", "El nombre es obligatorio")
             return
 
+        app_mode = get_app_mode()
+        product_payload = {
+            "name": self.name_edit.text().strip(),
+            "description": self.description_edit.toPlainText().strip() or None,
+            "category": self.category_edit.text().strip() or None,
+            "purchase_price": self.cost_price_edit.value(),
+            "sale_price": self.sale_price_edit.value(),
+            "current_stock": self.stock_spin.value(),
+            "minimum_stock": self.min_stock_spin.value(),
+            "stock_unit": self.unit_combo.currentText(),
+        }
+
+        if app_mode.is_remote:
+            try:
+                if self.is_edit_mode:
+                    app_mode.api.update_product(str(self.product_id), **product_payload)
+                else:
+                    product_code = self.code_edit.text().strip()
+                    if not product_code:
+                        from datetime import datetime
+                        product_code = f"P-{datetime.now().strftime('%Y%m%d%H%M%S%f')[:17]}"
+                    app_mode.api.create_product(code=product_code, **product_payload)
+                super().accept()
+            except Exception as e:
+                logger.error(f"Error saving product (remote): {e}")
+                error_msg = str(e)
+                if hasattr(e, 'detail') and e.detail:
+                    error_msg = e.detail
+                QMessageBox.critical(self, "Error", f"Error al guardar producto: {error_msg}")
+            return
+
         try:
             with SessionLocal() as db:
                 if self.is_edit_mode:
@@ -2458,21 +2511,19 @@ class ProductDialog(QDialog):
                         QMessageBox.warning(self, "Error", "Producto no encontrado")
                         return
 
-                    product.name = self.name_edit.text().strip()
-                    product.description = self.description_edit.toPlainText().strip() or None
-                    product.category = self.category_edit.text().strip() or None
-                    product.purchase_price = self.cost_price_edit.value()
-                    product.sale_price = self.sale_price_edit.value()
-                    product.current_stock = self.stock_spin.value()
-                    product.minimum_stock = self.min_stock_spin.value()
-                    product.stock_unit = self.unit_combo.currentText()
+                    product.name = product_payload["name"]
+                    product.description = product_payload["description"]
+                    product.category = product_payload["category"]
+                    product.purchase_price = product_payload["purchase_price"]
+                    product.sale_price = product_payload["sale_price"]
+                    product.current_stock = product_payload["current_stock"]
+                    product.minimum_stock = product_payload["minimum_stock"]
+                    product.stock_unit = product_payload["stock_unit"]
                     product.is_active = self.active_check.isChecked()
                 else:
                     # Create new product
-                    # Check for unique code constraint
                     product_code = self.code_edit.text().strip()
                     if not product_code:
-                        # Generate unique code with milliseconds for uniqueness
                         from datetime import datetime
                         product_code = f"P-{datetime.now().strftime('%Y%m%d%H%M%S%f')[:17]}"
 
@@ -2487,14 +2538,14 @@ class ProductDialog(QDialog):
 
                     product = Product(
                         code=product_code,
-                        name=self.name_edit.text().strip(),
-                        description=self.description_edit.toPlainText().strip() or None,
-                        category=self.category_edit.text().strip() or None,
-                        purchase_price=self.cost_price_edit.value(),
-                        sale_price=self.sale_price_edit.value(),
-                        current_stock=self.stock_spin.value(),
-                        minimum_stock=self.min_stock_spin.value(),
-                        stock_unit=self.unit_combo.currentText(),
+                        name=product_payload["name"],
+                        description=product_payload["description"],
+                        category=product_payload["category"],
+                        purchase_price=product_payload["purchase_price"],
+                        sale_price=product_payload["sale_price"],
+                        current_stock=product_payload["current_stock"],
+                        minimum_stock=product_payload["minimum_stock"],
+                        stock_unit=product_payload["stock_unit"],
                         is_active=self.active_check.isChecked()
                     )
                     db.add(product)
@@ -2540,6 +2591,7 @@ class DocumentDialog(QDialog):
         self.resize(1000, 750)
         self.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
         self.items = []
+        self._remote_original_status = None
         self.setup_ui()
         if self.is_edit_mode:
             self.load_document_data()
@@ -2716,85 +2768,121 @@ class DocumentDialog(QDialog):
         self.update_totals()
     
     def setup_clients(self):
-        """Load clients into combo box"""
+        """Load clients into combo box - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                clients = db.query(Client).filter(Client.is_active == True).all()
-                self.client_combo.addItem("Seleccione un cliente...", None)
+            self.client_combo.addItem("Seleccione un cliente...", None)
+            if app_mode.is_remote:
+                response = app_mode.api.list_clients(limit=500, active_only=True)
+                clients = response.get("items", [])
                 for client in clients:
-                    self.client_combo.addItem(f"{client.code} - {client.name}", client.id)
+                    # Store ID as string for remote mode
+                    self.client_combo.addItem(
+                        f"{client.get('code', '')} - {client.get('name', '')}",
+                        client.get('id', '')
+                    )
+            else:
+                with SessionLocal() as db:
+                    clients = db.query(Client).filter(Client.is_active == True).all()
+                    for client in clients:
+                        self.client_combo.addItem(f"{client.code} - {client.name}", client.id)
         except Exception as e:
             logger.error(f"Error loading clients into combo: {e}")
             self.client_combo.addItem("Error cargando clientes", None)
 
     def setup_products(self):
-        """Load products into combo box"""
+        """Load products into combo box - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                products = db.query(Product).filter(Product.is_active == True).all()
-                self.product_combo.addItem("Seleccione un producto...", None)
+            self.product_combo.addItem("Seleccione un producto...", None)
+            if app_mode.is_remote:
+                response = app_mode.api.list_products(limit=500)
+                products = response.get("items", [])
                 for product in products:
-                    self.product_combo.addItem(f"{product.code} - {product.name}", product.id)
+                    self.product_combo.addItem(
+                        f"{product.get('code', '')} - {product.get('name', '')}",
+                        product.get('id', '')
+                    )
+            else:
+                with SessionLocal() as db:
+                    products = db.query(Product).filter(Product.is_active == True).all()
+                    for product in products:
+                        self.product_combo.addItem(f"{product.code} - {product.name}", product.id)
         except Exception as e:
             logger.error(f"Error loading products into combo: {e}")
             self.product_combo.addItem("Error cargando productos", None)
     
     def add_item(self):
-        """Add selected product to table with quantity"""
+        """Add selected product to table with quantity - supports local and remote"""
         product_id = self.product_combo.currentData()
         if not product_id:
             QMessageBox.warning(self, "Error", "Seleccione un producto primero")
             return
 
         quantity = self.quantity_spin.value()
+        app_mode = get_app_mode()
 
         try:
-            with SessionLocal() as db:
-                product = db.query(Product).filter(Product.id == product_id).first()
-                if product:
-                    row = self.items_table.rowCount()
-                    self.items_table.insertRow(row)
+            # Get product data based on mode
+            if app_mode.is_remote:
+                product_data = app_mode.api.get_product(str(product_id))
+                product_name = product_data.get('name', '')
+                product_desc = product_data.get('description', '') or ''
+                price = float(product_data.get('sale_price', 0) or 0)
+                stored_id = str(product_id)  # Keep as string for remote
+            else:
+                with SessionLocal() as db:
+                    product = db.query(Product).filter(Product.id == product_id).first()
+                    if not product:
+                        QMessageBox.warning(self, "Error", "Producto no encontrado")
+                        return
+                    product_name = product.name
+                    product_desc = product.description or ''
                     price = float(product.sale_price or 0)
-                    total_line = price * quantity
+                    stored_id = product.id  # UUID object for local
 
-                    self.items_table.setItem(row, 0, QTableWidgetItem(product.name))
-                    self.items_table.setItem(row, 1, QTableWidgetItem(product.description or ""))
+            row = self.items_table.rowCount()
+            self.items_table.insertRow(row)
+            total_line = price * quantity
 
-                    # Quantity with spinbox
-                    qty_spin = QSpinBox()
-                    qty_spin.setRange(1, 9999)
-                    qty_spin.setValue(quantity)
-                    qty_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
-                    self.items_table.setCellWidget(row, 2, qty_spin)
+            self.items_table.setItem(row, 0, QTableWidgetItem(product_name))
+            self.items_table.setItem(row, 1, QTableWidgetItem(product_desc))
 
-                    self.items_table.setItem(row, 3, QTableWidgetItem(f"{price:.2f}"))
+            # Quantity with spinbox
+            qty_spin = QSpinBox()
+            qty_spin.setRange(1, 9999)
+            qty_spin.setValue(quantity)
+            qty_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
+            self.items_table.setCellWidget(row, 2, qty_spin)
 
-                    # Discount spinbox
-                    disc_spin = QSpinBox()
-                    disc_spin.setRange(0, 100)
-                    disc_spin.setValue(0)
-                    disc_spin.setSuffix("%")
-                    disc_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
-                    self.items_table.setCellWidget(row, 4, disc_spin)
+            self.items_table.setItem(row, 3, QTableWidgetItem(f"{price:.2f}"))
 
-                    self.items_table.setItem(row, 5, QTableWidgetItem(f"{total_line:.2f}"))
+            # Discount spinbox
+            disc_spin = QSpinBox()
+            disc_spin.setRange(0, 100)
+            disc_spin.setValue(0)
+            disc_spin.setSuffix("%")
+            disc_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
+            self.items_table.setCellWidget(row, 4, disc_spin)
 
-                    # Delete button
-                    del_btn = QPushButton("X")
-                    del_btn.setStyleSheet(f"background-color: {UIStyles.COLORS['danger']}; color: white; border: none; border-radius: 4px; padding: 4px 8px;")
-                    del_btn.clicked.connect(lambda checked, r=row: self._remove_row(r))
-                    self.items_table.setCellWidget(row, 6, del_btn)
+            self.items_table.setItem(row, 5, QTableWidgetItem(f"{total_line:.2f}"))
 
-                    self.items.append({
-                        'product_id': product.id,
-                        'quantity': quantity,
-                        'price': price,
-                        'discount': 0
-                    })
+            # Delete button
+            del_btn = QPushButton("X")
+            del_btn.setStyleSheet(f"background-color: {UIStyles.COLORS['danger']}; color: white; border: none; border-radius: 4px; padding: 4px 8px;")
+            del_btn.clicked.connect(lambda checked, r=row: self._remove_row(r))
+            self.items_table.setCellWidget(row, 6, del_btn)
 
-                    # Reset quantity spinner
-                    self.quantity_spin.setValue(1)
-                    self.update_totals()
+            self.items.append({
+                'product_id': stored_id,
+                'quantity': quantity,
+                'price': price,
+                'discount': 0
+            })
+
+            # Reset quantity spinner
+            self.quantity_spin.setValue(1)
+            self.update_totals()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error añadiendo producto: {str(e)}")
 
@@ -2888,6 +2976,52 @@ class DocumentDialog(QDialog):
         if not self.document_id:
             return
         try:
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                doc = app_mode.api.get_document(str(self.document_id))
+                self._remote_original_status = doc.get("status", "draft")
+
+                # Set client
+                client_id = str(doc.get("client_id", ""))
+                for i in range(self.client_combo.count()):
+                    if str(self.client_combo.itemData(i)) == client_id:
+                        self.client_combo.setCurrentIndex(i)
+                        break
+
+                # Set status if in edit mode
+                if hasattr(self, 'status_combo'):
+                    status_label = get_status_label(self._remote_original_status)
+                    idx = self.status_combo.findText(status_label)
+                    if idx >= 0:
+                        self.status_combo.setCurrentIndex(idx)
+
+                # Set due date
+                if hasattr(self, 'due_date_edit'):
+                    due_date = doc.get("due_date")
+                    if due_date:
+                        try:
+                            if isinstance(due_date, str):
+                                due_date = due_date.replace("Z", "+00:00")
+                                due_dt = datetime.fromisoformat(due_date)
+                            else:
+                                due_dt = due_date
+                            self.due_date_edit.setDate(QDate(due_dt.year, due_dt.month, due_dt.day))
+                        except Exception:
+                            pass
+
+                # Set notes
+                if doc.get("notes"):
+                    self.notes_edit.setPlainText(doc.get("notes") or "")
+                if hasattr(self, 'internal_notes_edit') and doc.get("internal_notes"):
+                    self.internal_notes_edit.setPlainText(doc.get("internal_notes") or "")
+
+                # Load line items
+                for line in doc.get("lines", []):
+                    self._add_line_from_api(line)
+
+                self.update_totals()
+                return
+
             # Convert string ID to UUID if needed
             doc_id = self.document_id
             if isinstance(doc_id, str):
@@ -2984,6 +3118,53 @@ class DocumentDialog(QDialog):
             'discount': discount,
             'line_id': line.id
         })
+
+    def _add_line_from_api(self, line):
+        """Add a document line from API data to the table"""
+        row = self.items_table.rowCount()
+        self.items_table.insertRow(row)
+
+        description = line.get("description", "") or ""
+        product_name = description or "Producto"
+        quantity = int(line.get("quantity", 1) or 1)
+        price = float(line.get("unit_price", 0) or 0)
+        discount = float(line.get("discount_percent", 0) or 0)
+        subtotal = float(line.get("subtotal", price * quantity) or 0)
+
+        self.items_table.setItem(row, 0, QTableWidgetItem(product_name))
+        self.items_table.setItem(row, 1, QTableWidgetItem(description))
+
+        qty_spin = QSpinBox()
+        qty_spin.setRange(1, 9999)
+        qty_spin.setValue(quantity)
+        qty_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
+        self.items_table.setCellWidget(row, 2, qty_spin)
+
+        self.items_table.setItem(row, 3, QTableWidgetItem(f"{price:.2f}"))
+
+        disc_spin = QSpinBox()
+        disc_spin.setRange(0, 100)
+        disc_spin.setValue(int(discount))
+        disc_spin.setSuffix("%")
+        disc_spin.valueChanged.connect(lambda v, r=row: self._update_line_total(r))
+        self.items_table.setCellWidget(row, 4, disc_spin)
+
+        self.items_table.setItem(row, 5, QTableWidgetItem(f"{subtotal:.2f}"))
+
+        del_btn = QPushButton("X")
+        del_btn.setStyleSheet(
+            f"background-color: {UIStyles.COLORS['danger']}; color: white; border: none; border-radius: 4px; padding: 4px 8px;"
+        )
+        del_btn.clicked.connect(lambda checked, r=row: self._remove_row(r))
+        self.items_table.setCellWidget(row, 6, del_btn)
+
+        self.items.append({
+            'product_id': line.get("product_id"),
+            'quantity': quantity,
+            'price': price,
+            'discount': discount,
+            'line_id': line.get("id")
+        })
     
     def _get_current_user_id(self):
         """Get current user ID from MainWindow"""
@@ -2993,6 +3174,121 @@ class DocumentDialog(QDialog):
                 return widget.current_user.id
             widget = widget.parent()
         return None
+
+    def _build_remote_lines(self):
+        """Build line payloads for remote API."""
+        lines = []
+        for row in range(self.items_table.rowCount()):
+            product_name = self.items_table.item(row, 0).text() if self.items_table.item(row, 0) else ""
+            description = self.items_table.item(row, 1).text() if self.items_table.item(row, 1) else ""
+
+            qty_widget = self.items_table.cellWidget(row, 2)
+            quantity = float(qty_widget.value()) if qty_widget else 1.0
+
+            price_item = self.items_table.item(row, 3)
+            unit_price = float(price_item.text().replace('EUR', '').replace('€', '').strip()) if price_item else 0.0
+
+            disc_widget = self.items_table.cellWidget(row, 4)
+            discount = float(disc_widget.value()) if disc_widget else 0.0
+
+            product_id = None
+            if row < len(self.items) and self.items[row].get('product_id'):
+                product_id = str(self.items[row]['product_id'])
+
+            line = {
+                "line_type": "product",
+                "product_id": product_id,
+                "description": description or product_name,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "discount_percent": discount,
+            }
+            lines.append(line)
+        return lines
+
+    def _save_document_remote(self, api):
+        """Save document using remote API."""
+        client_id = self.client_combo.currentData()
+        if not client_id:
+            QMessageBox.warning(self, "Error", "Seleccione un cliente")
+            return
+
+        if self.items_table.rowCount() == 0:
+            QMessageBox.warning(self, "Error", "Añada al menos un producto")
+            return
+
+        client_id = str(client_id)
+        lines = self._build_remote_lines()
+
+        notes = self.notes_edit.toPlainText().strip() or None
+        internal_notes = self.internal_notes_edit.toPlainText().strip() if hasattr(self, 'internal_notes_edit') else None
+        terms = None
+
+        due_date = None
+        if hasattr(self, 'due_date_edit'):
+            qdate = self.due_date_edit.date()
+            due_date = datetime(qdate.year(), qdate.month(), qdate.day()).isoformat()
+
+        if self.is_edit_mode:
+            doc_id = str(self.document_id)
+            original_status = self._remote_original_status or "draft"
+
+            try:
+                if original_status == "draft":
+                    api.update_document(
+                        doc_id,
+                        client_id=client_id,
+                        due_date=due_date,
+                        notes=notes,
+                        internal_notes=internal_notes,
+                        terms=terms,
+                        lines=lines
+                    )
+                # Change status if requested
+                if hasattr(self, 'status_combo'):
+                    new_status = get_status_value(self.status_combo.currentText())
+                    if new_status and new_status != original_status:
+                        api.change_document_status(doc_id, new_status)
+
+                QMessageBox.information(self, "Éxito", f"{self.doc_title} actualizado correctamente")
+                self.accept()
+            except Exception as e:
+                logger.error(f"Error saving document (remote): {e}")
+                error_msg = str(e)
+                if hasattr(e, 'detail') and e.detail:
+                    error_msg = e.detail
+                QMessageBox.critical(self, "Error", f"Error guardando {self.doc_title.lower()}: {error_msg}")
+            return
+
+        # Create new document (remote)
+        if self.doc_type == "quote":
+            doc_type = "quote"
+        elif self.doc_type == "delivery":
+            doc_type = "delivery_note"
+        else:
+            doc_type = "invoice"
+
+        issue_date = datetime.now().isoformat()
+
+        try:
+            api.create_document(
+                doc_type=doc_type,
+                client_id=client_id,
+                issue_date=issue_date,
+                lines=lines,
+                due_date=due_date,
+                notes=notes,
+                internal_notes=internal_notes,
+                terms=terms
+            )
+            QMessageBox.information(self, "Éxito", f"{self.doc_title} guardado correctamente")
+            self.accept()
+        except Exception as e:
+            logger.error(f"Error creating document (remote): {e}")
+            error_msg = str(e)
+            if hasattr(e, 'detail') and e.detail:
+                error_msg = e.detail
+            QMessageBox.critical(self, "Error", f"Error guardando {self.doc_title.lower()}: {error_msg}")
 
     def save_document(self):
         """Save or update document with line items"""
@@ -3005,7 +3301,12 @@ class DocumentDialog(QDialog):
             QMessageBox.warning(self, "Error", "Añada al menos un producto")
             return
 
-        # Get current user ID
+        app_mode = get_app_mode()
+        if app_mode.is_remote:
+            self._save_document_remote(app_mode.api)
+            return
+
+        # Get current user ID (local mode)
         user_id = self._get_current_user_id()
         if not user_id and not self.is_edit_mode:
             QMessageBox.warning(self, "Error", "No hay usuario autenticado")
@@ -3159,6 +3460,7 @@ class ClientManagementTab(QWidget):
     def __init__(self):
         super().__init__()
         self.translatable_widgets = {}
+        self._inventory_products = []
         self.setup_ui()
         from PySide6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_data)
@@ -4719,84 +5021,162 @@ class InventoryManagementTab(QWidget):
         layout.addWidget(self.status_label)
     
     def refresh_data(self):
-        """Refresh inventory data"""
+        """Refresh inventory data - supports local and remote modes"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                products = db.query(Product).all()
-                
-                self.inventory_table.setRowCount(0)
-                low_stock_count = 0
-                total_value = 0.0
-                
-                for row, product in enumerate(products):
-                    self.inventory_table.insertRow(row)
-                    
-                    self.inventory_table.setItem(row, 0, QTableWidgetItem(product.code or ""))
-                    self.inventory_table.setItem(row, 1, QTableWidgetItem(product.name or ""))
-                    self.inventory_table.setItem(row, 2, QTableWidgetItem(product.description or ""))
-                    self.inventory_table.setItem(row, 3, QTableWidgetItem(str(product.current_stock or 0)))
-                    self.inventory_table.setItem(row, 4, QTableWidgetItem(str(product.minimum_stock or 0)))
-                    
-                    # Stock status
-                    stock_status = "✅ OK"
-                    stock_color = "green"
-                    if product.current_stock <= 0:
-                        stock_status = "❌ SIN STOCK"
-                        stock_color = "red"
-                    elif product.current_stock <= product.minimum_stock:
-                        stock_status = "⚠️ BAJO"
-                        stock_color = "orange"
-                        low_stock_count += 1
-                    
-                    status_item = QTableWidgetItem(stock_status)
-                    # Use proper Qt API - QTableWidgetItem doesn't have setStyleSheet
-                    from PySide6.QtGui import QColor, QFont
-                    status_item.setForeground(QColor(stock_color))
-                    font = QFont()
-                    font.setBold(True)
-                    status_item.setFont(font)
-                    self.inventory_table.setItem(row, 5, status_item)
-                    
-                    # Total value - convert to float to avoid Decimal type issues
-                    total_product_value = float(product.current_stock or 0) * float(product.sale_price or 0)
-                    total_value += total_product_value
-                    value_item = QTableWidgetItem(f"{total_product_value:.2f} €")
-                    self.inventory_table.setItem(row, 6, value_item)
-                    
-                    # Actions
-                    actions_widget = QWidget()
-                    actions_layout = QHBoxLayout(actions_widget)
-                    actions_layout.setContentsMargins(2, 2, 2, 2)
-                    
-                    adjust_btn = QPushButton("📊")
-                    adjust_btn.setToolTip("Ajustar Stock")
-                    adjust_btn.setMaximumSize(30, 25)
-                    adjust_btn.clicked.connect(lambda checked, p=product: self.adjust_product_stock(p))
-                    actions_layout.addWidget(adjust_btn)
-                    
-                    edit_btn = QPushButton("✏️")
-                    edit_btn.setToolTip("Editar Producto")
-                    edit_btn.setMaximumSize(30, 25)
-                    edit_btn.clicked.connect(lambda checked, p=product: self.edit_product(p))
-                    actions_layout.addWidget(edit_btn)
-                    
-                    self.inventory_table.setCellWidget(row, 7, actions_widget)
-                    
-                    # Last movement
-                    last_movement = "N/A"
-                    if hasattr(product, 'updated_at') and product.updated_at:
-                        last_movement = product.updated_at.strftime('%Y-%m-%d %H:%M')
-                    self.inventory_table.setItem(row, 8, QTableWidgetItem(last_movement))
-                
-                # Update statistics
-                self.total_products_label.setText(f"📦 Total: {len(products)}")
-                self.low_stock_label.setText(f"⚠️ Stock Bajo: {low_stock_count}")
-                self.total_value_label.setText(f"💰 Valor Total: {total_value:.2f} €")
-                
-                self.status_label.setText(f"📊 Mostrando {len(products)} productos - {low_stock_count} con stock bajo")
-                
+            if app_mode.is_remote:
+                self._refresh_from_api(app_mode.api)
+            else:
+                self._refresh_from_local()
         except Exception as e:
             self.status_label.setText(f"❌ Error: {str(e)}")
+
+    def _refresh_from_api(self, api):
+        """Refresh inventory data from remote API."""
+        response = api.list_products(limit=500)
+        products = response.get("items", [])
+        self._inventory_products = products
+
+        self.inventory_table.setRowCount(0)
+        low_stock_count = 0
+        total_value = 0.0
+
+        for row, product in enumerate(products):
+            self.inventory_table.insertRow(row)
+
+            self.inventory_table.setItem(row, 0, QTableWidgetItem(product.get("code", "")))
+            self.inventory_table.setItem(row, 1, QTableWidgetItem(product.get("name", "")))
+            self.inventory_table.setItem(row, 2, QTableWidgetItem(product.get("description", "") or ""))
+            self.inventory_table.setItem(row, 3, QTableWidgetItem(str(product.get("current_stock", 0))))
+            self.inventory_table.setItem(row, 4, QTableWidgetItem(str(product.get("minimum_stock", 0))))
+
+            current_stock = product.get("current_stock", 0) or 0
+            minimum_stock = product.get("minimum_stock", 0) or 0
+            stock_status = "✅ OK"
+            stock_color = "green"
+            if current_stock <= 0:
+                stock_status = "❌ SIN STOCK"
+                stock_color = "red"
+            elif current_stock <= minimum_stock:
+                stock_status = "⚠️ BAJO"
+                stock_color = "orange"
+                low_stock_count += 1
+
+            status_item = QTableWidgetItem(stock_status)
+            from PySide6.QtGui import QColor, QFont
+            status_item.setForeground(QColor(stock_color))
+            font = QFont()
+            font.setBold(True)
+            status_item.setFont(font)
+            self.inventory_table.setItem(row, 5, status_item)
+
+            total_product_value = float(current_stock) * float(product.get("sale_price", 0) or 0)
+            total_value += total_product_value
+            value_item = QTableWidgetItem(f"{total_product_value:.2f} €")
+            self.inventory_table.setItem(row, 6, value_item)
+
+            actions_widget = QWidget()
+            actions_layout = QHBoxLayout(actions_widget)
+            actions_layout.setContentsMargins(2, 2, 2, 2)
+
+            adjust_btn = QPushButton("📊")
+            adjust_btn.setToolTip("Ajustar Stock")
+            adjust_btn.setMaximumSize(30, 25)
+            adjust_btn.clicked.connect(lambda checked, p=product: self.adjust_product_stock(p))
+            actions_layout.addWidget(adjust_btn)
+
+            edit_btn = QPushButton("✏️")
+            edit_btn.setToolTip("Editar Producto")
+            edit_btn.setMaximumSize(30, 25)
+            edit_btn.clicked.connect(lambda checked, p=product: self.edit_product(p))
+            actions_layout.addWidget(edit_btn)
+
+            self.inventory_table.setCellWidget(row, 7, actions_widget)
+
+            last_movement = "N/A"
+            self.inventory_table.setItem(row, 8, QTableWidgetItem(last_movement))
+
+        self.total_products_label.setText(f"📦 Total: {len(products)}")
+        self.low_stock_label.setText(f"⚠️ Stock Bajo: {low_stock_count}")
+        self.total_value_label.setText(f"💰 Valor Total: {total_value:.2f} €")
+
+        self.status_label.setText(f"📊 Mostrando {len(products)} productos - {low_stock_count} con stock bajo (servidor)")
+
+    def _refresh_from_local(self):
+        """Refresh inventory data from local SQLite database."""
+        with SessionLocal() as db:
+            products = db.query(Product).all()
+            self._inventory_products = products
+
+            self.inventory_table.setRowCount(0)
+            low_stock_count = 0
+            total_value = 0.0
+
+            for row, product in enumerate(products):
+                self.inventory_table.insertRow(row)
+
+                self.inventory_table.setItem(row, 0, QTableWidgetItem(product.code or ""))
+                self.inventory_table.setItem(row, 1, QTableWidgetItem(product.name or ""))
+                self.inventory_table.setItem(row, 2, QTableWidgetItem(product.description or ""))
+                self.inventory_table.setItem(row, 3, QTableWidgetItem(str(product.current_stock or 0)))
+                self.inventory_table.setItem(row, 4, QTableWidgetItem(str(product.minimum_stock or 0)))
+
+                # Stock status
+                stock_status = "✅ OK"
+                stock_color = "green"
+                if product.current_stock <= 0:
+                    stock_status = "❌ SIN STOCK"
+                    stock_color = "red"
+                elif product.current_stock <= product.minimum_stock:
+                    stock_status = "⚠️ BAJO"
+                    stock_color = "orange"
+                    low_stock_count += 1
+
+                status_item = QTableWidgetItem(stock_status)
+                from PySide6.QtGui import QColor, QFont
+                status_item.setForeground(QColor(stock_color))
+                font = QFont()
+                font.setBold(True)
+                status_item.setFont(font)
+                self.inventory_table.setItem(row, 5, status_item)
+
+                # Total value - convert to float to avoid Decimal type issues
+                total_product_value = float(product.current_stock or 0) * float(product.sale_price or 0)
+                total_value += total_product_value
+                value_item = QTableWidgetItem(f"{total_product_value:.2f} €")
+                self.inventory_table.setItem(row, 6, value_item)
+
+                # Actions
+                actions_widget = QWidget()
+                actions_layout = QHBoxLayout(actions_widget)
+                actions_layout.setContentsMargins(2, 2, 2, 2)
+
+                adjust_btn = QPushButton("📊")
+                adjust_btn.setToolTip("Ajustar Stock")
+                adjust_btn.setMaximumSize(30, 25)
+                adjust_btn.clicked.connect(lambda checked, p=product: self.adjust_product_stock(p))
+                actions_layout.addWidget(adjust_btn)
+
+                edit_btn = QPushButton("✏️")
+                edit_btn.setToolTip("Editar Producto")
+                edit_btn.setMaximumSize(30, 25)
+                edit_btn.clicked.connect(lambda checked, p=product: self.edit_product(p))
+                actions_layout.addWidget(edit_btn)
+
+                self.inventory_table.setCellWidget(row, 7, actions_widget)
+
+                # Last movement
+                last_movement = "N/A"
+                if hasattr(product, 'updated_at') and product.updated_at:
+                    last_movement = product.updated_at.strftime('%Y-%m-%d %H:%M')
+                self.inventory_table.setItem(row, 8, QTableWidgetItem(last_movement))
+
+            # Update statistics
+            self.total_products_label.setText(f"📦 Total: {len(products)}")
+            self.low_stock_label.setText(f"⚠️ Stock Bajo: {low_stock_count}")
+            self.total_value_label.setText(f"💰 Valor Total: {total_value:.2f} €")
+
+            self.status_label.setText(f"📊 Mostrando {len(products)} productos - {low_stock_count} con stock bajo")
     
     def filter_products(self):
         """Filter products based on search and filter criteria"""
@@ -4850,24 +5230,21 @@ class InventoryManagementTab(QWidget):
     def adjust_stock(self):
         """General stock adjustment dialog - improved UX"""
         current_row = self.inventory_table.currentRow()
+        app_mode = get_app_mode()
 
         # If no row selected, show product picker dialog
         if current_row < 0:
-            self.show_product_picker_for_adjustment()
+            if app_mode.is_remote:
+                self.show_product_picker_for_adjustment_remote()
+            else:
+                self.show_product_picker_for_adjustment()
             return
 
         # If row selected, adjust that product directly
-        try:
-            with SessionLocal() as db:
-                product_code = self.inventory_table.item(current_row, 0).text()
-                product = db.query(Product).filter(Product.code == product_code).first()
-                if product:
-                    self.adjust_product_stock(product)
-                else:
-                    QMessageBox.warning(self, "Error", "Producto no encontrado")
-        except Exception as e:
-            logger.error(f"Error getting product for stock adjustment: {e}")
-            QMessageBox.critical(self, "Error", f"Error al obtener producto: {str(e)}")
+        if current_row >= len(self._inventory_products):
+            QMessageBox.warning(self, "Error", "Producto no encontrado")
+            return
+        self.adjust_product_stock(self._inventory_products[current_row])
 
     def show_product_picker_for_adjustment(self):
         """Show a dialog to pick a product for stock adjustment"""
@@ -4962,13 +5339,107 @@ class InventoryManagementTab(QWidget):
         except Exception as e:
             logger.error(f"Error showing product picker: {e}")
             QMessageBox.critical(self, "Error", f"Error al mostrar selector de productos: {str(e)}")
+
+    def show_product_picker_for_adjustment_remote(self):
+        """Show a dialog to pick a product for stock adjustment (remote)."""
+        try:
+            app_mode = get_app_mode()
+            response = app_mode.api.list_products(limit=500)
+            products = response.get("items", [])
+
+            if not products:
+                QMessageBox.information(self, "Info", "No hay productos activos en el inventario")
+                return
+
+            picker_dialog = QDialog(self)
+            picker_dialog.setWindowTitle("Seleccionar Producto")
+            picker_dialog.setModal(True)
+            picker_dialog.resize(500, 400)
+            picker_dialog.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
+
+            layout = QVBoxLayout(picker_dialog)
+            layout.setSpacing(16)
+            layout.setContentsMargins(24, 24, 24, 24)
+
+            label = QLabel("Seleccione el producto para ajustar stock:")
+            label.setStyleSheet(UIStyles.get_label_style())
+            layout.addWidget(label)
+
+            product_list = QListWidget()
+            product_list.setStyleSheet(f"""
+                QListWidget {{
+                    background-color: {UIStyles.COLORS['bg_card']};
+                    border: 1px solid {UIStyles.COLORS['border']};
+                    border-radius: 8px;
+                    padding: 8px;
+                }}
+                QListWidget::item {{
+                    padding: 10px;
+                    border-bottom: 1px solid {UIStyles.COLORS['border_light']};
+                }}
+                QListWidget::item:selected {{
+                    background-color: {UIStyles.COLORS['accent']};
+                    color: white;
+                }}
+                QListWidget::item:hover {{
+                    background-color: {UIStyles.COLORS['bg_hover']};
+                }}
+            """)
+
+            product_data = {}
+            for p in products:
+                item_text = f"{p.get('code', '')} - {p.get('name', '')} (Stock: {p.get('current_stock', 0)})"
+                product_list.addItem(item_text)
+                product_data[item_text] = p
+
+            layout.addWidget(product_list)
+
+            button_layout = QHBoxLayout()
+            button_layout.addStretch()
+
+            cancel_btn = QPushButton("Cancelar")
+            cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+            cancel_btn.clicked.connect(picker_dialog.reject)
+            button_layout.addWidget(cancel_btn)
+
+            select_btn = QPushButton("Seleccionar")
+            select_btn.setStyleSheet(UIStyles.get_primary_button_style())
+
+            def on_select():
+                current_item = product_list.currentItem()
+                if current_item:
+                    product = product_data.get(current_item.text())
+                    if product:
+                        picker_dialog.accept()
+                        self.adjust_product_stock(product)
+                else:
+                    QMessageBox.warning(picker_dialog, "Aviso", "Seleccione un producto primero")
+
+            select_btn.clicked.connect(on_select)
+            product_list.itemDoubleClicked.connect(lambda: on_select())
+            button_layout.addWidget(select_btn)
+
+            layout.addLayout(button_layout)
+            picker_dialog.exec()
+
+        except Exception as e:
+            logger.error(f"Error showing product picker (remote): {e}")
+            QMessageBox.critical(self, "Error", f"Error al mostrar selector de productos: {str(e)}")
     
     def adjust_product_stock(self, product):
         """Adjust stock for specific product - improved with custom dialog"""
+        app_mode = get_app_mode()
+        is_remote = app_mode.is_remote or isinstance(product, dict)
+
         # Store product info to avoid detached session issues
-        product_id = product.id
-        product_name = product.name
-        current_stock = product.current_stock or 0
+        if isinstance(product, dict):
+            product_id = product.get("id")
+            product_name = product.get("name", "")
+            current_stock = product.get("current_stock", 0) or 0
+        else:
+            product_id = product.id
+            product_name = product.name
+            current_stock = product.current_stock or 0
 
         # Create custom adjustment dialog
         adjust_dialog = QDialog(self)
@@ -5030,31 +5501,10 @@ class InventoryManagementTab(QWidget):
                 return
 
             try:
-                with SessionLocal() as db:
-                    db_product = db.query(Product).filter(Product.id == product_id).first()
-                    if not db_product:
-                        QMessageBox.warning(adjust_dialog, "Error", "Producto no encontrado")
-                        return
-
-                    old_stock = db_product.current_stock or 0
-                    new_stock = max(0, old_stock + quantity)
-
-                    # Validate the operation
-                    if quantity < 0 and abs(quantity) > old_stock:
-                        reply = QMessageBox.question(
-                            adjust_dialog,
-                            "Confirmar Operacion",
-                            f"La cantidad a retirar ({abs(quantity)}) es mayor que el stock actual ({old_stock}).\n"
-                            f"El stock resultante sera 0.\n\n"
-                            f"¿Desea continuar?",
-                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                            QMessageBox.StandardButton.No
-                        )
-                        if reply != QMessageBox.StandardButton.Yes:
-                            return
-
-                    db_product.current_stock = new_stock
-                    db.commit()
+                if is_remote:
+                    updated = app_mode.api.adjust_stock(str(product_id), quantity, "Ajuste manual")
+                    old_stock = current_stock
+                    new_stock = updated.get("current_stock", old_stock + quantity)
 
                     movement_type = "Entrada" if quantity > 0 else "Salida"
                     adjust_dialog.accept()
@@ -5066,12 +5516,54 @@ class InventoryManagementTab(QWidget):
                         f"Stock nuevo: {new_stock}\n"
                         f"Operacion: {movement_type} de {abs(quantity)} unidades"
                     )
-                    logger.info(f"Stock adjusted: {product_name} from {old_stock} to {new_stock} ({quantity:+d})")
+                    logger.info(f"Stock adjusted (remote): {product_name} from {old_stock} to {new_stock} ({quantity:+d})")
                     self.refresh_data()
+                else:
+                    with SessionLocal() as db:
+                        db_product = db.query(Product).filter(Product.id == product_id).first()
+                        if not db_product:
+                            QMessageBox.warning(adjust_dialog, "Error", "Producto no encontrado")
+                            return
+
+                        old_stock = db_product.current_stock or 0
+                        new_stock = max(0, old_stock + quantity)
+
+                        # Validate the operation
+                        if quantity < 0 and abs(quantity) > old_stock:
+                            reply = QMessageBox.question(
+                                adjust_dialog,
+                                "Confirmar Operacion",
+                                f"La cantidad a retirar ({abs(quantity)}) es mayor que el stock actual ({old_stock}).\n"
+                                f"El stock resultante sera 0.\n\n"
+                                f"¿Desea continuar?",
+                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                QMessageBox.StandardButton.No
+                            )
+                            if reply != QMessageBox.StandardButton.Yes:
+                                return
+
+                        db_product.current_stock = new_stock
+                        db.commit()
+
+                        movement_type = "Entrada" if quantity > 0 else "Salida"
+                        adjust_dialog.accept()
+                        QMessageBox.information(
+                            self, "Exito",
+                            f"Stock ajustado correctamente\n\n"
+                            f"Producto: {product_name}\n"
+                            f"Stock anterior: {old_stock}\n"
+                            f"Stock nuevo: {new_stock}\n"
+                            f"Operacion: {movement_type} de {abs(quantity)} unidades"
+                        )
+                        logger.info(f"Stock adjusted: {product_name} from {old_stock} to {new_stock} ({quantity:+d})")
+                        self.refresh_data()
 
             except Exception as e:
                 logger.error(f"Error adjusting stock: {e}")
-                QMessageBox.critical(adjust_dialog, "Error", f"Error al ajustar stock: {str(e)}")
+                error_msg = str(e)
+                if hasattr(e, 'detail') and e.detail:
+                    error_msg = e.detail
+                QMessageBox.critical(adjust_dialog, "Error", f"Error al ajustar stock: {error_msg}")
 
         save_btn.clicked.connect(apply_adjustment)
         button_layout.addWidget(save_btn)
@@ -5081,57 +5573,81 @@ class InventoryManagementTab(QWidget):
     
     def edit_product(self, product):
         """Edit product details using ProductDialog"""
-        dialog = ProductDialog(self, product_id=product.id)
+        if isinstance(product, dict):
+            product_id = product.get("id")
+            product_name = product.get("name", "")
+        else:
+            product_id = product.id
+            product_name = product.name
+        dialog = ProductDialog(self, product_id=product_id)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh_data()
-            QMessageBox.information(self, "Exito", f"Producto '{product.name}' actualizado correctamente")
+            QMessageBox.information(self, "Exito", f"Producto '{product_name}' actualizado correctamente")
     
     def generate_report(self):
         """Generate inventory report"""
         try:
-            with SessionLocal() as db:
-                products = db.query(Product).all()
-                
-                report = "📊 INFORME DE INVENTARIO\n"
-                report += "=" * 50 + "\n"
-                report += f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-                
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                response = app_mode.api.list_products(limit=500)
+                products = response.get("items", [])
+            else:
+                with SessionLocal() as db:
+                    products = db.query(Product).all()
+
+            report = "📊 INFORME DE INVENTARIO\n"
+            report += "=" * 50 + "\n"
+            report += f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+
+            if app_mode.is_remote:
+                total_products = len(products)
+                low_stock = sum(1 for p in products if (p.get("current_stock", 0) or 0) <= (p.get("minimum_stock", 0) or 0))
+                out_of_stock = sum(1 for p in products if (p.get("current_stock", 0) or 0) <= 0)
+                total_value = sum((p.get("current_stock", 0) or 0) * (p.get("sale_price", 0) or 0) for p in products)
+            else:
                 total_products = len(products)
                 low_stock = sum(1 for p in products if p.current_stock <= p.minimum_stock)
                 out_of_stock = sum(1 for p in products if p.current_stock <= 0)
                 total_value = sum((p.current_stock or 0) * (p.sale_price or 0) for p in products)
-                
-                report += f"📦 Total Productos: {total_products}\n"
-                report += f"⚠️ Stock Bajo: {low_stock}\n"
-                report += f"❌ Sin Stock: {out_of_stock}\n"
-                report += f"💰 Valor Total Inventario: {total_value:.2f} €\n\n"
-                
-                report += "DETALLE DE PRODUCTOS CON STOCK BAJO:\n"
-                report += "-" * 40 + "\n"
-                
+
+            report += f"📦 Total Productos: {total_products}\n"
+            report += f"⚠️ Stock Bajo: {low_stock}\n"
+            report += f"❌ Sin Stock: {out_of_stock}\n"
+            report += f"💰 Valor Total Inventario: {total_value:.2f} €\n\n"
+
+            report += "DETALLE DE PRODUCTOS CON STOCK BAJO:\n"
+            report += "-" * 40 + "\n"
+
+            if app_mode.is_remote:
+                for product in products:
+                    current_stock = product.get("current_stock", 0) or 0
+                    minimum_stock = product.get("minimum_stock", 0) or 0
+                    if current_stock <= minimum_stock:
+                        report += f"• {product.get('name', '')}: {current_stock} (mín: {minimum_stock})\n"
+            else:
                 for product in products:
                     if product.current_stock <= product.minimum_stock:
                         report += f"• {product.name}: {product.current_stock} (mín: {product.minimum_stock})\n"
-                
-                # Show report in dialog
-                report_dialog = QDialog(self)
-                report_dialog.setWindowTitle("📊 Informe de Inventario")
-                report_dialog.setModal(True)
-                report_dialog.resize(600, 500)
-                
-                layout = QVBoxLayout(report_dialog)
-                
-                report_text = QTextEdit()
-                report_text.setPlainText(report)
-                report_text.setReadOnly(True)
-                layout.addWidget(report_text)
-                
-                close_btn = QPushButton("❌ Cerrar")
-                close_btn.clicked.connect(report_dialog.accept)
-                layout.addWidget(close_btn)
-                
-                report_dialog.exec()
-                
+
+            # Show report in dialog
+            report_dialog = QDialog(self)
+            report_dialog.setWindowTitle("📊 Informe de Inventario")
+            report_dialog.setModal(True)
+            report_dialog.resize(600, 500)
+
+            layout = QVBoxLayout(report_dialog)
+
+            report_text = QTextEdit()
+            report_text.setPlainText(report)
+            report_text.setReadOnly(True)
+            layout.addWidget(report_text)
+
+            close_btn = QPushButton("❌ Cerrar")
+            close_btn.clicked.connect(report_dialog.accept)
+            layout.addWidget(close_btn)
+
+            report_dialog.exec()
+
         except Exception as e:
             QMessageBox.critical(self, "❌ Error", f"Error generando informe: {str(e)}")
 
@@ -5343,10 +5859,32 @@ class DiaryManagementTab(QWidget):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             note_data = dialog.get_note_data()
             if note_data:
-                self.notes.append(note_data)
-                self.save_notes()
-                self.refresh_notes()
-                self.status_label.setText(f"✅ Nota guardada: {note_data['title']}")
+                app_mode = get_app_mode()
+                if app_mode.is_remote:
+                    try:
+                        if not note_data.get('content'):
+                            QMessageBox.warning(self, "Error", "El contenido es obligatorio en modo remoto")
+                            return
+                        entry_date = f"{note_data['date']}T{note_data['time']}:00"
+                        import json as _json
+                        app_mode.api.create_diary_entry(
+                            title=note_data['title'],
+                            content=note_data['content'],
+                            entry_date=entry_date,
+                            tags=_json.dumps(note_data.get('tags', []))
+                        )
+                        self.refresh_notes()
+                        self.status_label.setText(f"✅ Nota guardada: {note_data['title']}")
+                    except Exception as e:
+                        error_msg = str(e)
+                        if hasattr(e, 'detail') and e.detail:
+                            error_msg = e.detail
+                        QMessageBox.critical(self, "Error", f"Error al guardar: {error_msg}")
+                else:
+                    self.notes.append(note_data)
+                    self.save_notes()
+                    self.refresh_notes()
+                    self.status_label.setText(f"✅ Nota guardada: {note_data['title']}")
     
     def view_calendar(self):
         """View calendar with notes"""
@@ -5462,24 +6000,39 @@ class DiaryManagementTab(QWidget):
             priority = priority_map.get(priority_combo.currentText(), "normal")
 
             try:
-                with SessionLocal() as db:
-                    qdate = due_date_edit.date()
-                    reminder = Reminder(
+                app_mode = get_app_mode()
+                qdate = due_date_edit.date()
+                due_date = datetime(qdate.year(), qdate.month(), qdate.day()).isoformat()
+
+                if app_mode.is_remote:
+                    app_mode.api.create_reminder(
                         title=title,
                         description=description_edit.toPlainText().strip() or None,
-                        due_date=datetime(qdate.year(), qdate.month(), qdate.day()),
-                        priority=priority,
-                        is_completed=False,
+                        due_date=due_date,
+                        priority=priority
                     )
-                    db.add(reminder)
-                    db.commit()
-                    reminder_dialog.accept()
-                    QMessageBox.information(self, "Exito", "Recordatorio guardado correctamente")
-                    # Sync with dashboard
-                    self._sync_dashboard()
+                else:
+                    with SessionLocal() as db:
+                        reminder = Reminder(
+                            title=title,
+                            description=description_edit.toPlainText().strip() or None,
+                            due_date=datetime(qdate.year(), qdate.month(), qdate.day()),
+                            priority=priority,
+                            is_completed=False,
+                        )
+                        db.add(reminder)
+                        db.commit()
+
+                reminder_dialog.accept()
+                QMessageBox.information(self, "Exito", "Recordatorio guardado correctamente")
+                # Sync with dashboard
+                self._sync_dashboard()
             except Exception as e:
                 logger.error(f"Error saving reminder: {e}")
-                QMessageBox.critical(reminder_dialog, "Error", f"Error al guardar: {str(e)}")
+                error_msg = str(e)
+                if hasattr(e, 'detail') and e.detail:
+                    error_msg = e.detail
+                QMessageBox.critical(reminder_dialog, "Error", f"Error al guardar: {error_msg}")
 
         save_btn.clicked.connect(save_reminder)
         button_layout.addWidget(save_btn)
@@ -5534,37 +6087,50 @@ class DiaryManagementTab(QWidget):
 
         # Load reminders
         try:
-            with SessionLocal() as db:
-                reminders = db.query(Reminder).order_by(
-                    Reminder.is_completed.asc(),
-                    Reminder.due_date.asc().nullslast()
-                ).all()
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                response = app_mode.api.list_reminders(pending_only=False)
+                reminders = response.get("items", [])
 
                 for row, r in enumerate(reminders):
                     table.insertRow(row)
-                    table.setItem(row, 0, QTableWidgetItem(r.title))
-                    date_str = r.due_date.strftime('%d/%m/%Y') if r.due_date else "Sin fecha"
+                    table.setItem(row, 0, QTableWidgetItem(r.get("title", "")))
+
+                    date_str = "Sin fecha"
+                    due_date = r.get("due_date")
+                    if due_date:
+                        try:
+                            if isinstance(due_date, str):
+                                due_date = due_date.replace("Z", "+00:00")
+                                dt = datetime.fromisoformat(due_date)
+                            else:
+                                dt = due_date
+                            date_str = dt.strftime('%d/%m/%Y')
+                        except Exception:
+                            pass
                     table.setItem(row, 1, QTableWidgetItem(date_str))
+
                     priority_map = {"high": "Alta", "normal": "Normal", "low": "Baja"}
-                    table.setItem(row, 2, QTableWidgetItem(priority_map.get(r.priority, "Normal")))
-                    status = "Completado" if r.is_completed else "Pendiente"
+                    table.setItem(row, 2, QTableWidgetItem(priority_map.get(r.get("priority"), "Normal")))
+
+                    is_completed = r.get("is_completed", False)
+                    status = "Completado" if is_completed else "Pendiente"
                     status_item = QTableWidgetItem(status)
-                    if r.is_completed:
+                    if is_completed:
                         status_item.setForeground(QColor("#34C759"))
                     else:
                         status_item.setForeground(QColor("#FF9500"))
                     table.setItem(row, 3, status_item)
 
-                    # Action buttons
                     actions = QWidget()
                     actions_layout = QHBoxLayout(actions)
                     actions_layout.setContentsMargins(2, 2, 2, 2)
 
-                    complete_btn = QPushButton("✓" if not r.is_completed else "↩")
-                    complete_btn.setToolTip("Marcar completado" if not r.is_completed else "Desmarcar")
+                    complete_btn = QPushButton("✓" if not is_completed else "↩")
+                    complete_btn.setToolTip("Marcar completado" if not is_completed else "Desmarcar")
                     complete_btn.setFixedSize(28, 24)
-                    rid = r.id
-                    complete_btn.clicked.connect(lambda _, rid=rid: self._toggle_reminder(rid, dialog, table))
+                    rid = r.get("id")
+                    complete_btn.clicked.connect(lambda _, rid=rid, done=is_completed: self._toggle_reminder(rid, dialog, table, done))
                     actions_layout.addWidget(complete_btn)
 
                     del_btn = QPushButton("🗑")
@@ -5574,6 +6140,47 @@ class DiaryManagementTab(QWidget):
                     actions_layout.addWidget(del_btn)
 
                     table.setCellWidget(row, 4, actions)
+            else:
+                with SessionLocal() as db:
+                    reminders = db.query(Reminder).order_by(
+                        Reminder.is_completed.asc(),
+                        Reminder.due_date.asc().nullslast()
+                    ).all()
+
+                    for row, r in enumerate(reminders):
+                        table.insertRow(row)
+                        table.setItem(row, 0, QTableWidgetItem(r.title))
+                        date_str = r.due_date.strftime('%d/%m/%Y') if r.due_date else "Sin fecha"
+                        table.setItem(row, 1, QTableWidgetItem(date_str))
+                        priority_map = {"high": "Alta", "normal": "Normal", "low": "Baja"}
+                        table.setItem(row, 2, QTableWidgetItem(priority_map.get(r.priority, "Normal")))
+                        status = "Completado" if r.is_completed else "Pendiente"
+                        status_item = QTableWidgetItem(status)
+                        if r.is_completed:
+                            status_item.setForeground(QColor("#34C759"))
+                        else:
+                            status_item.setForeground(QColor("#FF9500"))
+                        table.setItem(row, 3, status_item)
+
+                        # Action buttons
+                        actions = QWidget()
+                        actions_layout = QHBoxLayout(actions)
+                        actions_layout.setContentsMargins(2, 2, 2, 2)
+
+                        complete_btn = QPushButton("✓" if not r.is_completed else "↩")
+                        complete_btn.setToolTip("Marcar completado" if not r.is_completed else "Desmarcar")
+                        complete_btn.setFixedSize(28, 24)
+                        rid = r.id
+                        complete_btn.clicked.connect(lambda _, rid=rid: self._toggle_reminder(rid, dialog, table))
+                        actions_layout.addWidget(complete_btn)
+
+                        del_btn = QPushButton("🗑")
+                        del_btn.setToolTip("Eliminar")
+                        del_btn.setFixedSize(28, 24)
+                        del_btn.clicked.connect(lambda _, rid=rid: self._delete_reminder(rid, dialog, table))
+                        actions_layout.addWidget(del_btn)
+
+                        table.setCellWidget(row, 4, actions)
 
         except Exception as e:
             logger.error(f"Error loading reminders: {e}")
@@ -5589,14 +6196,19 @@ class DiaryManagementTab(QWidget):
         dialog.exec()
         self._sync_dashboard()
 
-    def _toggle_reminder(self, reminder_id, dialog, table):
+    def _toggle_reminder(self, reminder_id, dialog, table, is_completed=None):
         """Toggle reminder completed status"""
         try:
-            with SessionLocal() as db:
-                reminder = db.query(Reminder).filter(Reminder.id == reminder_id).first()
-                if reminder:
-                    reminder.is_completed = not reminder.is_completed
-                    db.commit()
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                new_value = not bool(is_completed)
+                app_mode.api.update_reminder(str(reminder_id), is_completed=new_value)
+            else:
+                with SessionLocal() as db:
+                    reminder = db.query(Reminder).filter(Reminder.id == reminder_id).first()
+                    if reminder:
+                        reminder.is_completed = not reminder.is_completed
+                        db.commit()
             dialog.accept()
             self.view_reminders()
         except Exception as e:
@@ -5607,11 +6219,15 @@ class DiaryManagementTab(QWidget):
         reply = QMessageBox.question(self, "Confirmar", "¿Eliminar este recordatorio?")
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                with SessionLocal() as db:
-                    reminder = db.query(Reminder).filter(Reminder.id == reminder_id).first()
-                    if reminder:
-                        db.delete(reminder)
-                        db.commit()
+                app_mode = get_app_mode()
+                if app_mode.is_remote:
+                    app_mode.api.delete_reminder(str(reminder_id))
+                else:
+                    with SessionLocal() as db:
+                        reminder = db.query(Reminder).filter(Reminder.id == reminder_id).first()
+                        if reminder:
+                            db.delete(reminder)
+                            db.commit()
                 dialog.accept()
                 self.view_reminders()
             except Exception as e:
@@ -5625,10 +6241,24 @@ class DiaryManagementTab(QWidget):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            self.notes = []
-            self.save_notes()
-            self.refresh_notes()
-            self.status_label.setText("🗑️ Todas las notas han sido eliminadas")
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                try:
+                    for note in self.notes:
+                        if note.get("id"):
+                            app_mode.api.delete_diary_entry(str(note["id"]))
+                    self.refresh_notes()
+                    self.status_label.setText("🗑️ Todas las notas han sido eliminadas")
+                except Exception as e:
+                    error_msg = str(e)
+                    if hasattr(e, 'detail') and e.detail:
+                        error_msg = e.detail
+                    QMessageBox.critical(self, "Error", f"Error al eliminar: {error_msg}")
+            else:
+                self.notes = []
+                self.save_notes()
+                self.refresh_notes()
+                self.status_label.setText("🗑️ Todas las notas han sido eliminadas")
     
     def filter_notes_by_date(self):
         """Filter notes by selected date"""
@@ -5637,6 +6267,10 @@ class DiaryManagementTab(QWidget):
     def load_notes(self):
         """Load notes from file"""
         try:
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                self._load_notes_remote()
+                return
             import json
             notes_file = os.path.join(os.path.dirname(__file__), 'diary_notes.json')
             if os.path.exists(notes_file):
@@ -5645,10 +6279,56 @@ class DiaryManagementTab(QWidget):
         except (IOError, json.JSONDecodeError) as e:
             logger.error(f"Error loading diary notes: {e}")
             self.notes = []
+
+    def _load_notes_remote(self):
+        """Load notes from remote API."""
+        try:
+            app_mode = get_app_mode()
+            response = app_mode.api.list_diary_entries(limit=500)
+            items = response.get("items", [])
+            notes = []
+            for entry in items:
+                entry_date = entry.get("entry_date")
+                date_str = ""
+                time_str = ""
+                if entry_date:
+                    try:
+                        if isinstance(entry_date, str):
+                            entry_date = entry_date.replace("Z", "+00:00")
+                            dt = datetime.fromisoformat(entry_date)
+                        else:
+                            dt = entry_date
+                        date_str = dt.strftime('%Y-%m-%d')
+                        time_str = dt.strftime('%H:%M')
+                    except Exception:
+                        pass
+                tags_raw = entry.get("tags") or "[]"
+                tags = []
+                try:
+                    import json as _json
+                    if isinstance(tags_raw, str):
+                        tags = _json.loads(tags_raw)
+                except Exception:
+                    tags = []
+                notes.append({
+                    "id": entry.get("id"),
+                    "title": entry.get("title", ""),
+                    "content": entry.get("content", ""),
+                    "date": date_str,
+                    "time": time_str,
+                    "tags": tags
+                })
+            self.notes = notes
+        except Exception as e:
+            logger.error(f"Error loading diary notes (remote): {e}")
+            self.notes = []
     
     def save_notes(self):
         """Save notes to file"""
         try:
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                return
             import json
             notes_file = os.path.join(os.path.dirname(__file__), 'diary_notes.json')
             with open(notes_file, 'w', encoding='utf-8') as f:

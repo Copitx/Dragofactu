@@ -1024,9 +1024,9 @@ Todos los servicios usan `@require_permission('resource.action')` para autorizac
 - APIClient clase completa (dragofactu/services/api_client.py)
 - ✅ Fase 9: Integración APIClient en desktop (login local/remoto)
 - ✅ Mejoras seguridad backend (rate limiting, password validation, etc.)
+- ✅ Fase 10: Tabs de gestión con soporte API remoto (clientes, productos, documentos, inventario, diario)
 
 🔄 PENDIENTE:
-- Modificar tabs de gestión para usar API en modo remoto
 - PostgreSQL en Railway (actualmente SQLite)
 - Sincronización/cache offline
 ```
@@ -1230,10 +1230,11 @@ def _load_tokens(self):
     return False
 ```
 
-### FASE 10: TABS CON SOPORTE API REMOTO 🔄 EN PROGRESO
+### FASE 10: TABS CON SOPORTE API REMOTO ✅ COMPLETADA
 
 **Fecha inicio:** 2026-02-03
-**Estado:** Parcialmente completado
+**Fecha cierre:** 2026-02-03
+**Estado:** ✅ COMPLETADA
 
 **Objetivo:** Que todos los tabs de gestión usen API cuando en modo remoto.
 
@@ -1241,13 +1242,13 @@ def _load_tokens(self):
 - [x] `ClientManagementTab` - refresh_data, delete_client
 - [x] `ClientDialog` - load_client_data, accept
 - [x] `ProductManagementTab` - refresh_data
+- [x] `ProductDialog` - load_product_data, accept (modo remoto)
+- [x] `DocumentManagementTab` - refresh_data, delete_document (modo remoto)
+- [x] `DocumentDialog` - CRUD remoto (carga clientes/productos y guardado vía API)
+- [x] `InventoryManagementTab` - listado y ajustes vía API
+- [x] `DiaryManagementTab` - entradas y recordatorios vía API
 
-**Pendiente:**
-- [ ] `ProductDialog` - load_product_data, accept
-- [ ] `DocumentManagementTab` - refresh_data, delete_document
-- [ ] `DocumentDialog` - CRUD completo
-- [ ] `InventoryManagementTab`
-- [ ] `DiaryManagementTab`
+**Pendiente:** (ninguno)
 
 **Patrón implementado:**
 ```python

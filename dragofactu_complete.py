@@ -104,7 +104,11 @@ class AppMode:
         Set remote mode with server URL.
         Returns True if connection successful.
         """
-        from dragofactu.services.api_client import APIClient
+        try:
+            from dragofactu.services.api_client import APIClient
+        except ImportError as e:
+            logger.error(f"Failed to import APIClient: {e}")
+            raise RuntimeError(f"Falta el módulo 'requests'. Ejecuta: pip install requests")
 
         self._server_url = server_url.rstrip("/")
         self._api_client = APIClient(self._server_url)
@@ -117,8 +121,11 @@ class AppMode:
                 self._save_config()
                 logger.info(f"Connected to remote server: {server_url}")
                 return True
+            else:
+                logger.warning(f"Server returned unhealthy status: {health}")
         except Exception as e:
             logger.error(f"Failed to connect to server: {e}")
+            raise RuntimeError(f"No se pudo conectar: {e}")
 
         return False
 
@@ -7106,12 +7113,15 @@ class ServerConfigDialog(QDialog):
             QMessageBox.warning(self, "Error", "Ingrese la URL del servidor")
             return
 
-        if self.app_mode.set_remote(url):
-            QMessageBox.information(self, "Conectado", "Conectado al servidor correctamente")
-            self._update_status()
-            self.accept()
-        else:
-            QMessageBox.critical(self, "Error", "No se pudo conectar al servidor")
+        try:
+            if self.app_mode.set_remote(url):
+                QMessageBox.information(self, "Conectado", "Conectado al servidor correctamente")
+                self._update_status()
+                self.accept()
+            else:
+                QMessageBox.critical(self, "Error", "No se pudo conectar al servidor")
+        except Exception as e:
+            QMessageBox.critical(self, "Error de Conexion", str(e))
 
     def use_local_mode(self):
         """Switch to local mode."""

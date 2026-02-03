@@ -144,7 +144,8 @@ def setup_virtual_environment(install_dir):
         "python-dotenv>=1.0.0",
         "python-dateutil>=2.8.0",
         "jinja2>=3.0.0",
-        "PyJWT>=2.0.0"
+        "PyJWT>=2.0.0",
+        "requests>=2.28.0",  # Required for API client
     ]
 
     try:

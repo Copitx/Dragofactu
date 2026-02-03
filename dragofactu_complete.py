@@ -2,18 +2,142 @@
 """
 DRAGOFACTU - Complete Business Management System
 Fixed version with proper data persistence and full functionality
+v2.0.0 - Multi-tenant with optional API backend support
 """
 
 import sys
 import os
 import logging
 import uuid
+import json
 from datetime import datetime, date
+from pathlib import Path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('dragofactu')
+
+
+# ============================================================================
+# APPLICATION MODE (Local vs Remote API)
+# ============================================================================
+
+MODE_LOCAL = "local"
+MODE_REMOTE = "remote"
+
+
+class AppMode:
+    """
+    Singleton to manage application mode (local SQLite vs remote API).
+
+    Usage:
+        mode = get_app_mode()
+        mode.set_remote("https://tu-app.railway.app")
+
+        if mode.is_remote:
+            clients = mode.api.list_clients()
+        else:
+            # Use local SQLite
+    """
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._mode = MODE_LOCAL
+            cls._instance._api_client = None
+            cls._instance._server_url = ""
+            cls._instance._load_config()
+        return cls._instance
+
+    def _get_config_path(self) -> Path:
+        return Path.home() / ".dragofactu" / "app_mode.json"
+
+    def _load_config(self):
+        """Load saved configuration."""
+        config_path = self._get_config_path()
+        if config_path.exists():
+            try:
+                data = json.loads(config_path.read_text())
+                self._server_url = data.get("server_url", "")
+                self._mode = data.get("mode", MODE_LOCAL)
+            except Exception as e:
+                logger.warning(f"Error loading app mode config: {e}")
+
+    def _save_config(self):
+        """Save configuration."""
+        config_path = self._get_config_path()
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "server_url": self._server_url,
+            "mode": self._mode
+        }
+        config_path.write_text(json.dumps(data, indent=2))
+
+    @property
+    def mode(self) -> str:
+        return self._mode
+
+    @property
+    def is_remote(self) -> bool:
+        return self._mode == MODE_REMOTE
+
+    @property
+    def is_local(self) -> bool:
+        return self._mode == MODE_LOCAL
+
+    @property
+    def server_url(self) -> str:
+        return self._server_url
+
+    @property
+    def api(self):
+        """Get API client (creates if needed)."""
+        if self._api_client is None and self._server_url:
+            from dragofactu.services.api_client import APIClient
+            self._api_client = APIClient(self._server_url)
+        return self._api_client
+
+    def set_remote(self, server_url: str) -> bool:
+        """
+        Set remote mode with server URL.
+        Returns True if connection successful.
+        """
+        from dragofactu.services.api_client import APIClient
+
+        self._server_url = server_url.rstrip("/")
+        self._api_client = APIClient(self._server_url)
+
+        # Test connection
+        try:
+            health = self._api_client.health_check()
+            if health.get("status") == "healthy":
+                self._mode = MODE_REMOTE
+                self._save_config()
+                logger.info(f"Connected to remote server: {server_url}")
+                return True
+        except Exception as e:
+            logger.error(f"Failed to connect to server: {e}")
+
+        return False
+
+    def set_local(self):
+        """Set local mode (SQLite)."""
+        self._mode = MODE_LOCAL
+        self._api_client = None
+        self._save_config()
+        logger.info("Switched to local mode")
+
+    def clear_api_tokens(self):
+        """Clear saved API tokens (for logout)."""
+        if self._api_client:
+            self._api_client.logout()
+
+
+def get_app_mode() -> AppMode:
+    """Get the application mode singleton."""
+    return AppMode()
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget,
@@ -6145,7 +6269,7 @@ class SettingsDialog(QDialog):
         app_form = QFormLayout(app_group)
         app_form.setSpacing(8)
 
-        app_form.addRow("Version:", QLabel("V1.0.0.10"))
+        app_form.addRow("Version:", QLabel("V2.0.0 (Multi-tenant)"))
         app_form.addRow("Desarrollador:", QLabel("DRAGOFACTU Team"))
         app_form.addRow("GitHub:", QLabel("github.com/Copitx/Dragofactu"))
         app_form.addRow("Python:", QLabel(f"3.{sys.version_info.minor}.{sys.version_info.micro}"))
@@ -6154,6 +6278,78 @@ class SettingsDialog(QDialog):
         info_layout.addStretch()
 
         tab_widget.addTab(info_tab, "Sistema")
+
+        # Tab 4: Server Configuration
+        server_tab = QWidget()
+        server_layout = QVBoxLayout(server_tab)
+        server_layout.setContentsMargins(16, 16, 16, 16)
+        server_layout.setSpacing(12)
+
+        # Current mode info
+        mode_group = QGroupBox("Modo de Conexion")
+        mode_group.setStyleSheet(UIStyles.get_group_box_style())
+        mode_layout = QVBoxLayout(mode_group)
+        mode_layout.setSpacing(10)
+
+        app_mode = get_app_mode()
+        self.server_mode_label = QLabel()
+        self.server_url_display = QLabel()
+        self._update_server_mode_display(app_mode)
+
+        mode_layout.addWidget(self.server_mode_label)
+        mode_layout.addWidget(self.server_url_display)
+
+        server_layout.addWidget(mode_group)
+
+        # Server URL input
+        config_group = QGroupBox("Configuracion del Servidor")
+        config_group.setStyleSheet(UIStyles.get_group_box_style())
+        config_layout = QFormLayout(config_group)
+        config_layout.setSpacing(10)
+
+        self.settings_server_url = QLineEdit()
+        self.settings_server_url.setPlaceholderText("https://tu-app.railway.app")
+        self.settings_server_url.setText(app_mode.server_url)
+        self.settings_server_url.setStyleSheet(UIStyles.get_input_style())
+        config_layout.addRow("URL Servidor:", self.settings_server_url)
+
+        server_layout.addWidget(config_group)
+
+        # Server actions
+        actions_layout = QHBoxLayout()
+        actions_layout.setSpacing(10)
+
+        test_server_btn = QPushButton("Probar Conexion")
+        test_server_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        test_server_btn.clicked.connect(self.test_server_connection)
+        actions_layout.addWidget(test_server_btn)
+
+        connect_server_btn = QPushButton("Conectar Servidor")
+        connect_server_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        connect_server_btn.clicked.connect(self.connect_to_server)
+        actions_layout.addWidget(connect_server_btn)
+
+        use_local_btn = QPushButton("Usar Modo Local")
+        use_local_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        use_local_btn.clicked.connect(self.use_local_mode)
+        actions_layout.addWidget(use_local_btn)
+
+        actions_layout.addStretch()
+        server_layout.addLayout(actions_layout)
+
+        # Info text
+        info_text = QLabel(
+            "Modo Local: Los datos se guardan en tu ordenador (SQLite).\n"
+            "Modo Servidor: Los datos se sincronizan con el servidor remoto.\n\n"
+            "Para usar el servidor, necesitas una URL válida y credenciales."
+        )
+        info_text.setWordWrap(True)
+        info_text.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; font-size: 11px;")
+        server_layout.addWidget(info_text)
+
+        server_layout.addStretch()
+
+        tab_widget.addTab(server_tab, "Servidor")
 
         layout.addWidget(tab_widget)
 
@@ -6294,7 +6490,74 @@ class SettingsDialog(QDialog):
             self.tax_rate_spin.setValue(21)
 
             QMessageBox.information(self, "Restablecido", "Configuracion restablecida a valores por defecto")
-    
+
+    def _update_server_mode_display(self, app_mode):
+        """Update the server mode display labels."""
+        if app_mode.is_remote:
+            self.server_mode_label.setText("Modo: SERVIDOR REMOTO")
+            self.server_mode_label.setStyleSheet(f"""
+                font-weight: 600;
+                color: {UIStyles.COLORS['success']};
+                font-size: 14px;
+            """)
+            self.server_url_display.setText(f"URL: {app_mode.server_url}")
+            self.server_url_display.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']};")
+        else:
+            self.server_mode_label.setText("Modo: LOCAL (SQLite)")
+            self.server_mode_label.setStyleSheet(f"""
+                font-weight: 600;
+                color: {UIStyles.COLORS['text_primary']};
+                font-size: 14px;
+            """)
+            self.server_url_display.setText("Los datos se guardan localmente en tu ordenador")
+            self.server_url_display.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']};")
+
+    def test_server_connection(self):
+        """Test connection to the server."""
+        url = self.settings_server_url.text().strip()
+        if not url:
+            QMessageBox.warning(self, "Error", "Ingrese la URL del servidor")
+            return
+
+        try:
+            from dragofactu.services.api_client import APIClient
+            client = APIClient(url)
+            health = client.health_check()
+
+            if health.get("status") == "healthy":
+                version = health.get("version", "?")
+                QMessageBox.information(self, "Conexion Exitosa",
+                    f"Servidor funcionando correctamente.\nVersion: {version}")
+            else:
+                QMessageBox.warning(self, "Error", "El servidor no responde correctamente")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se puede conectar: {str(e)}")
+
+    def connect_to_server(self):
+        """Connect to server and switch to remote mode."""
+        url = self.settings_server_url.text().strip()
+        if not url:
+            QMessageBox.warning(self, "Error", "Ingrese la URL del servidor")
+            return
+
+        app_mode = get_app_mode()
+        if app_mode.set_remote(url):
+            self._update_server_mode_display(app_mode)
+            QMessageBox.information(self, "Conectado",
+                "Conectado al servidor.\n\n"
+                "Debes cerrar sesion y volver a iniciar para usar el servidor.")
+        else:
+            QMessageBox.critical(self, "Error", "No se pudo conectar al servidor")
+
+    def use_local_mode(self):
+        """Switch to local mode."""
+        app_mode = get_app_mode()
+        app_mode.set_local()
+        self._update_server_mode_display(app_mode)
+        QMessageBox.information(self, "Modo Local",
+            "Cambiado a modo local (SQLite).\n\n"
+            "Debes cerrar sesion y volver a iniciar para usar el modo local.")
+
     def import_external_file(self, file_path):
         """Import external files"""
         import json
@@ -6401,20 +6664,21 @@ class SettingsDialog(QDialog):
             raise Exception(f"Error importando texto: {str(e)}")
 
 class LoginDialog(QDialog):
-    """Modern login dialog with Apple-inspired design"""
+    """Modern login dialog with Apple-inspired design - supports local and remote modes"""
 
     def __init__(self):
         super().__init__()
         self.user = None
         self.user_data = None
+        self.app_mode = get_app_mode()
         self.setup_ui()
+        self._update_mode_indicator()
 
     def setup_ui(self):
         """Setup modern login dialog"""
         self.setWindowTitle("Dragofactu - Iniciar Sesión")
         self.setModal(True)
-        # Increased size to prevent overlapping elements
-        self.setFixedSize(460, 600)
+        self.setFixedSize(460, 680)
 
         # Apply dialog style
         self.setStyleSheet(f"""
@@ -6424,8 +6688,8 @@ class LoginDialog(QDialog):
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(50, 50, 50, 50)
-        layout.setSpacing(20)
+        layout.setContentsMargins(50, 40, 50, 40)
+        layout.setSpacing(16)
 
         # Logo/Title area
         title = QLabel("Dragofactu")
@@ -6435,7 +6699,7 @@ class LoginDialog(QDialog):
             font-weight: 600;
             color: {UIStyles.COLORS['text_primary']};
             background: transparent;
-            padding: 20px 0;
+            padding: 16px 0;
         """)
         layout.addWidget(title)
 
@@ -6445,9 +6709,20 @@ class LoginDialog(QDialog):
             font-size: 14px;
             color: {UIStyles.COLORS['text_secondary']};
             background: transparent;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
         """)
         layout.addWidget(subtitle)
+
+        # Mode indicator
+        self.mode_indicator = QLabel()
+        self.mode_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.mode_indicator.setStyleSheet(f"""
+            font-size: 11px;
+            padding: 6px 12px;
+            border-radius: 12px;
+            background: transparent;
+        """)
+        layout.addWidget(self.mode_indicator)
 
         # Form container
         form_frame = QFrame()
@@ -6517,46 +6792,418 @@ class LoginDialog(QDialog):
 
         layout.addWidget(form_frame)
 
+        # Server configuration button
+        server_btn = QPushButton("Configurar Servidor")
+        server_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        server_btn.clicked.connect(self.show_server_config)
+        layout.addWidget(server_btn)
+
         # Hint
-        hint = QLabel("Credenciales: admin / admin123")
-        hint.setStyleSheet(f"""
+        self.hint_label = QLabel("Modo local: admin / admin123")
+        self.hint_label.setStyleSheet(f"""
             color: {UIStyles.COLORS['text_tertiary']};
             font-size: 11px;
             background: transparent;
             padding-top: 8px;
         """)
-        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(hint)
+        self.hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.hint_label)
 
         layout.addStretch()
-    
+
+    def _update_mode_indicator(self):
+        """Update the mode indicator label."""
+        if self.app_mode.is_remote:
+            self.mode_indicator.setText(f"Servidor: {self.app_mode.server_url}")
+            self.mode_indicator.setStyleSheet(f"""
+                font-size: 11px;
+                padding: 6px 12px;
+                border-radius: 12px;
+                background-color: {UIStyles.COLORS['success']};
+                color: white;
+            """)
+            self.hint_label.setText("Conectado al servidor remoto")
+        else:
+            self.mode_indicator.setText("Modo Local (SQLite)")
+            self.mode_indicator.setStyleSheet(f"""
+                font-size: 11px;
+                padding: 6px 12px;
+                border-radius: 12px;
+                background-color: {UIStyles.COLORS['bg_hover']};
+                color: {UIStyles.COLORS['text_secondary']};
+            """)
+            self.hint_label.setText("Modo local: admin / admin123")
+
+    def show_server_config(self):
+        """Show server configuration dialog."""
+        dialog = ServerConfigDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._update_mode_indicator()
+
     def handle_login(self):
-        """Handle login"""
+        """Handle login - supports both local and remote modes."""
         username = self.username_edit.text().strip()
         password = self.password_edit.text()
-        
+
         if not username or not password:
-            QMessageBox.warning(self, "❌ Error", "Por favor ingrese usuario y contraseña")
+            QMessageBox.warning(self, "Error", "Por favor ingrese usuario y contraseña")
             return
-        
+
+        if self.app_mode.is_remote:
+            self._handle_remote_login(username, password)
+        else:
+            self._handle_local_login(username, password)
+
+    def _handle_remote_login(self, username: str, password: str):
+        """Handle login against remote API."""
+        try:
+            api = self.app_mode.api
+            response = api.login(username, password)
+            user_info = response.get("user", {})
+
+            self.user_data = {
+                'id': user_info.get('id', ''),
+                'username': user_info.get('username', username),
+                'full_name': user_info.get('full_name', username),
+                'role': user_info.get('role', 'read_only'),
+                'company_id': user_info.get('company_id', ''),
+                'is_remote': True
+            }
+            logger.info(f"Remote login successful: {username}")
+            self.accept()
+
+        except Exception as e:
+            error_msg = str(e)
+            if hasattr(e, 'detail'):
+                error_msg = e.detail
+            QMessageBox.warning(self, "Error", f"Error de autenticación: {error_msg}")
+
+    def _handle_local_login(self, username: str, password: str):
+        """Handle login against local SQLite database."""
         try:
             auth_service = AuthService()
             with SessionLocal() as db:
                 user = auth_service.authenticate(db, username, password)
                 if user:
-                    # Extract user data before session closes to avoid DetachedInstanceError
                     self.user_data = {
                         'id': user.id,
                         'username': user.username,
                         'full_name': user.full_name,
-                        'role': user.role.value if hasattr(user.role, 'value') else str(user.role)
+                        'role': user.role.value if hasattr(user.role, 'value') else str(user.role),
+                        'is_remote': False
                     }
-                    self.user = user  # Keep for backward compatibility
+                    self.user = user
                     self.accept()
                 else:
-                    QMessageBox.warning(self, "❌ Error", "Usuario o contraseña incorrectos")
+                    QMessageBox.warning(self, "Error", "Usuario o contraseña incorrectos")
         except Exception as e:
-            QMessageBox.critical(self, "❌ Error", f"Error de autenticación: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error de autenticación: {str(e)}")
+
+
+class ServerConfigDialog(QDialog):
+    """Dialog to configure server connection."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.app_mode = get_app_mode()
+        self.setWindowTitle("Configurar Servidor")
+        self.setModal(True)
+        self.setFixedSize(450, 350)
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Title
+        title = QLabel("Conexión al Servidor")
+        title.setStyleSheet(f"""
+            font-size: 18px;
+            font-weight: 600;
+            color: {UIStyles.COLORS['text_primary']};
+        """)
+        layout.addWidget(title)
+
+        # Server URL input
+        url_label = QLabel("URL del Servidor:")
+        url_label.setStyleSheet(UIStyles.get_label_style())
+        layout.addWidget(url_label)
+
+        self.server_url_input = QLineEdit()
+        self.server_url_input.setPlaceholderText("https://tu-app.railway.app")
+        self.server_url_input.setText(self.app_mode.server_url)
+        self.server_url_input.setStyleSheet(UIStyles.get_input_style())
+        layout.addWidget(self.server_url_input)
+
+        # Status label
+        self.status_label = QLabel()
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._update_status()
+        layout.addWidget(self.status_label)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(12)
+
+        test_btn = QPushButton("Probar Conexión")
+        test_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        test_btn.clicked.connect(self.test_connection)
+        btn_layout.addWidget(test_btn)
+
+        local_btn = QPushButton("Usar Modo Local")
+        local_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        local_btn.clicked.connect(self.use_local_mode)
+        btn_layout.addWidget(local_btn)
+
+        layout.addLayout(btn_layout)
+
+        # Connect button
+        self.connect_btn = QPushButton("Conectar al Servidor")
+        self.connect_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        self.connect_btn.clicked.connect(self.connect_to_server)
+        layout.addWidget(self.connect_btn)
+
+        # Register link
+        register_btn = QPushButton("Registrar nueva empresa")
+        register_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                color: {UIStyles.COLORS['accent']};
+                border: none;
+                font-size: 12px;
+                text-decoration: underline;
+            }}
+            QPushButton:hover {{
+                color: {UIStyles.COLORS['accent_hover']};
+            }}
+        """)
+        register_btn.clicked.connect(self.show_register_dialog)
+        layout.addWidget(register_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        layout.addStretch()
+
+    def _update_status(self):
+        if self.app_mode.is_remote:
+            self.status_label.setText("Conectado al servidor")
+            self.status_label.setStyleSheet(f"color: {UIStyles.COLORS['success']}; font-size: 12px;")
+        else:
+            self.status_label.setText("Modo local activo")
+            self.status_label.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; font-size: 12px;")
+
+    def test_connection(self):
+        """Test connection to server."""
+        url = self.server_url_input.text().strip()
+        if not url:
+            QMessageBox.warning(self, "Error", "Ingrese la URL del servidor")
+            return
+
+        try:
+            from dragofactu.services.api_client import APIClient
+            client = APIClient(url)
+            health = client.health_check()
+
+            if health.get("status") == "healthy":
+                version = health.get("version", "?")
+                QMessageBox.information(self, "Conexión Exitosa",
+                    f"Servidor funcionando correctamente.\nVersión: {version}")
+            else:
+                QMessageBox.warning(self, "Error", "El servidor no responde correctamente")
+        except Exception as e:
+            QMessageBox.critical(self, "Error de Conexión", f"No se puede conectar: {str(e)}")
+
+    def connect_to_server(self):
+        """Connect to the server and set remote mode."""
+        url = self.server_url_input.text().strip()
+        if not url:
+            QMessageBox.warning(self, "Error", "Ingrese la URL del servidor")
+            return
+
+        if self.app_mode.set_remote(url):
+            QMessageBox.information(self, "Conectado", "Conectado al servidor correctamente")
+            self._update_status()
+            self.accept()
+        else:
+            QMessageBox.critical(self, "Error", "No se pudo conectar al servidor")
+
+    def use_local_mode(self):
+        """Switch to local mode."""
+        self.app_mode.set_local()
+        QMessageBox.information(self, "Modo Local", "Cambiado a modo local (SQLite)")
+        self._update_status()
+        self.accept()
+
+    def show_register_dialog(self):
+        """Show company registration dialog."""
+        url = self.server_url_input.text().strip()
+        if not url:
+            QMessageBox.warning(self, "Error", "Primero ingrese la URL del servidor")
+            return
+
+        dialog = RegisterCompanyDialog(url, self)
+        dialog.exec()
+
+
+class RegisterCompanyDialog(QDialog):
+    """Dialog to register a new company on the remote server."""
+
+    def __init__(self, server_url: str, parent=None):
+        super().__init__(parent)
+        self.server_url = server_url
+        self.setWindowTitle("Registrar Nueva Empresa")
+        self.setModal(True)
+        self.setMinimumSize(500, 600)
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Title
+        title = QLabel("Registrar Nueva Empresa")
+        title.setStyleSheet(f"""
+            font-size: 20px;
+            font-weight: 600;
+            color: {UIStyles.COLORS['text_primary']};
+        """)
+        layout.addWidget(title)
+
+        subtitle = QLabel(f"Servidor: {self.server_url}")
+        subtitle.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; font-size: 12px;")
+        layout.addWidget(subtitle)
+
+        # Company info
+        company_group = QGroupBox("Datos de la Empresa")
+        company_group.setStyleSheet(UIStyles.get_group_box_style())
+        company_layout = QFormLayout(company_group)
+        company_layout.setSpacing(10)
+
+        self.company_code = QLineEdit()
+        self.company_code.setPlaceholderText("EMP001")
+        self.company_code.setStyleSheet(UIStyles.get_input_style())
+        company_layout.addRow("Código*:", self.company_code)
+
+        self.company_name = QLineEdit()
+        self.company_name.setPlaceholderText("Mi Empresa S.L.")
+        self.company_name.setStyleSheet(UIStyles.get_input_style())
+        company_layout.addRow("Nombre*:", self.company_name)
+
+        self.company_tax_id = QLineEdit()
+        self.company_tax_id.setPlaceholderText("B12345678")
+        self.company_tax_id.setStyleSheet(UIStyles.get_input_style())
+        company_layout.addRow("CIF/NIF:", self.company_tax_id)
+
+        layout.addWidget(company_group)
+
+        # Admin user info
+        admin_group = QGroupBox("Usuario Administrador")
+        admin_group.setStyleSheet(UIStyles.get_group_box_style())
+        admin_layout = QFormLayout(admin_group)
+        admin_layout.setSpacing(10)
+
+        self.username = QLineEdit()
+        self.username.setPlaceholderText("admin")
+        self.username.setStyleSheet(UIStyles.get_input_style())
+        admin_layout.addRow("Usuario*:", self.username)
+
+        self.email = QLineEdit()
+        self.email.setPlaceholderText("admin@empresa.com")
+        self.email.setStyleSheet(UIStyles.get_input_style())
+        admin_layout.addRow("Email*:", self.email)
+
+        self.password = QLineEdit()
+        self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password.setPlaceholderText("Minimo 8 caracteres")
+        self.password.setStyleSheet(UIStyles.get_input_style())
+        admin_layout.addRow("Contraseña*:", self.password)
+
+        self.password_confirm = QLineEdit()
+        self.password_confirm.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_confirm.setPlaceholderText("Repetir contraseña")
+        self.password_confirm.setStyleSheet(UIStyles.get_input_style())
+        admin_layout.addRow("Confirmar*:", self.password_confirm)
+
+        self.first_name = QLineEdit()
+        self.first_name.setStyleSheet(UIStyles.get_input_style())
+        admin_layout.addRow("Nombre:", self.first_name)
+
+        self.last_name = QLineEdit()
+        self.last_name.setStyleSheet(UIStyles.get_input_style())
+        admin_layout.addRow("Apellidos:", self.last_name)
+
+        layout.addWidget(admin_group)
+
+        # Password requirements hint
+        hint = QLabel("La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.")
+        hint.setWordWrap(True)
+        hint.setStyleSheet(f"color: {UIStyles.COLORS['text_tertiary']}; font-size: 11px;")
+        layout.addWidget(hint)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(12)
+
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(cancel_btn)
+
+        register_btn = QPushButton("Registrar Empresa")
+        register_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        register_btn.clicked.connect(self.register)
+        btn_layout.addWidget(register_btn)
+
+        layout.addLayout(btn_layout)
+
+    def register(self):
+        """Register the company."""
+        # Validate required fields
+        if not all([
+            self.company_code.text().strip(),
+            self.company_name.text().strip(),
+            self.username.text().strip(),
+            self.email.text().strip(),
+            self.password.text()
+        ]):
+            QMessageBox.warning(self, "Error", "Complete todos los campos obligatorios (*)")
+            return
+
+        if self.password.text() != self.password_confirm.text():
+            QMessageBox.warning(self, "Error", "Las contraseñas no coinciden")
+            return
+
+        if len(self.password.text()) < 8:
+            QMessageBox.warning(self, "Error", "La contraseña debe tener al menos 8 caracteres")
+            return
+
+        try:
+            from dragofactu.services.api_client import APIClient
+            client = APIClient(self.server_url)
+
+            result = client.register(
+                company_code=self.company_code.text().strip(),
+                company_name=self.company_name.text().strip(),
+                company_tax_id=self.company_tax_id.text().strip() or None,
+                username=self.username.text().strip(),
+                email=self.email.text().strip(),
+                password=self.password.text(),
+                first_name=self.first_name.text().strip() or None,
+                last_name=self.last_name.text().strip() or None
+            )
+
+            QMessageBox.information(self, "Registro Exitoso",
+                f"Empresa '{self.company_name.text()}' registrada correctamente.\n\n"
+                f"Usuario: {self.username.text()}\n"
+                "Ya puedes iniciar sesión con tus credenciales.")
+            self.accept()
+
+        except Exception as e:
+            error_msg = str(e)
+            if hasattr(e, 'detail'):
+                error_msg = e.detail
+            QMessageBox.critical(self, "Error de Registro", f"No se pudo registrar: {error_msg}")
+
 
 class App(QApplication):
     def __init__(self):

@@ -94,6 +94,8 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 | v1.0.0.7 | 2026-01-31 | Sesión Claude - Sistema de Traducción Completo |
 | v1.0.0.9 | 2026-02-01 | Sesión Claude - Mejoras DocumentDialog, Estados, Recordatorios |
 | v2.0.0 | 2026-02-02 | Backend API Multi-tenant + 52 tests |
+| v2.0.1 | 2026-02-06 | Fix auto-login + WorkersManagementTab + mejoras APIClient |
+| v2.0.2 | 2026-02-06 | Fix errores 422/500: límites paginación y timezone reminders |
 
 ---
 
@@ -317,8 +319,62 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 - [x] ProductManagementTab híbrido
 - [x] DocumentManagementTab híbrido
 - [ ] PDF generation en modo remoto (requiere backend endpoint)
-- [ ] InventoryManagementTab híbrido
-- [ ] DiaryManagementTab híbrido
+- [x] InventoryManagementTab híbrido
+- [x] DiaryManagementTab híbrido
+- [x] WorkersManagementTab híbrido (NUEVO - 2026-02-06)
+
+---
+
+## SESIÓN 2026-02-06: Fix Auto-login + WorkersManagementTab (Claude Opus 4.5)
+**AI Agent:** Claude Opus 4.5 (claude-opus-4-5-20251101)
+**Fecha:** 2026-02-06
+
+### Resumen
+Arreglo del sistema de auto-login con tokens guardados y creación de la nueva tab de Trabajadores.
+
+### Cambios Implementados
+
+#### 1. Fix Sistema de Auto-login
+- **Problema:** La app siempre mostraba LoginDialog aunque había tokens válidos guardados
+- **Solución:** Nuevo método `App.try_auto_login()` que valida tokens con `/auth/me` antes de mostrar login
+- **Archivo:** `dragofactu_complete.py` (clase App)
+
+#### 2. Singleton APIClient Unificado
+- **Problema:** `AppMode.api` creaba instancias separadas de APIClient
+- **Solución:** `AppMode.api` ahora usa `get_api_client()` del módulo singleton
+- **Archivos:** `dragofactu_complete.py`, `dragofactu/services/api_client.py`
+
+#### 3. Mejora _refresh_token()
+- **Problema:** Borraba tokens en errores de red (no solo en rechazo del servidor)
+- **Solución:** Solo borrar tokens si servidor devuelve 401/403 explícitamente
+- **Archivo:** `dragofactu/services/api_client.py`
+
+#### 4. Nueva WorkersManagementTab
+- **Descripción:** Tab completa de gestión de trabajadores con soporte híbrido local/remoto
+- **Funcionalidades:**
+  - Listado con filtro por departamento
+  - Búsqueda por nombre, código o departamento
+  - CRUD completo (crear, editar, eliminar)
+  - Soporte modo local (SQLite) y remoto (API)
+- **Archivo:** `dragofactu_complete.py` (clase WorkersManagementTab, WorkerDialog)
+
+#### 5. Traducciones Workers
+- **Archivos:** `dragofactu/config/translations/es.json`, `en.json`, `de.json`
+- **Sección nueva:** `workers` con 17 claves de traducción
+
+### Archivos Modificados
+| Archivo | Cambios |
+|---------|---------|
+| `dragofactu_complete.py` | +600 líneas (App.try_auto_login, WorkersManagementTab, WorkerDialog) |
+| `dragofactu/services/api_client.py` | reset_api_client(), mejora _refresh_token() |
+| `dragofactu/config/translations/es.json` | Sección workers |
+| `dragofactu/config/translations/en.json` | Sección workers |
+| `dragofactu/config/translations/de.json` | Sección workers |
+
+### Testing
+- ✅ Sintaxis verificada con py_compile
+- ✅ JSON de traducciones válidos
+- ⏳ Pendiente: test manual de la aplicación
 
 ---
 
@@ -341,6 +397,9 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 | 2 | `edit_document()` ignora app_mode | DocumentManagementTab | ✅ ARREGLADO (nuevo `edit_document_by_id`) |
 | 3 | `open_document_editor()` sin app_mode check | No existía, método renombrado | ✅ N/A |
 | 4 | `view_document()` siempre recarga desde BD local | DocumentManagementTab | ✅ ARREGLADO (soporte híbrido)
+| 5 | Error 422 "limit>100" en list_clients/products/etc | backend/api/v1/*.py | ✅ ARREGLADO (límite aumentado a 500) |
+| 6 | Error 500 al crear/listar reminders (timezone) | backend/models/reminder.py | ✅ ARREGLADO (is_overdue maneja naive/aware) |
+| 7 | "Error cargando clientes" sin detalle | dragofactu_complete.py:2815 | ✅ ARREGLADO (muestra error real) |
 
 ### Lo Que Funciona Bien
 - ✅ Backend API completo (50+ endpoints, 52 tests)
@@ -438,9 +497,9 @@ def refresh_data(self):
 | Clientes | ✅ | ✅ |
 | Productos | ✅ | ✅ |
 | Documentos | ✅ | ✅ |
-| Inventario | ✅ | 🔄 Pendiente |
-| Diario | ✅ | 🔄 Pendiente |
-| Trabajadores | ✅ | 🔄 Pendiente |
+| Inventario | ✅ | ✅ |
+| Diario | ✅ | ✅ |
+| Trabajadores | ✅ | ✅ |
 
 ---
 

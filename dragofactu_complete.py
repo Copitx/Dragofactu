@@ -93,10 +93,10 @@ class AppMode:
 
     @property
     def api(self):
-        """Get API client (creates if needed)."""
+        """Get API client using singleton (creates if needed)."""
         if self._api_client is None and self._server_url:
-            from dragofactu.services.api_client import APIClient
-            self._api_client = APIClient(self._server_url)
+            from dragofactu.services.api_client import get_api_client
+            self._api_client = get_api_client(self._server_url)
         return self._api_client
 
     def set_remote(self, server_url: str) -> bool:
@@ -105,13 +105,15 @@ class AppMode:
         Returns True if connection successful.
         """
         try:
-            from dragofactu.services.api_client import APIClient
+            from dragofactu.services.api_client import get_api_client, reset_api_client
         except ImportError as e:
             logger.error(f"Failed to import APIClient: {e}")
             raise RuntimeError(f"Falta el módulo 'requests'. Ejecuta: pip install requests")
 
         self._server_url = server_url.rstrip("/")
-        self._api_client = APIClient(self._server_url)
+        # Reset and get new client with new URL
+        reset_api_client()
+        self._api_client = get_api_client(self._server_url)
 
         # Test connection
         try:
@@ -133,6 +135,11 @@ class AppMode:
         """Set local mode (SQLite)."""
         self._mode = MODE_LOCAL
         self._api_client = None
+        try:
+            from dragofactu.services.api_client import reset_api_client
+            reset_api_client()
+        except ImportError:
+            pass
         self._save_config()
         logger.info("Switched to local mode")
 
@@ -162,7 +169,7 @@ from PySide6.QtGui import QFont, QAction, QColor, QPixmap
 from sqlalchemy.orm import joinedload
 
 from dragofactu.models.database import SessionLocal, engine, Base
-from dragofactu.models.entities import User, Client, Product, Document, DocumentLine, DocumentType, DocumentStatus, Reminder
+from dragofactu.models.entities import User, Client, Product, Document, DocumentLine, DocumentType, DocumentStatus, Reminder, Worker, Course
 from dragofactu.services.auth.auth_service import AuthService
 from dragofactu.config.translation import translator
 from dragofactu.ui.styles import apply_stylesheet
@@ -2804,8 +2811,13 @@ class DocumentDialog(QDialog):
                     for client in clients:
                         self.client_combo.addItem(f"{client.code} - {client.name}", client.id)
         except Exception as e:
-            logger.error(f"Error loading clients into combo: {e}")
-            self.client_combo.addItem("Error cargando clientes", None)
+            error_detail = str(e)
+            if hasattr(e, 'detail'):
+                error_detail = e.detail
+            if hasattr(e, 'status_code'):
+                error_detail = f"[{e.status_code}] {error_detail}"
+            logger.error(f"Error loading clients into combo: {error_detail}")
+            self.client_combo.addItem(f"Error: {error_detail[:50]}", None)
 
     def setup_products(self):
         """Load products into combo box - supports local and remote"""
@@ -2826,8 +2838,13 @@ class DocumentDialog(QDialog):
                     for product in products:
                         self.product_combo.addItem(f"{product.code} - {product.name}", product.id)
         except Exception as e:
-            logger.error(f"Error loading products into combo: {e}")
-            self.product_combo.addItem("Error cargando productos", None)
+            error_detail = str(e)
+            if hasattr(e, 'detail'):
+                error_detail = e.detail
+            if hasattr(e, 'status_code'):
+                error_detail = f"[{e.status_code}] {error_detail}"
+            logger.error(f"Error loading products into combo: {error_detail}")
+            self.product_combo.addItem(f"Error: {error_detail[:50]}", None)
     
     def add_item(self):
         """Add selected product to table with quantity - supports local and remote"""
@@ -6601,6 +6618,594 @@ class DiaryEntryDialog(QDialog):
 from PySide6.QtWidgets import QTimeEdit
 from PySide6.QtCore import QTime
 
+
+class WorkersManagementTab(QWidget):
+    """Workers management tab with Apple-inspired design - supports local and remote modes"""
+
+    def __init__(self):
+        super().__init__()
+        self.translatable_widgets = {}
+        self.worker_ids = []
+        self.setup_ui()
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self.refresh_data)
+
+    def setup_ui(self):
+        self.setStyleSheet(UIStyles.get_panel_style())
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Header
+        header_layout = QHBoxLayout()
+        self.title_label = QLabel(translator.t("workers.title", "Trabajadores"))
+        self.title_label.setStyleSheet(f"""
+            font-size: 28px;
+            font-weight: 600;
+            color: {UIStyles.COLORS['text_primary']};
+            background: transparent;
+        """)
+        header_layout.addWidget(self.title_label)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
+
+        # Toolbar
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setSpacing(12)
+
+        self.add_btn = QPushButton(translator.t("workers.new_worker", "Nuevo Trabajador"))
+        self.add_btn.clicked.connect(self.add_worker)
+        self.add_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        toolbar_layout.addWidget(self.add_btn)
+
+        self.edit_btn = QPushButton(translator.t("buttons.edit", "Editar"))
+        self.edit_btn.clicked.connect(self.edit_worker)
+        self.edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.edit_btn)
+
+        self.delete_btn = QPushButton(translator.t("buttons.delete", "Eliminar"))
+        self.delete_btn.clicked.connect(self.delete_worker)
+        self.delete_btn.setStyleSheet(UIStyles.get_danger_button_style())
+        toolbar_layout.addWidget(self.delete_btn)
+
+        toolbar_layout.addStretch()
+
+        self.refresh_btn = QPushButton(translator.t("buttons.refresh", "Actualizar"))
+        self.refresh_btn.clicked.connect(self.refresh_data)
+        self.refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        toolbar_layout.addWidget(self.refresh_btn)
+
+        layout.addLayout(toolbar_layout)
+
+        # Search
+        search_layout = QHBoxLayout()
+        search_layout.setSpacing(12)
+
+        self.search_label = QLabel(translator.t("buttons.search", "Buscar") + ":")
+        self.search_label.setStyleSheet(UIStyles.get_label_style())
+        search_layout.addWidget(self.search_label)
+
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText(translator.t("workers.search_placeholder", "Buscar por nombre, codigo o departamento..."))
+        self.search_edit.setStyleSheet(UIStyles.get_input_style())
+        self.search_edit.textChanged.connect(self.filter_workers)
+        search_layout.addWidget(self.search_edit)
+
+        # Department filter
+        self.department_combo = QComboBox()
+        self.department_combo.addItem(translator.t("workers.all_departments", "Todos los departamentos"))
+        self.department_combo.setStyleSheet(UIStyles.get_input_style())
+        self.department_combo.currentIndexChanged.connect(self.filter_workers)
+        search_layout.addWidget(self.department_combo)
+
+        layout.addLayout(search_layout)
+
+        # Table
+        self.workers_table = QTableWidget()
+        self.workers_table.setColumnCount(8)
+        self.workers_table.setHorizontalHeaderLabels([
+            translator.t("workers.code", "Codigo"),
+            translator.t("workers.first_name", "Nombre"),
+            translator.t("workers.last_name", "Apellido"),
+            translator.t("workers.position", "Cargo"),
+            translator.t("workers.department", "Departamento"),
+            translator.t("workers.email", "Email"),
+            translator.t("workers.phone", "Telefono"),
+            translator.t("workers.active", "Activo")
+        ])
+        self.workers_table.setStyleSheet(UIStyles.get_table_style())
+        self.workers_table.setAlternatingRowColors(False)
+        self.workers_table.setShowGrid(False)
+        self.workers_table.verticalHeader().setVisible(False)
+        self.workers_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.workers_table.doubleClicked.connect(self.edit_worker)
+
+        header = self.workers_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
+
+        layout.addWidget(self.workers_table)
+
+        # Status label
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet(UIStyles.get_status_label_style())
+        layout.addWidget(self.status_label)
+
+    def refresh_data(self):
+        """Refresh workers data - supports local and remote modes"""
+        self.worker_ids = []
+        app_mode = get_app_mode()
+
+        try:
+            if app_mode.is_remote:
+                self._refresh_from_api(app_mode.api)
+            else:
+                self._refresh_from_local()
+        except Exception as e:
+            logger.error(f"Error refreshing workers: {e}")
+            self.status_label.setText(f"Error: {str(e)}")
+
+    def _refresh_from_api(self, api):
+        """Refresh workers from remote API."""
+        try:
+            response = api.list_workers(limit=500)
+            workers = response.get("items", [])
+
+            self.workers_table.setRowCount(0)
+            self.worker_ids = []
+
+            # Collect departments for filter
+            departments = set()
+
+            for row, worker in enumerate(workers):
+                self.workers_table.insertRow(row)
+                self.worker_ids.append(worker.get("id", ""))
+
+                self.workers_table.setItem(row, 0, QTableWidgetItem(worker.get("code", "")))
+                self.workers_table.setItem(row, 1, QTableWidgetItem(worker.get("first_name", "")))
+                self.workers_table.setItem(row, 2, QTableWidgetItem(worker.get("last_name", "")))
+                self.workers_table.setItem(row, 3, QTableWidgetItem(worker.get("position", "") or ""))
+                dept = worker.get("department", "") or ""
+                self.workers_table.setItem(row, 4, QTableWidgetItem(dept))
+                if dept:
+                    departments.add(dept)
+                self.workers_table.setItem(row, 5, QTableWidgetItem(worker.get("email", "") or ""))
+                self.workers_table.setItem(row, 6, QTableWidgetItem(worker.get("phone", "") or ""))
+
+                is_active = worker.get("is_active", True)
+                status_text = "Activo" if is_active else "Inactivo"
+                self.workers_table.setItem(row, 7, QTableWidgetItem(status_text))
+
+            # Update department filter
+            self._update_department_filter(departments)
+            self.status_label.setText(f"Mostrando {len(workers)} trabajadores (servidor)")
+
+        except Exception as e:
+            logger.error(f"Error fetching workers from API: {e}")
+            raise
+
+    def _refresh_from_local(self):
+        """Refresh workers from local SQLite database."""
+        with SessionLocal() as db:
+            workers = db.query(Worker).order_by(Worker.last_name, Worker.first_name).all()
+
+            self.workers_table.setRowCount(0)
+            self.worker_ids = []
+
+            # Collect departments for filter
+            departments = set()
+
+            for row, worker in enumerate(workers):
+                self.workers_table.insertRow(row)
+                self.worker_ids.append(worker.id)
+
+                self.workers_table.setItem(row, 0, QTableWidgetItem(worker.code or ""))
+                self.workers_table.setItem(row, 1, QTableWidgetItem(worker.first_name or ""))
+                self.workers_table.setItem(row, 2, QTableWidgetItem(worker.last_name or ""))
+                self.workers_table.setItem(row, 3, QTableWidgetItem(worker.position or ""))
+                dept = worker.department or ""
+                self.workers_table.setItem(row, 4, QTableWidgetItem(dept))
+                if dept:
+                    departments.add(dept)
+                self.workers_table.setItem(row, 5, QTableWidgetItem(worker.email or ""))
+                self.workers_table.setItem(row, 6, QTableWidgetItem(worker.phone or ""))
+
+                status_text = "Activo" if worker.is_active else "Inactivo"
+                self.workers_table.setItem(row, 7, QTableWidgetItem(status_text))
+
+            # Update department filter
+            self._update_department_filter(departments)
+            self.status_label.setText(f"Mostrando {len(workers)} trabajadores (local)")
+
+    def _update_department_filter(self, departments: set):
+        """Update department filter combo box."""
+        current_text = self.department_combo.currentText()
+        self.department_combo.blockSignals(True)
+        self.department_combo.clear()
+        self.department_combo.addItem(translator.t("workers.all_departments", "Todos los departamentos"))
+        for dept in sorted(departments):
+            self.department_combo.addItem(dept)
+        # Restore selection if possible
+        idx = self.department_combo.findText(current_text)
+        if idx >= 0:
+            self.department_combo.setCurrentIndex(idx)
+        self.department_combo.blockSignals(False)
+
+    def filter_workers(self):
+        """Filter workers based on search text and department."""
+        search_text = self.search_edit.text().lower()
+        selected_dept = self.department_combo.currentText()
+        all_depts = translator.t("workers.all_departments", "Todos los departamentos")
+
+        for row in range(self.workers_table.rowCount()):
+            visible = True
+
+            # Check search text
+            if search_text:
+                text_match = False
+                for col in range(self.workers_table.columnCount()):
+                    item = self.workers_table.item(row, col)
+                    if item and search_text in item.text().lower():
+                        text_match = True
+                        break
+                visible = text_match
+
+            # Check department filter
+            if visible and selected_dept != all_depts:
+                dept_item = self.workers_table.item(row, 4)
+                if dept_item and dept_item.text() != selected_dept:
+                    visible = False
+
+            self.workers_table.setRowHidden(row, not visible)
+
+    def add_worker(self):
+        """Add new worker."""
+        dialog = WorkerDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh_data()
+            QMessageBox.information(self, "Exito", "Trabajador creado correctamente")
+
+    def edit_worker(self):
+        """Edit selected worker."""
+        current_row = self.workers_table.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "Error", "Seleccione un trabajador para editar")
+            return
+
+        if current_row >= len(self.worker_ids):
+            QMessageBox.warning(self, "Error", "Error al obtener datos del trabajador")
+            return
+
+        worker_id = self.worker_ids[current_row]
+        dialog = WorkerDialog(self, worker_id=worker_id)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh_data()
+            QMessageBox.information(self, "Exito", "Trabajador actualizado correctamente")
+
+    def delete_worker(self):
+        """Delete selected worker - supports local and remote modes."""
+        current_row = self.workers_table.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "Error", "Seleccione un trabajador para eliminar")
+            return
+
+        if current_row >= len(self.worker_ids):
+            QMessageBox.warning(self, "Error", "Error al obtener datos del trabajador")
+            return
+
+        first_name = self.workers_table.item(current_row, 1).text()
+        last_name = self.workers_table.item(current_row, 2).text()
+        worker_name = f"{first_name} {last_name}"
+        worker_id = self.worker_ids[current_row]
+
+        dialog = ConfirmationDialog(
+            self,
+            title="Confirmar Eliminacion",
+            message=f"¿Seguro de eliminar '{worker_name}'?\n\nEsta accion no se puede deshacer.",
+            confirm_text="Eliminar",
+            is_danger=True
+        )
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            app_mode = get_app_mode()
+            try:
+                if app_mode.is_remote:
+                    app_mode.api.delete_worker(str(worker_id))
+                    self.refresh_data()
+                    QMessageBox.information(self, "Exito", f"Trabajador '{worker_name}' eliminado")
+                else:
+                    with SessionLocal() as db:
+                        worker = db.query(Worker).filter(Worker.id == worker_id).first()
+                        if worker:
+                            worker.is_active = False
+                            db.commit()
+                            self.refresh_data()
+                            QMessageBox.information(self, "Exito", f"Trabajador '{worker_name}' eliminado")
+            except Exception as e:
+                logger.error(f"Error deleting worker: {e}")
+                error_msg = str(e)
+                if hasattr(e, 'detail') and e.detail:
+                    error_msg = e.detail
+                QMessageBox.critical(self, "Error", f"Error al eliminar: {error_msg}")
+
+    def retranslate_ui(self):
+        """Update all translatable text."""
+        if hasattr(self, 'title_label'):
+            self.title_label.setText(translator.t("workers.title", "Trabajadores"))
+        if hasattr(self, 'add_btn'):
+            self.add_btn.setText(translator.t("workers.new_worker", "Nuevo Trabajador"))
+        if hasattr(self, 'edit_btn'):
+            self.edit_btn.setText(translator.t("buttons.edit", "Editar"))
+        if hasattr(self, 'delete_btn'):
+            self.delete_btn.setText(translator.t("buttons.delete", "Eliminar"))
+        if hasattr(self, 'refresh_btn'):
+            self.refresh_btn.setText(translator.t("buttons.refresh", "Actualizar"))
+        if hasattr(self, 'search_label'):
+            self.search_label.setText(translator.t("buttons.search", "Buscar") + ":")
+
+
+class WorkerDialog(QDialog):
+    """Dialog for creating/editing workers - supports local and remote modes."""
+
+    def __init__(self, parent=None, worker_id=None):
+        super().__init__(parent)
+        self.worker_id = worker_id
+        self.is_edit_mode = worker_id is not None
+        self.setWindowTitle("Editar Trabajador" if self.is_edit_mode else "Nuevo Trabajador")
+        self.setModal(True)
+        self.resize(550, 500)
+        self.setStyleSheet(UIStyles.get_dialog_style())
+        self.setup_ui()
+        if self.is_edit_mode:
+            self.load_worker_data()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(16)
+        layout.setContentsMargins(24, 24, 24, 24)
+
+        form_layout = QFormLayout()
+        form_layout.setSpacing(12)
+
+        # Code
+        self.code_edit = QLineEdit()
+        self.code_edit.setPlaceholderText("Ej: TRB-001")
+        self.code_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Codigo*:", self.code_edit)
+
+        # First name
+        self.first_name_edit = QLineEdit()
+        self.first_name_edit.setPlaceholderText("Nombre")
+        self.first_name_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Nombre*:", self.first_name_edit)
+
+        # Last name
+        self.last_name_edit = QLineEdit()
+        self.last_name_edit.setPlaceholderText("Apellido")
+        self.last_name_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Apellido*:", self.last_name_edit)
+
+        # Position
+        self.position_edit = QLineEdit()
+        self.position_edit.setPlaceholderText("Ej: Desarrollador, Gerente...")
+        self.position_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Cargo:", self.position_edit)
+
+        # Department
+        self.department_edit = QLineEdit()
+        self.department_edit.setPlaceholderText("Ej: IT, Ventas, RRHH...")
+        self.department_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Departamento:", self.department_edit)
+
+        # Email
+        self.email_edit = QLineEdit()
+        self.email_edit.setPlaceholderText("email@empresa.com")
+        self.email_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Email:", self.email_edit)
+
+        # Phone
+        self.phone_edit = QLineEdit()
+        self.phone_edit.setPlaceholderText("+34 612 345 678")
+        self.phone_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Telefono:", self.phone_edit)
+
+        # Address
+        self.address_edit = QLineEdit()
+        self.address_edit.setPlaceholderText("Direccion completa")
+        self.address_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Direccion:", self.address_edit)
+
+        # Hire date
+        self.hire_date_edit = QDateEdit()
+        self.hire_date_edit.setDate(QDate.currentDate())
+        self.hire_date_edit.setCalendarPopup(True)
+        self.hire_date_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Fecha contratacion:", self.hire_date_edit)
+
+        # Salary
+        self.salary_edit = QLineEdit()
+        self.salary_edit.setPlaceholderText("0.00")
+        self.salary_edit.setStyleSheet(UIStyles.get_input_style())
+        form_layout.addRow("Salario:", self.salary_edit)
+
+        # Active
+        self.active_check = QCheckBox("Activo")
+        self.active_check.setChecked(True)
+        form_layout.addRow("", self.active_check)
+
+        layout.addLayout(form_layout)
+        layout.addStretch()
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+
+        save_btn = QPushButton("Guardar")
+        save_btn.setStyleSheet(UIStyles.get_primary_button_style())
+        save_btn.clicked.connect(self.save_worker)
+        button_layout.addWidget(save_btn)
+
+        layout.addLayout(button_layout)
+
+    def load_worker_data(self):
+        """Load worker data for editing."""
+        app_mode = get_app_mode()
+        try:
+            if app_mode.is_remote:
+                worker = app_mode.api.get_worker(str(self.worker_id))
+                self.code_edit.setText(worker.get("code", ""))
+                self.first_name_edit.setText(worker.get("first_name", ""))
+                self.last_name_edit.setText(worker.get("last_name", ""))
+                self.position_edit.setText(worker.get("position", "") or "")
+                self.department_edit.setText(worker.get("department", "") or "")
+                self.email_edit.setText(worker.get("email", "") or "")
+                self.phone_edit.setText(worker.get("phone", "") or "")
+                self.address_edit.setText(worker.get("address", "") or "")
+                self.active_check.setChecked(worker.get("is_active", True))
+                # Handle hire_date
+                hire_date = worker.get("hire_date")
+                if hire_date:
+                    try:
+                        if isinstance(hire_date, str):
+                            dt = datetime.fromisoformat(hire_date.replace("Z", "+00:00"))
+                            self.hire_date_edit.setDate(QDate(dt.year, dt.month, dt.day))
+                    except Exception:
+                        pass
+                # Handle salary
+                salary = worker.get("salary")
+                if salary is not None:
+                    self.salary_edit.setText(str(salary))
+            else:
+                with SessionLocal() as db:
+                    worker = db.query(Worker).filter(Worker.id == self.worker_id).first()
+                    if worker:
+                        self.code_edit.setText(worker.code or "")
+                        self.first_name_edit.setText(worker.first_name or "")
+                        self.last_name_edit.setText(worker.last_name or "")
+                        self.position_edit.setText(worker.position or "")
+                        self.department_edit.setText(worker.department or "")
+                        self.email_edit.setText(worker.email or "")
+                        self.phone_edit.setText(worker.phone or "")
+                        self.address_edit.setText(worker.address or "")
+                        self.active_check.setChecked(worker.is_active)
+                        if worker.hire_date:
+                            self.hire_date_edit.setDate(QDate(
+                                worker.hire_date.year,
+                                worker.hire_date.month,
+                                worker.hire_date.day
+                            ))
+                        if worker.salary is not None:
+                            self.salary_edit.setText(str(worker.salary))
+        except Exception as e:
+            logger.error(f"Error loading worker data: {e}")
+            QMessageBox.critical(self, "Error", f"Error al cargar datos: {str(e)}")
+
+    def save_worker(self):
+        """Save worker - supports local and remote modes."""
+        # Validate required fields
+        code = self.code_edit.text().strip()
+        first_name = self.first_name_edit.text().strip()
+        last_name = self.last_name_edit.text().strip()
+
+        if not code:
+            QMessageBox.warning(self, "Error", "El codigo es obligatorio")
+            return
+        if not first_name:
+            QMessageBox.warning(self, "Error", "El nombre es obligatorio")
+            return
+        if not last_name:
+            QMessageBox.warning(self, "Error", "El apellido es obligatorio")
+            return
+
+        # Parse salary
+        salary = None
+        salary_text = self.salary_edit.text().strip()
+        if salary_text:
+            try:
+                salary = float(salary_text.replace(",", "."))
+            except ValueError:
+                QMessageBox.warning(self, "Error", "El salario debe ser un numero valido")
+                return
+
+        # Get hire date
+        qdate = self.hire_date_edit.date()
+        hire_date = datetime(qdate.year(), qdate.month(), qdate.day())
+
+        app_mode = get_app_mode()
+        try:
+            if app_mode.is_remote:
+                data = {
+                    "code": code,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "position": self.position_edit.text().strip() or None,
+                    "department": self.department_edit.text().strip() or None,
+                    "email": self.email_edit.text().strip() or None,
+                    "phone": self.phone_edit.text().strip() or None,
+                    "address": self.address_edit.text().strip() or None,
+                    "hire_date": hire_date.isoformat(),
+                    "salary": salary,
+                    "is_active": self.active_check.isChecked()
+                }
+                if self.is_edit_mode:
+                    app_mode.api.update_worker(str(self.worker_id), **data)
+                else:
+                    app_mode.api.create_worker(**data)
+            else:
+                with SessionLocal() as db:
+                    if self.is_edit_mode:
+                        worker = db.query(Worker).filter(Worker.id == self.worker_id).first()
+                        if worker:
+                            worker.code = code
+                            worker.first_name = first_name
+                            worker.last_name = last_name
+                            worker.full_name = f"{first_name} {last_name}"
+                            worker.position = self.position_edit.text().strip() or None
+                            worker.department = self.department_edit.text().strip() or None
+                            worker.email = self.email_edit.text().strip() or None
+                            worker.phone = self.phone_edit.text().strip() or None
+                            worker.address = self.address_edit.text().strip() or None
+                            worker.hire_date = hire_date
+                            worker.salary = salary
+                            worker.is_active = self.active_check.isChecked()
+                    else:
+                        worker = Worker(
+                            code=code,
+                            first_name=first_name,
+                            last_name=last_name,
+                            full_name=f"{first_name} {last_name}",
+                            position=self.position_edit.text().strip() or None,
+                            department=self.department_edit.text().strip() or None,
+                            email=self.email_edit.text().strip() or None,
+                            phone=self.phone_edit.text().strip() or None,
+                            address=self.address_edit.text().strip() or None,
+                            hire_date=hire_date,
+                            salary=salary,
+                            is_active=self.active_check.isChecked()
+                        )
+                        db.add(worker)
+                    db.commit()
+            self.accept()
+        except Exception as e:
+            logger.error(f"Error saving worker: {e}")
+            error_msg = str(e)
+            if hasattr(e, 'detail') and e.detail:
+                error_msg = e.detail
+            QMessageBox.critical(self, "Error", f"Error al guardar: {error_msg}")
+
+
 class MainWindow(QMainWindow):
     """Modern Apple-inspired main window"""
 
@@ -6728,6 +7333,9 @@ class MainWindow(QMainWindow):
 
         self.diary_tab = DiaryManagementTab()
         self.tabs.addTab(self.diary_tab, translator.t("tabs.diary"))
+
+        self.workers_tab = WorkersManagementTab()
+        self.tabs.addTab(self.workers_tab, translator.t("tabs.workers", "Trabajadores"))
 
         layout.addWidget(self.tabs)
 
@@ -8361,15 +8969,60 @@ class App(QApplication):
         super().__init__(sys.argv)
         apply_stylesheet(self)
         self.current_user = None
+        self.current_user_data = None
         self.setup_app()
-    
+
+    def try_auto_login(self) -> bool:
+        """Attempt auto-login with saved tokens.
+
+        Returns True if auto-login succeeded, False otherwise.
+        """
+        app_mode = get_app_mode()
+
+        # Only try auto-login in remote mode
+        if not app_mode.is_remote:
+            logger.info("Auto-login skipped: local mode")
+            return False
+
+        api = app_mode.api
+        if api is None:
+            logger.info("Auto-login skipped: no API client")
+            return False
+
+        if not api.is_authenticated:
+            logger.info("Auto-login skipped: no saved tokens")
+            return False
+
+        try:
+            # Validate tokens with /auth/me
+            user_info = api.get_me()
+            if user_info and user_info.get('id'):
+                self.current_user_data = {
+                    'id': user_info.get('id'),
+                    'username': user_info.get('username'),
+                    'full_name': user_info.get('full_name', user_info.get('username', '')),
+                    'role': user_info.get('role', 'read_only'),
+                    'is_remote': True
+                }
+                logger.info(f"Auto-login successful for user: {user_info.get('username')}")
+                return True
+            else:
+                logger.warning("Auto-login failed: invalid user info from API")
+                return False
+        except Exception as e:
+            logger.warning(f"Auto-login failed: {e}")
+            return False
+
     def setup_app(self):
         """Setup application"""
-        # Create database tables
+        # Create database tables (for local mode)
         Base.metadata.create_all(bind=engine)
-        
-        # Show login
-        self.show_login()
+
+        # Try auto-login with saved tokens first
+        if self.try_auto_login():
+            self.show_main_window()
+        else:
+            self.show_login()
     
     def show_login(self):
         """Show login dialog"""

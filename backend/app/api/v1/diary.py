@@ -19,7 +19,7 @@ router = APIRouter(prefix="/diary", tags=["Diario"])
 @router.get("", response_model=DiaryEntryList)
 async def list_entries(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     pinned_only: bool = Query(False),

@@ -18,7 +18,7 @@ router = APIRouter(prefix="/reminders", tags=["Recordatorios"])
 @router.get("", response_model=ReminderList)
 async def list_reminders(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     pending_only: bool = Query(True, description="Solo pendientes"),
     priority: Optional[str] = Query(None, description="low, normal, high"),
     db: Session = Depends(get_db),

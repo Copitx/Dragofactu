@@ -19,7 +19,7 @@ router = APIRouter(prefix="/clients", tags=["Clientes"])
 @router.get("", response_model=ClientList)
 async def list_clients(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     search: Optional[str] = Query(None, description="Buscar por nombre o codigo"),
     active_only: bool = Query(True, description="Solo clientes activos"),
     db: Session = Depends(get_db),

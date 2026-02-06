@@ -19,7 +19,7 @@ router = APIRouter(prefix="/products", tags=["Productos"])
 @router.get("", response_model=ProductList)
 async def list_products(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     search: Optional[str] = Query(None, description="Buscar por nombre o codigo"),
     category: Optional[str] = Query(None, description="Filtrar por categoria"),
     low_stock: bool = Query(False, description="Solo productos con stock bajo"),

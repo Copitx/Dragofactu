@@ -19,7 +19,7 @@ router = APIRouter(prefix="/workers", tags=["Trabajadores"])
 @router.get("", response_model=WorkerList)
 async def list_workers(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     search: Optional[str] = Query(None),
     department: Optional[str] = Query(None),
     active_only: bool = Query(True),

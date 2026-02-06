@@ -54,10 +54,18 @@ class Reminder(Base):
 
     @property
     def is_overdue(self) -> bool:
-        """Check if reminder is overdue."""
+        """Check if reminder is overdue.
+
+        Handles both timezone-aware and naive datetimes safely.
+        """
         if self.due_date and not self.is_completed:
             from datetime import datetime, timezone
-            return datetime.now(timezone.utc) > self.due_date
+            now = datetime.now(timezone.utc)
+            due = self.due_date
+            # If due_date is naive (no timezone), assume it's UTC
+            if due.tzinfo is None:
+                due = due.replace(tzinfo=timezone.utc)
+            return now > due
         return False
 
     def __repr__(self):

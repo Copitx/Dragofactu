@@ -77,7 +77,7 @@ def calculate_document_totals(document: Document, tax_rate: float = 21.0):
 @router.get("", response_model=DocumentList)
 async def list_documents(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     doc_type: Optional[str] = Query(None, description="quote, delivery_note, invoice"),
     doc_status: Optional[str] = Query(None, description="draft, sent, paid, etc."),
     client_id: Optional[UUID] = Query(None),

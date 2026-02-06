@@ -101,8 +101,8 @@ reportlab>=4.0.0, python-dotenv>=1.0.0, alembic>=1.12.0
 
 **Rama Git:** `main` (merged from feature/multi-tenant-api)
 **Documento de Planificación:** `pasos a seguir migracion.md`
-**Estado:** Fase 10 EN PROGRESO - Integración UI híbrida local/remoto
-**Última actualización:** 2026-02-03
+**Estado:** Fase 10 EN REVISIÓN - Corrigiendo bugs detectados
+**Última actualización:** 2026-02-06
 **URL Producción:** https://dragofactu-production.up.railway.app
 
 ### Objetivo
@@ -319,6 +319,43 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 - [ ] PDF generation en modo remoto (requiere backend endpoint)
 - [ ] InventoryManagementTab híbrido
 - [ ] DiaryManagementTab híbrido
+
+---
+
+## REVISIÓN 2026-02-06: Auditoría del Código (Claude Opus 4.5)
+**AI Agent:** Claude Opus 4.5 (claude-opus-4-5-20251101)
+**Fecha:** 2026-02-06
+
+### Evaluación del Trabajo Realizado: 7/10
+
+### Problemas Encontrados y Corregidos
+| # | Problema | Archivo | Estado |
+|---|----------|---------|--------|
+| 1 | Schema `ClientCreate` no aceptaba `is_active` → Error 400 | backend/schemas/client.py | ✅ ARREGLADO |
+| 2 | Schema `ClientUpdate` no aceptaba `is_active` | backend/schemas/client.py | ✅ ARREGLADO |
+
+### Problemas Pendientes de Corregir
+| # | Problema | Ubicación | Severidad |
+|---|----------|-----------|-----------|
+| 1 | `_get_user_reminders()` no usa API en modo remoto | Dashboard línea ~1417 | ALTA |
+| 2 | `edit_document()` ignora app_mode | DocumentManagementTab línea ~4712 | ALTA |
+| 3 | `open_document_editor()` sin app_mode check | DocumentManagementTab línea ~4601 | ALTA |
+| 4 | `view_document()` siempre recarga desde BD local | DocumentManagementTab línea ~4626 | MEDIA |
+
+### Lo Que Funciona Bien
+- ✅ Backend API completo (50+ endpoints, 52 tests)
+- ✅ APIClient con todos los métodos necesarios
+- ✅ Patrón híbrido en `refresh_data()` de tabs principales
+- ✅ Dashboard stats endpoint funcionando
+- ✅ DocumentDialog con save remoto (`_save_document_remote`)
+- ✅ ClientDialog y ProductDialog con modo híbrido
+- ✅ Schemas y modelos correctos
+
+### Mejoras para Próximas Sesiones
+1. Verificar app_mode antes de CUALQUIER SessionLocal()
+2. Crear helper function para evitar duplicación de código híbrido
+3. Tests de integración local↔remoto
+4. Documentar cambios en CLAUDE.md al hacer cada método
 
 ---
 

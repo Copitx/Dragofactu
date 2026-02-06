@@ -26,7 +26,7 @@ class ClientBase(BaseModel):
 
 class ClientCreate(ClientBase):
     """Client creation schema."""
-    pass
+    is_active: bool = True
 
 
 class ClientUpdate(BaseModel):
@@ -43,6 +43,7 @@ class ClientUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=100)
     website: Optional[str] = Field(None, max_length=200)
     notes: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 class ClientResponse(BaseSchema, TimestampMixin):

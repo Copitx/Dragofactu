@@ -6639,7 +6639,7 @@ class WorkersManagementTab(QWidget):
 
         # Header
         header_layout = QHBoxLayout()
-        self.title_label = QLabel(translator.t("workers.title", "Trabajadores"))
+        self.title_label = QLabel(translator.t("workers.title"))
         self.title_label.setStyleSheet(f"""
             font-size: 28px;
             font-weight: 600;
@@ -6654,24 +6654,24 @@ class WorkersManagementTab(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setSpacing(12)
 
-        self.add_btn = QPushButton(translator.t("workers.new_worker", "Nuevo Trabajador"))
+        self.add_btn = QPushButton(translator.t("workers.new_worker"))
         self.add_btn.clicked.connect(self.add_worker)
         self.add_btn.setStyleSheet(UIStyles.get_primary_button_style())
         toolbar_layout.addWidget(self.add_btn)
 
-        self.edit_btn = QPushButton(translator.t("buttons.edit", "Editar"))
+        self.edit_btn = QPushButton(translator.t("buttons.edit"))
         self.edit_btn.clicked.connect(self.edit_worker)
         self.edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(self.edit_btn)
 
-        self.delete_btn = QPushButton(translator.t("buttons.delete", "Eliminar"))
+        self.delete_btn = QPushButton(translator.t("buttons.delete"))
         self.delete_btn.clicked.connect(self.delete_worker)
         self.delete_btn.setStyleSheet(UIStyles.get_danger_button_style())
         toolbar_layout.addWidget(self.delete_btn)
 
         toolbar_layout.addStretch()
 
-        self.refresh_btn = QPushButton(translator.t("buttons.refresh", "Actualizar"))
+        self.refresh_btn = QPushButton(translator.t("buttons.refresh"))
         self.refresh_btn.clicked.connect(self.refresh_data)
         self.refresh_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(self.refresh_btn)
@@ -6682,19 +6682,19 @@ class WorkersManagementTab(QWidget):
         search_layout = QHBoxLayout()
         search_layout.setSpacing(12)
 
-        self.search_label = QLabel(translator.t("buttons.search", "Buscar") + ":")
+        self.search_label = QLabel(translator.t("buttons.search") + ":")
         self.search_label.setStyleSheet(UIStyles.get_label_style())
         search_layout.addWidget(self.search_label)
 
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText(translator.t("workers.search_placeholder", "Buscar por nombre, codigo o departamento..."))
+        self.search_edit.setPlaceholderText(translator.t("workers.search_placeholder"))
         self.search_edit.setStyleSheet(UIStyles.get_input_style())
         self.search_edit.textChanged.connect(self.filter_workers)
         search_layout.addWidget(self.search_edit)
 
         # Department filter
         self.department_combo = QComboBox()
-        self.department_combo.addItem(translator.t("workers.all_departments", "Todos los departamentos"))
+        self.department_combo.addItem(translator.t("workers.all_departments"))
         self.department_combo.setStyleSheet(UIStyles.get_input_style())
         self.department_combo.currentIndexChanged.connect(self.filter_workers)
         search_layout.addWidget(self.department_combo)
@@ -6705,14 +6705,14 @@ class WorkersManagementTab(QWidget):
         self.workers_table = QTableWidget()
         self.workers_table.setColumnCount(8)
         self.workers_table.setHorizontalHeaderLabels([
-            translator.t("workers.code", "Codigo"),
-            translator.t("workers.first_name", "Nombre"),
-            translator.t("workers.last_name", "Apellido"),
-            translator.t("workers.position", "Cargo"),
-            translator.t("workers.department", "Departamento"),
-            translator.t("workers.email", "Email"),
-            translator.t("workers.phone", "Telefono"),
-            translator.t("workers.active", "Activo")
+            translator.t("workers.code"),
+            translator.t("workers.first_name"),
+            translator.t("workers.last_name"),
+            translator.t("workers.position"),
+            translator.t("workers.department"),
+            translator.t("workers.email"),
+            translator.t("workers.phone"),
+            translator.t("workers.active")
         ])
         self.workers_table.setStyleSheet(UIStyles.get_table_style())
         self.workers_table.setAlternatingRowColors(False)
@@ -6829,7 +6829,7 @@ class WorkersManagementTab(QWidget):
         current_text = self.department_combo.currentText()
         self.department_combo.blockSignals(True)
         self.department_combo.clear()
-        self.department_combo.addItem(translator.t("workers.all_departments", "Todos los departamentos"))
+        self.department_combo.addItem(translator.t("workers.all_departments"))
         for dept in sorted(departments):
             self.department_combo.addItem(dept)
         # Restore selection if possible
@@ -6842,7 +6842,7 @@ class WorkersManagementTab(QWidget):
         """Filter workers based on search text and department."""
         search_text = self.search_edit.text().lower()
         selected_dept = self.department_combo.currentText()
-        all_depts = translator.t("workers.all_departments", "Todos los departamentos")
+        all_depts = translator.t("workers.all_departments")
 
         for row in range(self.workers_table.rowCount()):
             visible = True
@@ -6938,17 +6938,17 @@ class WorkersManagementTab(QWidget):
     def retranslate_ui(self):
         """Update all translatable text."""
         if hasattr(self, 'title_label'):
-            self.title_label.setText(translator.t("workers.title", "Trabajadores"))
+            self.title_label.setText(translator.t("workers.title"))
         if hasattr(self, 'add_btn'):
-            self.add_btn.setText(translator.t("workers.new_worker", "Nuevo Trabajador"))
+            self.add_btn.setText(translator.t("workers.new_worker"))
         if hasattr(self, 'edit_btn'):
-            self.edit_btn.setText(translator.t("buttons.edit", "Editar"))
+            self.edit_btn.setText(translator.t("buttons.edit"))
         if hasattr(self, 'delete_btn'):
-            self.delete_btn.setText(translator.t("buttons.delete", "Eliminar"))
+            self.delete_btn.setText(translator.t("buttons.delete"))
         if hasattr(self, 'refresh_btn'):
-            self.refresh_btn.setText(translator.t("buttons.refresh", "Actualizar"))
+            self.refresh_btn.setText(translator.t("buttons.refresh"))
         if hasattr(self, 'search_label'):
-            self.search_label.setText(translator.t("buttons.search", "Buscar") + ":")
+            self.search_label.setText(translator.t("buttons.search") + ":")
 
 
 class WorkerDialog(QDialog):
@@ -7335,7 +7335,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.diary_tab, translator.t("tabs.diary"))
 
         self.workers_tab = WorkersManagementTab()
-        self.tabs.addTab(self.workers_tab, translator.t("tabs.workers", "Trabajadores"))
+        self.tabs.addTab(self.workers_tab, translator.t("tabs.workers"))
 
         layout.addWidget(self.tabs)
 

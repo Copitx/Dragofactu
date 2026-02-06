@@ -52,7 +52,7 @@ backend/
 | Backend API | ✅ EN PRODUCCIÓN (Railway) |
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
 | Tests Backend | ✅ 52 PASSING |
-| PostgreSQL | 🔄 PENDIENTE (actualmente SQLite) |
+| PostgreSQL | ✅ CONFIGURADO (Railway) |
 | PDF en remoto | 🔄 PENDIENTE |
 
 ### Fases Completadas
@@ -200,8 +200,8 @@ DEFAULT_LANGUAGE=es
 ## PENDIENTES PRIORITARIOS
 
 - [ ] PDF generation en modo remoto (requiere backend endpoint)
-- [ ] PostgreSQL en Railway (actualmente SQLite)
-- [ ] Sincronización/cache offline
+- [ ] Fase 13: Sincronización/cache offline
+- [ ] Fase 14: Testing integración
 
 ---
 

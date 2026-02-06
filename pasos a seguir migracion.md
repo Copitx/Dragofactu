@@ -1,9 +1,10 @@
 # Plan de Migración: Dragofactu Multi-usuario Online
 
-**Versión:** 1.0
-**Fecha:** 2026-02-01
+**Versión:** 2.0
+**Fecha:** 2026-02-06 (actualizado)
 **Autor:** Claude Opus 4.5 (Agente AI)
-**Estado:** Planificación Completa
+**Estado:** Fase 10 COMPLETADA - Backend en producción (Railway)
+**URL Producción:** https://dragofactu-production.up.railway.app
 
 ---
 
@@ -15,11 +16,25 @@
 4. [Backend API con FastAPI](#4-backend-api-con-fastapi)
 5. [Modificaciones al Cliente Desktop](#5-modificaciones-al-cliente-desktop)
 6. [Despliegue y Hosting](#6-despliegue-y-hosting)
-7. [Fases de Implementación](#7-fases-de-implementación)
+7. [Fases de Implementación](#7-fases-de-implementación) ⬅️ **ACTUALIZADO**
+   - 7.1 [Cómo Probar Modo Remoto Sin Railway](#71-cómo-probar-modo-remoto-sin-railway)
 8. [Capacidades de Claude](#8-capacidades-de-claude)
 9. [Alternativas Consideradas](#9-alternativas-consideradas)
 10. [Archivos Críticos del Proyecto](#10-archivos-críticos-del-proyecto)
 11. [Glosario](#11-glosario)
+12. [Lecciones Aprendidas](#12-lecciones-aprendidas-y-recomendaciones-revisión-2026-02-06)
+
+---
+
+## Estado Rápido del Proyecto
+
+| Componente | Estado | URL/Archivo |
+|------------|--------|-------------|
+| Backend API | ✅ EN PRODUCCIÓN | https://dragofactu-production.up.railway.app |
+| Desktop Client | ✅ FUNCIONAL | `dragofactu_complete.py` |
+| Tests Backend | ✅ 52 PASSING | `cd backend && pytest` |
+| PostgreSQL | 🔄 PENDIENTE | Actualmente SQLite en Railway |
+| Frontend Web | ⏳ PLANIFICACIÓN | Fase 14 |
 
 ---
 
@@ -1831,155 +1846,389 @@ ALLOWED_ORIGINS=https://app.dragofactu.com,https://dragofactu.com
 
 ## 7. Fases de Implementación
 
-### Resumen Visual
+### Resumen Visual - ACTUALIZADO 2026-02-06
 
 ```
+BACKEND (COMPLETADO)
 Fase 1 ──▶ Fase 2 ──▶ Fase 3 ──▶ Fase 4 ──▶ Fase 5 ──▶ Fase 6 ──▶ Fase 7 ──▶ Fase 8
  Setup     Backend    Auth       CRUD       Docs       Client    Testing    Deploy
- (1 sem)   (2 sem)   (1 sem)    (2 sem)    (2 sem)    (2 sem)   (1 sem)    (1 sem)
+   ✅         ✅        ✅         ✅         ✅         ✅         ✅         ✅
 
-TOTAL ESTIMADO: 12 semanas
+DESKTOP HÍBRIDO (COMPLETADO)
+Fase 9 ──▶ Fase 10
+ Login     Tabs UI
+   ✅         ✅
+
+PENDIENTE
+Fase 11 ──▶ Fase 12 ──▶ Fase 13 ──▶ Fase 14 ──▶ Fase 15
+PostgreSQL   Offline    Testing     Web UI     Web Deploy
+   🔄          ⏳          ⏳          ⏳          ⏳
 ```
 
-### Fase 1: Setup Inicial (Semana 1)
+---
 
-**Objetivo:** Preparar infraestructura y estructura del proyecto
+### ✅ Fase 1: Setup Inicial - COMPLETADA
+
+**Fecha:** 2026-02-02
+**Commit:** `fb477b6`
+
+**Tareas completadas:**
+- [x] Estructura de carpetas `backend/app/`
+- [x] Docker-compose con PostgreSQL y Adminer
+- [x] Modelo Company (tenant principal)
+- [x] Configuración Alembic básica
+- [x] Archivo .env.example
+
+**Archivos creados:**
+- `backend/app/__init__.py`
+- `backend/app/models/company.py`
+- `backend/docker-compose.yml`
+- `backend/requirements.txt`
+
+---
+
+### ✅ Fase 2: Backend Core - COMPLETADA
+
+**Fecha:** 2026-02-02
+**Commit:** `bcca59d`
+
+**Tareas completadas:**
+- [x] FastAPI application (`app/main.py`)
+- [x] 11 modelos SQLAlchemy con company_id
+- [x] Tipo GUID portable (SQLite/PostgreSQL)
+- [x] 11 schemas Pydantic con validación
+- [x] Dependency injection (`get_db`)
+- [x] CORS middleware
+- [x] Endpoint `/health`
+
+**Modelos creados:**
+- Company, User, Client, Supplier, Product
+- Document, DocumentLine, Worker, Course
+- DiaryEntry, Reminder
+
+---
+
+### ✅ Fase 3: Sistema de Autenticación - COMPLETADA
+
+**Fecha:** 2026-02-02
+**Commit:** `7c2d31e`
+
+**Tareas completadas:**
+- [x] JWT con access + refresh tokens
+- [x] Endpoints: login, register, refresh, me, logout
+- [x] Middleware multi-tenancy (company_id en queries)
+- [x] Sistema RBAC: admin, management, warehouse, read_only
+- [x] Dependency `get_current_user`
+- [x] Password hashing con bcrypt
+
+**Archivos:**
+- `backend/app/core/security.py`
+- `backend/app/api/deps.py`
+- `backend/app/api/v1/auth.py`
+
+---
+
+### ✅ Fase 4: CRUD Endpoints - COMPLETADA
+
+**Fecha:** 2026-02-02
+**Commit:** `9658b57`
+
+**Tareas completadas:**
+- [x] Router Clients (CRUD + search + pagination)
+- [x] Router Products (CRUD + low_stock filter)
+- [x] Router Suppliers (CRUD)
+- [x] Router Workers (CRUD + courses)
+- [x] Router Diary (CRUD + date filters)
+- [x] Router Reminders (CRUD + complete)
+
+**Endpoints totales:** 35+
+
+---
+
+### ✅ Fase 5: Documentos e Inventario - COMPLETADA
+
+**Fecha:** 2026-02-02
+**Commit:** `956ddde`
+
+**Tareas completadas:**
+- [x] Router Documents completo
+- [x] Códigos automáticos: PRE-2026-00001, FAC-*, ALB-*
+- [x] Transiciones de estado validadas
+- [x] Conversión Quote → Invoice/Delivery Note
+- [x] Deducción automática de stock al pagar
+- [x] Endpoint `/documents/stats/summary`
+- [x] Adjust stock endpoint
+
+---
+
+### ✅ Fase 6: Cliente Desktop - COMPLETADA
+
+**Fecha:** 2026-02-02
+**Commit:** `6b9d920`
+
+**Tareas completadas:**
+- [x] Clase APIClient completa
+- [x] Métodos para todos los endpoints
+- [x] Manejo de tokens (save/load/refresh)
+- [x] Singleton `get_api_client()`
+- [x] Persistencia en `~/.dragofactu/api_tokens.json`
+
+**Archivo:** `dragofactu/services/api_client.py`
+
+---
+
+### ✅ Fase 7: Testing - COMPLETADA
+
+**Fecha:** 2026-02-02
+**Commit:** `aacae4e`
+
+**Tareas completadas:**
+- [x] 52 tests pytest pasando
+- [x] test_auth.py: 13 tests
+- [x] test_clients.py: 12 tests
+- [x] test_products.py: 11 tests
+- [x] test_documents.py: 12 tests
+- [x] test_health.py: 4 tests
+
+**Comando:** `cd backend && python -m pytest tests/ -v`
+
+---
+
+### ✅ Fase 8: Despliegue Railway - COMPLETADA
+
+**Fecha:** 2026-02-02
+**Commit:** `0d8220a`, `c206db6`
+
+**Tareas completadas:**
+- [x] Dockerfile configurado
+- [x] railway.toml con start command
+- [x] Variables de entorno en Railway Dashboard
+- [x] SSL automático
+- [x] Health check funcionando
+
+**URLs de producción:**
+- API: https://dragofactu-production.up.railway.app
+- Health: https://dragofactu-production.up.railway.app/health
+- Docs: https://dragofactu-production.up.railway.app/docs
+
+**NOTA:** Actualmente usa SQLite en Railway. PostgreSQL pendiente en Fase 11.
+
+---
+
+### ✅ Fase 9: Integración Login Desktop - COMPLETADA
+
+**Fecha:** 2026-02-03
+**Commit:** `3771702`
+
+**Tareas completadas:**
+- [x] AppMode singleton para modo local/remoto
+- [x] LoginDialog con soporte dual
+- [x] ServerConfigDialog para URL del servidor
+- [x] RegisterCompanyDialog para onboarding
+- [x] Tab "Servidor" en SettingsDialog
+- [x] Persistencia en `~/.dragofactu/app_mode.json`
+
+---
+
+### ✅ Fase 10: Tabs con API Remota - COMPLETADA
+
+**Fecha:** 2026-02-06
+**Commits:** varios
+
+**Tareas completadas:**
+- [x] Dashboard híbrido (stats desde API)
+- [x] ClientManagementTab híbrido
+- [x] ProductManagementTab híbrido
+- [x] DocumentManagementTab híbrido
+- [x] InventoryManagementTab híbrido
+- [x] DiaryManagementTab híbrido
+- [x] WorkersManagementTab NUEVO (creado 2026-02-06)
+- [x] Auto-login con tokens guardados (fix 2026-02-06)
+- [x] Singleton APIClient unificado (fix 2026-02-06)
+
+---
+
+### 🔄 Fase 11: PostgreSQL en Railway - PENDIENTE
+
+**Objetivo:** Migrar de SQLite a PostgreSQL en Railway para persistencia real.
 
 **Tareas:**
-- [ ] Crear repositorio separado `dragofactu-api`
-- [ ] Configurar estructura de carpetas backend
-- [ ] Configurar PostgreSQL local con Docker
-- [ ] Configurar Alembic para migraciones
-- [ ] Crear modelo `Company` y migraciones base
-- [ ] Configurar CI/CD básico (GitHub Actions)
+- [ ] Añadir PostgreSQL addon en Railway Dashboard
+- [ ] Railway auto-configura `DATABASE_URL`
+- [ ] Verificar que backend detecta PostgreSQL
+- [ ] Ejecutar migraciones con Alembic
+- [ ] Verificar datos persistentes
 
-**Entregables:**
-- Repositorio backend funcional
-- Base de datos PostgreSQL corriendo
-- Estructura de carpetas completa
+**Pasos:**
+1. Railway Dashboard → Service → Variables → Add PostgreSQL
+2. Redeploy automático crea tablas
+3. Verificar con `curl /health`
 
-### Fase 2: Backend Core (Semanas 2-3)
+---
 
-**Objetivo:** Implementar FastAPI base con modelos y routers
+### ⏳ Fase 12: Sincronización Offline - PENDIENTE
 
-**Tareas:**
-- [ ] Configurar FastAPI application
-- [ ] Implementar todos los modelos SQLAlchemy (con company_id)
-- [ ] Crear schemas Pydantic para cada entidad
-- [ ] Implementar dependency injection (get_db)
-- [ ] Configurar CORS y middleware básico
-- [ ] Implementar endpoint `/health`
-
-**Entregables:**
-- FastAPI app corriendo en localhost:8000
-- Modelos completos con relaciones
-- Swagger UI funcional en `/docs`
-
-### Fase 3: Sistema de Autenticación (Semana 4)
-
-**Objetivo:** Implementar auth completo con multi-tenancy
+**Objetivo:** Permitir trabajo sin conexión con sincronización posterior.
 
 **Tareas:**
-- [ ] Implementar JWT con refresh tokens
-- [ ] Crear endpoints auth (login, refresh, register, logout)
-- [ ] Implementar middleware de multi-tenancy
-- [ ] Crear sistema de permisos RBAC
-- [ ] Implementar `get_current_user` dependency
-- [ ] Tests de autenticación
+- [ ] Clase `LocalCache` para cache JSON de datos
+- [ ] Clase `OperationQueue` para operaciones pendientes
+- [ ] Detección automática de conectividad
+- [ ] Sync automático al reconectar
+- [ ] Resolución de conflictos básica
 
-**Entregables:**
-- Sistema auth funcional
-- Registro de empresas operativo
-- Tokens seguros con refresh
+**Archivos a crear:**
+- `dragofactu/services/local_cache.py`
+- `dragofactu/services/operation_queue.py`
+- `dragofactu/services/sync_manager.py`
 
-### Fase 4: CRUD Endpoints (Semanas 5-6)
+---
 
-**Objetivo:** Implementar todos los endpoints CRUD
+### ⏳ Fase 13: Testing Integración - PENDIENTE
 
-**Tareas:**
-- [ ] Endpoints Clients (CRUD completo)
-- [ ] Endpoints Products (CRUD completo)
-- [ ] Endpoints Suppliers (CRUD completo)
-- [ ] Endpoints Workers + Courses
-- [ ] Endpoints Diary + Reminders
-- [ ] Endpoints Users (gestión por empresa)
-- [ ] Filtros y paginación en todos
-
-**Entregables:**
-- Todos los endpoints CRUD funcionales
-- Swagger documentado
-- Filtrado y paginación
-
-### Fase 5: Documentos e Inventario (Semanas 7-8)
-
-**Objetivo:** Implementar lógica de negocio compleja
+**Objetivo:** Tests completos del flujo local ↔ remoto.
 
 **Tareas:**
-- [ ] Endpoints Documents (create, update, status)
-- [ ] Lógica de transición de estados
-- [ ] Conversión Quote → Invoice
-- [ ] Generación de PDF en servidor
-- [ ] Endpoints Inventory (adjust, movements)
-- [ ] Deducción automática de stock
-- [ ] Endpoints Dashboard (metrics, pending)
+- [ ] Tests manuales de todos los flujos
+- [ ] Script de testing automatizado
+- [ ] Documentación de casos de prueba
+- [ ] Fix de bugs encontrados
 
-**Entregables:**
-- Flujo completo de documentos
-- PDFs generados en servidor
-- Dashboard API funcional
+**Ver sección 7.1 para guía de testing local.**
 
-### Fase 6: Cliente Desktop (Semanas 9-10)
+---
 
-**Objetivo:** Modificar cliente para usar API
+### ⏳ Fase 14: Frontend Web (React/Vue) - PLANIFICACIÓN
+
+**Objetivo:** Interfaz web para acceso desde navegador.
 
 **Tareas:**
-- [ ] Implementar APIClient completo
-- [ ] Modificar LoginDialog (servidor + registro)
-- [ ] Adaptar servicios a usar API
-- [ ] Modificar todas las tabs de gestión
-- [ ] Implementar manejo de errores de red
-- [ ] Añadir indicador de conexión
-- [ ] Cache local opcional (SQLite para offline)
+- [ ] Elegir framework (React + TypeScript recomendado)
+- [ ] Scaffolding del proyecto
+- [ ] Sistema de autenticación web
+- [ ] Dashboard web
+- [ ] CRUD de entidades principales
+- [ ] Gestión de documentos
+- [ ] Generación/descarga de PDFs
 
-**Entregables:**
-- Cliente funcionando con API remota
-- Login y registro de empresas
-- Todas las funcionalidades operativas
+**Estructura propuesta:**
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── layout/        # Header, Sidebar, Footer
+│   │   ├── common/        # Button, Input, Table, Modal
+│   │   └── features/      # ClientList, ProductCard, etc.
+│   ├── pages/
+│   │   ├── auth/          # Login, Register
+│   │   ├── dashboard/
+│   │   ├── clients/
+│   │   ├── products/
+│   │   ├── documents/
+│   │   └── settings/
+│   ├── services/
+│   │   └── api.ts         # Cliente HTTP para backend
+│   ├── hooks/
+│   │   ├── useAuth.ts
+│   │   └── useApi.ts
+│   ├── store/             # Estado global (Zustand/Redux)
+│   └── types/             # TypeScript interfaces
+├── package.json
+├── vite.config.ts
+└── Dockerfile
+```
 
-### Fase 7: Testing e Integración (Semana 11)
+**Tecnologías recomendadas:**
+- React 18 + TypeScript
+- Vite (build tool rápido)
+- TailwindCSS (estilos)
+- React Query (cache y fetching)
+- React Router v6 (navegación)
+- Zustand (estado global simple)
 
-**Objetivo:** Asegurar calidad y estabilidad
+---
+
+### ⏳ Fase 15: Despliegue Web - PLANIFICACIÓN
+
+**Objetivo:** Poner frontend web en producción.
+
+**Opciones de hosting:**
+| Plataforma | Pros | Costo |
+|------------|------|-------|
+| Vercel | Deploy automático, gratis tier | $0-20/mes |
+| Netlify | Similar a Vercel | $0-20/mes |
+| Railway | Mismo lugar que backend | $5-10/mes |
+| Cloudflare Pages | Muy rápido, gratis | $0 |
 
 **Tareas:**
-- [ ] Tests unitarios backend (pytest)
-- [ ] Tests de integración API
-- [ ] Tests end-to-end cliente
-- [ ] Load testing básico
-- [ ] Documentación de API
-- [ ] Documentación de despliegue
+- [ ] Build de producción
+- [ ] Configurar variables de entorno (API_URL)
+- [ ] Deploy en plataforma elegida
+- [ ] Configurar dominio (opcional)
+- [ ] SSL automático
 
-**Entregables:**
-- Cobertura de tests > 80%
-- Documentación completa
-- Sistema estable
+---
 
-### Fase 8: Despliegue Producción (Semana 12)
+## 7.1 Cómo Probar Modo Remoto Sin Railway
 
-**Objetivo:** Poner en producción
+**IMPORTANTE:** Para probar la versión multi-tenant sin depender del deploy en Railway, puedes ejecutar el backend localmente:
 
-**Tareas:**
-- [ ] Configurar Railway/Render
-- [ ] Configurar PostgreSQL producción
-- [ ] Configurar dominio personalizado
-- [ ] Configurar SSL
-- [ ] Migrar datos de prueba
-- [ ] Monitoreo y alertas
-- [ ] Backup automático BD
+### Opción A: Backend local con SQLite (más fácil)
 
-**Entregables:**
-- API en producción
-- Cliente conectado a producción
-- Sistema de backups operativo
+```bash
+# Terminal 1: Backend
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --port 8000
+
+# Terminal 2: Desktop client
+# En la app, configurar servidor: http://localhost:8000
+python3 dragofactu_complete.py
+```
+
+### Opción B: Backend local con PostgreSQL (más realista)
+
+```bash
+# Levantar PostgreSQL con Docker
+cd backend
+docker-compose up -d db
+
+# Backend conectado a PostgreSQL local
+export DATABASE_URL="postgresql://dragofactu:secret@localhost:5432/dragofactu"
+uvicorn app.main:app --reload --port 8000
+
+# Desktop client
+python3 dragofactu_complete.py
+# Configurar servidor: http://localhost:8000
+```
+
+### Opción C: Mock del servidor (para tests unitarios)
+
+```python
+# En tests, usar fixture que mockea las responses
+import pytest
+from unittest.mock import patch, MagicMock
+
+@pytest.fixture
+def mock_api():
+    with patch('dragofactu.services.api_client.APIClient') as mock:
+        mock_instance = MagicMock()
+        mock_instance.health_check.return_value = {"status": "healthy"}
+        mock_instance.list_clients.return_value = {"items": [], "total": 0}
+        mock.return_value = mock_instance
+        yield mock_instance
+```
+
+### Verificar que funciona
+
+```bash
+# Health check
+curl http://localhost:8000/health
+# Debería devolver: {"status": "healthy", ...}
+
+# Ver docs Swagger
+open http://localhost:8000/docs
+```
 
 ---
 
@@ -2335,21 +2584,89 @@ Antes de marcar una tab como "completada", verificar:
 
 ---
 
-## Checklist Final
+## Checklist Final - Estado Actual
 
-Antes de empezar la implementación, verificar:
+### ✅ YA COMPLETADO
+- [x] Backend API FastAPI completo (45+ endpoints)
+- [x] 52 tests pytest pasando
+- [x] Deploy en Railway funcionando
+- [x] APIClient en desktop funcional
+- [x] Login híbrido (local/remoto)
+- [x] Todas las tabs con soporte API
+- [x] WorkersManagementTab creada
+- [x] Auto-login con tokens guardados
+- [x] Traducciones es/en/de actualizadas
 
-- [ ] Este documento ha sido leído completamente
-- [ ] Se entiende la arquitectura objetivo
-- [ ] Se tiene acceso a los archivos del proyecto
-- [ ] Se tiene Python 3.10+ instalado
-- [ ] Se tiene Docker instalado (para PostgreSQL local)
-- [ ] Se tiene cuenta en Railway/Render (o se creará)
-- [ ] Se entiende el modelo de colaboración Claude/Usuario
+### 🔄 EN PROGRESO
+- [ ] Migrar a PostgreSQL en Railway
+- [ ] Fix de bugs reportados por usuario
+
+### ⏳ PENDIENTE
+- [ ] Sincronización offline
+- [ ] Tests de integración UI
+- [ ] Frontend web (React)
+- [ ] Deploy frontend
+
+---
+
+## Debugging y Resolución de Errores
+
+### Cómo investigar errores en modo remoto
+
+1. **Ver logs del backend en Railway:**
+   ```bash
+   # Si tienes Railway CLI instalado
+   railway logs
+
+   # O desde el Dashboard de Railway → Logs
+   ```
+
+2. **Ver logs del cliente desktop:**
+   ```python
+   # Los logs se escriben con logger
+   # Ejecutar con más verbosidad:
+   python3 -c "
+   import logging
+   logging.basicConfig(level=logging.DEBUG)
+   exec(open('dragofactu_complete.py').read())
+   "
+   ```
+
+3. **Probar endpoints directamente:**
+   ```bash
+   # Health check
+   curl https://dragofactu-production.up.railway.app/health
+
+   # Login
+   curl -X POST https://dragofactu-production.up.railway.app/api/v1/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username": "tu_usuario", "password": "tu_password"}'
+
+   # Cualquier endpoint (con token)
+   curl https://dragofactu-production.up.railway.app/api/v1/clients \
+     -H "Authorization: Bearer TU_ACCESS_TOKEN"
+   ```
+
+4. **Verificar tokens guardados:**
+   ```bash
+   cat ~/.dragofactu/api_tokens.json
+   cat ~/.dragofactu/app_mode.json
+   ```
+
+### Errores comunes y soluciones
+
+| Error | Causa | Solución |
+|-------|-------|----------|
+| 400 Bad Request | Schema no acepta campo enviado | Verificar schemas en `backend/app/schemas/` |
+| 401 Unauthorized | Token expirado o inválido | Borrar `~/.dragofactu/api_tokens.json` y re-login |
+| 422 Validation Error | Datos con formato incorrecto | Ver detalle en response JSON |
+| Connection Error | Servidor no alcanzable | Verificar URL y conexión |
+| `'str' object has no attribute 'hex'` | ID string vs UUID | Convertir con `uuid.UUID(id_str)` |
 
 ---
 
 **Documento creado por:** Claude Opus 4.5
-**Fecha:** 2026-02-01
-**Versión:** 1.0
-**Próxima revisión:** Al iniciar Fase 1
+**Fecha inicial:** 2026-02-01
+**Última actualización:** 2026-02-06
+**Versión:** 2.0
+**Estado:** Fase 10 completada, preparando Fase 11

@@ -38,7 +38,8 @@
     "products": "Products",
     "documents": "Documents",
     "inventory": "Inventory",
-    "diary": "Diary"
+    "diary": "Diary",
+    "workers": "Workers"
   },
   "dashboard": {
     "welcome": "Welcome to DRAGOFACTU",
@@ -165,6 +166,25 @@
   "status": {
     "ready": "Ready",
     "user": "User"
+  },
+  "workers": {
+    "title": "Worker Management",
+    "code": "CODE",
+    "first_name": "FIRST NAME",
+    "last_name": "LAST NAME",
+    "full_name": "FULL NAME",
+    "position": "POSITION",
+    "department": "DEPARTMENT",
+    "email": "EMAIL",
+    "phone": "PHONE",
+    "address": "ADDRESS",
+    "hire_date": "HIRE DATE",
+    "salary": "SALARY",
+    "active": "STATUS",
+    "new_worker": "+ New Worker",
+    "edit_worker": "Edit Worker",
+    "search_placeholder": "Search by name, code or department...",
+    "all_departments": "All departments"
   },
   "settings": {
     "title": "Settings",

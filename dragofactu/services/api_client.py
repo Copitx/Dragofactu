@@ -156,7 +156,11 @@ class APIClient:
             self._token_file.unlink()
 
     def _refresh_token(self) -> bool:
-        """Refresh access token using refresh token."""
+        """Refresh access token using refresh token.
+
+        Only clears tokens if server explicitly rejects (401/403).
+        Network errors preserve tokens for retry.
+        """
         if not self._token_data:
             return False
         try:
@@ -171,10 +175,19 @@ class APIClient:
                 self._token_data.access_token = data["access_token"]
                 self._save_tokens()
                 return True
-        except:
-            pass
-        self._clear_tokens()
-        return False
+            elif response.status_code in (401, 403):
+                # Server explicitly rejected - tokens are invalid
+                self._clear_tokens()
+                return False
+            else:
+                # Other server error, keep tokens for retry
+                return False
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            # Network error - don't clear tokens, keep for later retry
+            return False
+        except Exception:
+            # Unknown error - don't clear tokens
+            return False
 
     # ==================== AUTH ====================
 
@@ -476,4 +489,13 @@ def get_api_client(base_url: str = None) -> APIClient:
     global _api_client
     if _api_client is None:
         _api_client = APIClient(base_url)
+    elif base_url and _api_client.base_url != base_url.rstrip("/"):
+        # URL changed, create new instance
+        _api_client = APIClient(base_url)
     return _api_client
+
+
+def reset_api_client():
+    """Reset the singleton API client instance."""
+    global _api_client
+    _api_client = None

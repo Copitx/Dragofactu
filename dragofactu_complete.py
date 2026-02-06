@@ -1412,23 +1412,40 @@ class Dashboard(QWidget):
             self.user_reminders_layout.addWidget(empty_label)
 
     def _get_user_reminders(self):
-        """Get user reminders from database"""
+        """Get user reminders - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            with SessionLocal() as db:
-                reminders = db.query(Reminder).filter(
-                    Reminder.is_completed == False
-                ).order_by(Reminder.due_date.asc().nullslast(), Reminder.created_at.desc()).limit(10).all()
-
+            if app_mode.is_remote:
+                # Fetch from API
+                response = app_mode.api.list_reminders(pending_only=True)
+                items = response.get("items", [])
                 result = []
-                for r in reminders:
+                for r in items:
                     result.append({
-                        'id': str(r.id),
-                        'title': r.title,
-                        'description': r.description,
-                        'due_date': r.due_date,
-                        'priority': r.priority or 'normal',
+                        'id': str(r.get('id', '')),
+                        'title': r.get('title', ''),
+                        'description': r.get('description', ''),
+                        'due_date': r.get('due_date'),
+                        'priority': r.get('priority', 'normal'),
                     })
                 return result
+            else:
+                # Fetch from local database
+                with SessionLocal() as db:
+                    reminders = db.query(Reminder).filter(
+                        Reminder.is_completed == False
+                    ).order_by(Reminder.due_date.asc().nullslast(), Reminder.created_at.desc()).limit(10).all()
+
+                    result = []
+                    for r in reminders:
+                        result.append({
+                            'id': str(r.id),
+                            'title': r.title,
+                            'description': r.description,
+                            'due_date': r.due_date,
+                            'priority': r.priority or 'normal',
+                        })
+                    return result
         except Exception as e:
             logger.error(f"Error getting reminders: {e}")
             return []
@@ -4619,124 +4636,167 @@ class DocumentManagementTab(QWidget):
             QMessageBox.critical(self, "Error", f"Error al abrir documento: {str(e)}")
 
     def view_document(self, document):
-        """View document details"""
+        """View document details - supports local and remote"""
+        app_mode = get_app_mode()
         try:
-            # Ensure ID is a UUID object
-            doc_id = uuid.UUID(str(document.id)) if not isinstance(document.id, uuid.UUID) else document.id
-            with SessionLocal() as db:
-                # Reload document with relationships
-                doc = db.query(Document).options(joinedload(Document.client)).filter(Document.id == doc_id).first()
-                if not doc:
-                    QMessageBox.warning(self, "❌ Error", "Documento no encontrado")
-                    return
+            # Get document ID as string for API, or UUID for local
+            doc_id_str = str(document.id) if hasattr(document, 'id') else str(document.get('id', ''))
 
-                # Build document info
-                doc_type = "Presupuesto" if doc.type == DocumentType.QUOTE else "Factura" if doc.type == DocumentType.INVOICE else "Albarán"
-                client_name = doc.client.name if doc.client else "N/A"
-                issue_date = doc.issue_date.strftime('%d/%m/%Y') if doc.issue_date else "N/A"
-                due_date = doc.due_date.strftime('%d/%m/%Y') if doc.due_date else "N/A"
-                status_text = doc.status.value if hasattr(doc.status, 'value') else str(doc.status)
-
-                # Create view dialog
-                view_dialog = QDialog(self)
-                view_dialog.setWindowTitle(f"📄 {doc_type} - {doc.code}")
-                view_dialog.setModal(True)
-                view_dialog.resize(600, 500)
-
-                layout = QVBoxLayout(view_dialog)
-
-                # Header
-                header = QLabel(f"📄 {doc_type}: {doc.code}")
-                header.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-                layout.addWidget(header)
-
-                # Document details
-                details_group = QGroupBox("📋 Detalles del Documento")
-                details_layout = QFormLayout(details_group)
-                details_layout.addRow("Código:", QLabel(doc.code or ""))
-                details_layout.addRow("Tipo:", QLabel(doc_type))
-                details_layout.addRow("Estado:", QLabel(status_text))
-                details_layout.addRow("Cliente:", QLabel(client_name))
-                details_layout.addRow("Fecha Emisión:", QLabel(issue_date))
-                details_layout.addRow("Fecha Vencimiento:", QLabel(due_date))
-                layout.addWidget(details_group)
-
-                # Financial details
-                financial_group = QGroupBox("💰 Detalles Financieros")
-                financial_layout = QFormLayout(financial_group)
-                financial_layout.addRow("Subtotal:", QLabel(f"{doc.subtotal or 0:.2f} €"))
-                financial_layout.addRow("IVA:", QLabel(f"{doc.tax_amount or 0:.2f} €"))
-                financial_layout.addRow("Total:", QLabel(f"{doc.total or 0:.2f} €"))
-                layout.addWidget(financial_group)
-
-                # Notes
-                if doc.notes:
-                    notes_group = QGroupBox("📝 Notas")
-                    notes_layout = QVBoxLayout(notes_group)
-                    notes_text = QTextEdit()
-                    notes_text.setPlainText(doc.notes)
-                    notes_text.setReadOnly(True)
-                    notes_text.setMaximumHeight(100)
-                    notes_layout.addWidget(notes_text)
-                    layout.addWidget(notes_group)
-
-                # Buttons layout
-                buttons_layout = QHBoxLayout()
-
-                # PDF button
-                pdf_btn = QPushButton("Exportar PDF")
-                pdf_btn.setStyleSheet(UIStyles.get_primary_button_style())
-                pdf_btn.clicked.connect(lambda: (view_dialog.accept(), self.generate_pdf(doc)))
-                buttons_layout.addWidget(pdf_btn)
-
-                # Edit button
-                edit_btn = QPushButton("Editar")
-                edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-                edit_btn.clicked.connect(lambda: (view_dialog.accept(), self.edit_document(doc)))
-                buttons_layout.addWidget(edit_btn)
-
-                # Close button
-                close_btn = QPushButton("Cerrar")
-                close_btn.setStyleSheet(UIStyles.get_secondary_button_style())
-                close_btn.clicked.connect(view_dialog.accept)
-                buttons_layout.addWidget(close_btn)
-
-                layout.addLayout(buttons_layout)
-
-                view_dialog.exec()
-
-        except Exception as e:
-            logger.error(f"Error viewing document: {e}")
-            QMessageBox.critical(self, "❌ Error", f"Error al ver documento: {str(e)}")
-
-    def edit_document(self, document):
-        """Edit document - opens full document dialog for editing"""
-        try:
-            # Ensure ID is a UUID object
-            doc_id = uuid.UUID(str(document.id)) if not isinstance(document.id, uuid.UUID) else document.id
-            with SessionLocal() as db:
-                doc = db.query(Document).filter(Document.id == doc_id).first()
-                if not doc:
+            if app_mode.is_remote:
+                # Fetch from API
+                doc_data = app_mode.api.get_document(doc_id_str)
+                if not doc_data:
                     QMessageBox.warning(self, "Error", "Documento no encontrado")
                     return
 
-                # Determine document type
-                doc_type = "quote"
-                if doc.type == DocumentType.INVOICE:
-                    doc_type = "invoice"
-                elif doc.type == DocumentType.DELIVERY_NOTE:
-                    doc_type = "delivery"
+                # Extract data from API response
+                doc_type_value = doc_data.get('type', 'quote')
+                doc_type = "Presupuesto" if doc_type_value == 'quote' else "Factura" if doc_type_value == 'invoice' else "Albarán"
+                client_name = doc_data.get('client_name', 'N/A')
+                code = doc_data.get('code', 'N/A')
+                issue_date = doc_data.get('issue_date', 'N/A')
+                due_date = doc_data.get('due_date', 'N/A')
+                status_text = get_status_label(doc_data.get('status', 'draft'))
+                subtotal = doc_data.get('subtotal', 0) or 0
+                tax_amount = doc_data.get('tax_amount', 0) or 0
+                total = doc_data.get('total', 0) or 0
+                notes = doc_data.get('notes', '')
+            else:
+                # Fetch from local database
+                doc_id = uuid.UUID(doc_id_str) if not isinstance(document.id, uuid.UUID) else document.id
+                with SessionLocal() as db:
+                    doc = db.query(Document).options(joinedload(Document.client)).filter(Document.id == doc_id).first()
+                    if not doc:
+                        QMessageBox.warning(self, "Error", "Documento no encontrado")
+                        return
 
-                # Open full editor dialog
-                dialog = DocumentDialog(self, doc_type, document_id=str(doc.id))
-                if dialog.exec():
-                    self.refresh_data()
-                    self._sync_dashboard()
-                    self._sync_inventory()
+                    doc_type = "Presupuesto" if doc.type == DocumentType.QUOTE else "Factura" if doc.type == DocumentType.INVOICE else "Albarán"
+                    client_name = doc.client.name if doc.client else "N/A"
+                    code = doc.code or ""
+                    issue_date = doc.issue_date.strftime('%d/%m/%Y') if doc.issue_date else "N/A"
+                    due_date = doc.due_date.strftime('%d/%m/%Y') if doc.due_date else "N/A"
+                    status_text = doc.status.value if hasattr(doc.status, 'value') else str(doc.status)
+                    subtotal = doc.subtotal or 0
+                    tax_amount = doc.tax_amount or 0
+                    total = doc.total or 0
+                    notes = doc.notes or ''
+
+            # Create view dialog
+            view_dialog = QDialog(self)
+            view_dialog.setWindowTitle(f"📄 {doc_type} - {code}")
+            view_dialog.setModal(True)
+            view_dialog.resize(600, 500)
+
+            layout = QVBoxLayout(view_dialog)
+
+            # Header
+            header = QLabel(f"📄 {doc_type}: {code}")
+            header.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+            layout.addWidget(header)
+
+            # Document details
+            details_group = QGroupBox("📋 Detalles del Documento")
+            details_layout = QFormLayout(details_group)
+            details_layout.addRow("Código:", QLabel(code))
+            details_layout.addRow("Tipo:", QLabel(doc_type))
+            details_layout.addRow("Estado:", QLabel(status_text))
+            details_layout.addRow("Cliente:", QLabel(client_name))
+            details_layout.addRow("Fecha Emisión:", QLabel(str(issue_date)))
+            details_layout.addRow("Fecha Vencimiento:", QLabel(str(due_date)))
+            layout.addWidget(details_group)
+
+            # Financial details
+            financial_group = QGroupBox("💰 Detalles Financieros")
+            financial_layout = QFormLayout(financial_group)
+            financial_layout.addRow("Subtotal:", QLabel(f"{subtotal:.2f} €"))
+            financial_layout.addRow("IVA:", QLabel(f"{tax_amount:.2f} €"))
+            financial_layout.addRow("Total:", QLabel(f"{total:.2f} €"))
+            layout.addWidget(financial_group)
+
+            # Notes
+            if notes:
+                notes_group = QGroupBox("📝 Notas")
+                notes_layout = QVBoxLayout(notes_group)
+                notes_text = QTextEdit()
+                notes_text.setPlainText(notes)
+                notes_text.setReadOnly(True)
+                notes_text.setMaximumHeight(100)
+                notes_layout.addWidget(notes_text)
+                layout.addWidget(notes_group)
+
+            # Buttons layout
+            buttons_layout = QHBoxLayout()
+
+            # PDF button
+            pdf_btn = QPushButton("Exportar PDF")
+            pdf_btn.setStyleSheet(UIStyles.get_primary_button_style())
+            pdf_btn.clicked.connect(lambda: (view_dialog.accept(), self.generate_pdf_by_id(doc_id_str)))
+            buttons_layout.addWidget(pdf_btn)
+
+            # Edit button
+            edit_btn = QPushButton("Editar")
+            edit_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+            edit_btn.clicked.connect(lambda: (view_dialog.accept(), self.edit_document_by_id(doc_id_str)))
+            buttons_layout.addWidget(edit_btn)
+
+            # Close button
+            close_btn = QPushButton("Cerrar")
+            close_btn.setStyleSheet(UIStyles.get_secondary_button_style())
+            close_btn.clicked.connect(view_dialog.accept)
+            buttons_layout.addWidget(close_btn)
+
+            layout.addLayout(buttons_layout)
+
+            view_dialog.exec()
+
+        except Exception as e:
+            logger.error(f"Error viewing document: {e}")
+            QMessageBox.critical(self, "Error", f"Error al ver documento: {str(e)}")
+
+    def edit_document_by_id(self, document_id: str):
+        """Edit document by ID - supports local and remote"""
+        app_mode = get_app_mode()
+        try:
+            if app_mode.is_remote:
+                # Fetch document type from API
+                doc_data = app_mode.api.get_document(document_id)
+                if not doc_data:
+                    QMessageBox.warning(self, "Error", "Documento no encontrado")
+                    return
+                doc_type_value = doc_data.get('type', 'quote')
+                doc_type = doc_type_value  # quote, invoice, delivery_note
+                if doc_type == 'delivery_note':
+                    doc_type = 'delivery'
+            else:
+                # Fetch from local database
+                doc_id = uuid.UUID(document_id)
+                with SessionLocal() as db:
+                    doc = db.query(Document).filter(Document.id == doc_id).first()
+                    if not doc:
+                        QMessageBox.warning(self, "Error", "Documento no encontrado")
+                        return
+
+                    doc_type = "quote"
+                    if doc.type == DocumentType.INVOICE:
+                        doc_type = "invoice"
+                    elif doc.type == DocumentType.DELIVERY_NOTE:
+                        doc_type = "delivery"
+
+            # Open full editor dialog
+            dialog = DocumentDialog(self, doc_type, document_id=document_id)
+            if dialog.exec():
+                self.refresh_data()
+                self._sync_dashboard()
+                self._sync_inventory()
 
         except Exception as e:
             logger.error(f"Error editing document: {e}")
             QMessageBox.critical(self, "Error", f"Error al editar documento: {str(e)}")
+
+    def edit_document(self, document):
+        """Edit document - wrapper for edit_document_by_id"""
+        doc_id_str = str(document.id) if hasattr(document, 'id') else str(document.get('id', ''))
+        self.edit_document_by_id(doc_id_str)
 
     def delete_document(self, document):
         """Delete document"""

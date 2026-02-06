@@ -2213,6 +2213,128 @@ Recomendación: Demasiado complejo
 
 ---
 
+## 12. Lecciones Aprendidas y Recomendaciones (Revisión 2026-02-06)
+
+Esta sección documenta los problemas encontrados durante la implementación y las recomendaciones para futuros agentes IA que trabajen en este proyecto.
+
+### 12.1 Evaluación General: 7/10
+
+La implementación del backend y la estructura base es sólida, pero la integración con el frontend tiene inconsistencias graves que causan errores en producción.
+
+### 12.2 Problemas Críticos Encontrados
+
+#### ❌ GRAVE: Inconsistencia Schema/Frontend
+
+**Problema:** El schema `ClientCreate` no incluía el campo `is_active`, pero el frontend lo enviaba, causando Error 400.
+
+**Archivo:** `backend/app/schemas/client.py`
+
+**Solución aplicada:**
+```python
+class ClientCreate(ClientBase):
+    """Client creation schema."""
+    is_active: bool = True  # ← Añadido
+
+class ClientUpdate(BaseModel):
+    # ... otros campos ...
+    is_active: Optional[bool] = None  # ← Añadido
+```
+
+**Lección:** SIEMPRE verificar que los campos enviados por el frontend coincidan con los aceptados por el schema Pydantic.
+
+#### ❌ GRAVE: Métodos que ignoran el modo remoto
+
+**Problema:** Varios métodos en `dragofactu_complete.py` nunca verifican `app_mode.is_remote` y siempre usan SQLite local.
+
+**Métodos afectados:**
+1. `_get_user_reminders()` (línea ~1417) - Dashboard siempre muestra recordatorios locales
+2. `edit_document()` (línea ~4712) - Edición siempre usa BD local
+3. `open_document_editor()` (línea ~4601) - Diálogo siempre carga datos locales
+4. `view_document()` (línea ~4626) - Vista siempre recarga de BD local
+
+**Patrón que DEBIÓ usarse:**
+```python
+def some_method(self):
+    app_mode = get_app_mode()
+    if app_mode.is_remote:
+        return self._some_method_remote(app_mode.api)
+    else:
+        return self._some_method_local()
+```
+
+#### ❌ GRAVE: Conversión UUID inconsistente
+
+**Problema:** El API devuelve IDs como strings, pero el código local espera objetos UUID, causando `'str' object has no attribute 'hex'`.
+
+**Solución correcta:**
+```python
+# Siempre normalizar IDs antes de usarlos
+def normalize_id(id_value):
+    if isinstance(id_value, str):
+        return uuid.UUID(id_value)
+    return id_value
+```
+
+### 12.3 Cosas MAL Hechas que NO deben repetirse
+
+1. **NO marcar métodos como "completados" sin probarlos** - Varios métodos fueron documentados como "híbridos" pero nunca se implementó el soporte remoto.
+
+2. **NO asumir que `SessionLocal()` funciona en modo remoto** - Cada uso de `SessionLocal()` debe estar condicionado a `not app_mode.is_remote`.
+
+3. **NO ignorar la validación de schemas** - El frontend debe enviar EXACTAMENTE lo que el schema espera.
+
+4. **NO mezclar tipos de ID** - Decidir si se usan strings o UUIDs y ser CONSISTENTE en todo el código.
+
+5. **NO modificar múltiples archivos sin verificar integración** - Cada cambio debe probarse end-to-end.
+
+### 12.4 Recomendaciones para Futuros Agentes IA
+
+#### Antes de modificar código:
+1. **Leer CLAUDE.md completo** - Contiene el estado actual y patrones establecidos
+2. **Buscar usos existentes** del patrón que vas a implementar
+3. **Verificar schemas Pydantic** antes de enviar datos al API
+
+#### Durante la implementación:
+1. **Un commit por feature funcional** - No commits parciales
+2. **Probar en ambos modos** (local y remoto) antes de marcar como completado
+3. **Usar el patrón establecido:**
+   ```python
+   app_mode = get_app_mode()
+   if app_mode.is_remote:
+       # Usar app_mode.api.method()
+   else:
+       # Usar SessionLocal()
+   ```
+
+#### Después de implementar:
+1. **Actualizar CLAUDE.md** con los cambios realizados
+2. **Documentar problemas encontrados** para el siguiente agente
+3. **NO mentir sobre el estado** - Si algo no funciona, documentarlo
+
+### 12.5 Checklist de Verificación para Modo Híbrido
+
+Antes de marcar una tab como "completada", verificar:
+
+- [ ] `refresh_data()` usa API en modo remoto
+- [ ] `create_*()` usa API en modo remoto
+- [ ] `update_*()` usa API en modo remoto
+- [ ] `delete_*()` usa API en modo remoto
+- [ ] Diálogos de edición cargan datos del API en modo remoto
+- [ ] Los IDs se manejan correctamente (string vs UUID)
+- [ ] No hay llamadas a `SessionLocal()` sin verificar modo
+- [ ] Los datos se muestran correctamente en la tabla después de crear/editar
+
+### 12.6 Archivos Críticos a Revisar
+
+| Archivo | Qué verificar |
+|---------|---------------|
+| `dragofactu_complete.py` | Todos los métodos de cada Tab |
+| `backend/app/schemas/*.py` | Campos coinciden con frontend |
+| `dragofactu/services/api_client.py` | Métodos cubren todos los endpoints |
+| `backend/app/api/v1/*.py` | Responses incluyen todos los campos necesarios |
+
+---
+
 ## Checklist Final
 
 Antes de empezar la implementación, verificar:

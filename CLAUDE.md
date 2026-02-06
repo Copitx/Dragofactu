@@ -334,13 +334,13 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 | 1 | Schema `ClientCreate` no aceptaba `is_active` → Error 400 | backend/schemas/client.py | ✅ ARREGLADO |
 | 2 | Schema `ClientUpdate` no aceptaba `is_active` | backend/schemas/client.py | ✅ ARREGLADO |
 
-### Problemas Pendientes de Corregir
-| # | Problema | Ubicación | Severidad |
-|---|----------|-----------|-----------|
-| 1 | `_get_user_reminders()` no usa API en modo remoto | Dashboard línea ~1417 | ALTA |
-| 2 | `edit_document()` ignora app_mode | DocumentManagementTab línea ~4712 | ALTA |
-| 3 | `open_document_editor()` sin app_mode check | DocumentManagementTab línea ~4601 | ALTA |
-| 4 | `view_document()` siempre recarga desde BD local | DocumentManagementTab línea ~4626 | MEDIA |
+### Problemas Corregidos (2026-02-06)
+| # | Problema | Ubicación | Estado |
+|---|----------|-----------|--------|
+| 1 | `_get_user_reminders()` no usa API en modo remoto | Dashboard línea ~1417 | ✅ ARREGLADO |
+| 2 | `edit_document()` ignora app_mode | DocumentManagementTab | ✅ ARREGLADO (nuevo `edit_document_by_id`) |
+| 3 | `open_document_editor()` sin app_mode check | No existía, método renombrado | ✅ N/A |
+| 4 | `view_document()` siempre recarga desde BD local | DocumentManagementTab | ✅ ARREGLADO (soporte híbrido)
 
 ### Lo Que Funciona Bien
 - ✅ Backend API completo (50+ endpoints, 52 tests)

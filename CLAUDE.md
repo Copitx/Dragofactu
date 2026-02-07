@@ -223,7 +223,13 @@ DEFAULT_LANGUAGE=es
 
 - [x] PDF generation en modo remoto
 - [x] Fase 13: Sincronización/cache offline
-- [ ] Fase 14: Testing integración
+- [ ] **Fase 14:** Testing completo (backend ~40 tests nuevos + integración manual)
+- [ ] **Fase 15:** Seguridad (CORS, validación inputs, rate limiting) + CI/CD (GitHub Actions)
+- [ ] **Fase 16:** Features backend (export/import CSV, audit log, informes)
+- [ ] **Fase 17:** Mejoras UI/UX (tema oscuro, atajos, notificaciones toast, tablas mejoradas)
+- [ ] **Fase 18:** Producción y monitoreo (health check avanzado, backups, métricas)
+
+> **Plan detallado paso a paso de cada fase:** ver `MEMORIA_LARGO_PLAZO.md` § "Fases Futuras"
 
 ---
 

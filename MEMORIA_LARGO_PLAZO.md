@@ -685,33 +685,474 @@ Ver sesión 2026-02-07 arriba para detalles completos.
 
 ---
 
-### FASE 14: TESTING DE INTEGRACIÓN
+### FASE 14: TESTING COMPLETO (Backend + Integración)
 
-**Objetivo:** Asegurar que todo funciona end-to-end.
+**Objetivo:** Cubrir todos los endpoints con tests automatizados y verificar integración end-to-end.
+**Prioridad:** ALTA - Es la base para poder iterar con confianza.
+**Estimación:** ~40 tests nuevos sobre los 52 existentes.
 
-#### Tests manuales a realizar:
+#### Estado Actual de Tests
+
+```
+backend/tests/
+├── conftest.py       # Fixtures: db, client, test_company, test_user, auth_headers
+├── test_auth.py      # 13 tests ✅
+├── test_clients.py   # 12 tests ✅
+├── test_products.py  # ~12 tests ✅
+├── test_documents.py # ~10 tests ✅
+├── test_health.py    # ~5 tests ✅
+```
+
+**Tests que FALTAN (por orden de prioridad):**
+
+#### Paso 14.1: Tests Suppliers (~8 tests)
+```bash
+# Crear: backend/tests/test_suppliers.py
+```
+Tests a implementar:
+- [ ] `test_create_supplier` - POST /suppliers con datos válidos
+- [ ] `test_list_suppliers` - GET /suppliers con paginación
+- [ ] `test_get_supplier` - GET /suppliers/{id}
+- [ ] `test_update_supplier` - PUT /suppliers/{id}
+- [ ] `test_delete_supplier` - DELETE /suppliers/{id} (soft delete)
+- [ ] `test_search_suppliers` - GET /suppliers?search=
+- [ ] `test_supplier_multi_tenancy` - No ver suppliers de otra empresa
+- [ ] `test_supplier_unauthenticated` - 401 sin token
+
+#### Paso 14.2: Tests Workers (~8 tests)
+```bash
+# Crear: backend/tests/test_workers.py
+```
+- [ ] CRUD completo (create, list, get, update, delete)
+- [ ] Filtro por departamento
+- [ ] Búsqueda por nombre/código
+- [ ] Multi-tenancy aislamiento
+
+#### Paso 14.3: Tests Diary (~6 tests)
+```bash
+# Crear: backend/tests/test_diary.py
+```
+- [ ] CRUD entradas de diario
+- [ ] Filtro por fecha
+- [ ] Multi-tenancy
+
+#### Paso 14.4: Tests Reminders (~8 tests)
+```bash
+# Crear: backend/tests/test_reminders.py
+```
+- [ ] CRUD reminders
+- [ ] POST /reminders/{id}/complete
+- [ ] Filtro por prioridad
+- [ ] Filtro por estado (completado/pendiente)
+- [ ] Timezone handling (problema que ya corregimos en v2.0.2)
+
+#### Paso 14.5: Tests Dashboard (~4 tests)
+```bash
+# Crear: backend/tests/test_dashboard.py
+```
+- [ ] GET /dashboard/stats retorna formato correcto
+- [ ] Stats reflejan datos reales (crear datos → verificar conteo)
+- [ ] Multi-tenancy en stats
+
+#### Paso 14.6: Tests Documentos Avanzados (~6 tests)
+```bash
+# Añadir a: backend/tests/test_documents.py
+```
+- [ ] `test_change_status_valid_transition` - DRAFT→SENT
+- [ ] `test_change_status_invalid_transition` - PAID→DRAFT (debe fallar)
+- [ ] `test_convert_quote_to_invoice` - POST /documents/{id}/convert
+- [ ] `test_stock_deduction_on_paid` - Stock se descuenta al pagar
+- [ ] `test_document_code_auto_generation` - Códigos PRE-/FAC-/ALB- automáticos
+- [ ] `test_document_with_lines` - Documento con líneas de producto
+
+#### Paso 14.7: Tests de Integración Desktop (Manuales)
+
+Checklist manual para verificar flujo completo:
 
 1. **Login remoto:**
-   - [ ] Configurar URL del servidor en Settings
+   - [ ] Configurar URL servidor en Settings
    - [ ] Login con credenciales válidas
-   - [ ] Login con credenciales inválidas
-   - [ ] Token refresh automático
+   - [ ] Login con credenciales inválidas → mensaje error
+   - [ ] Token refresh automático (esperar >15min)
 
-2. **CRUD via API:**
-   - [ ] Crear cliente → aparece en tabla
-   - [ ] Editar cliente → cambios guardados
-   - [ ] Eliminar cliente → desaparece (soft delete)
-   - [ ] Repetir para productos, documentos, etc.
+2. **CRUD via API (cada tab):**
+   - [ ] Crear/Editar/Eliminar cliente
+   - [ ] Crear/Editar/Eliminar producto
+   - [ ] Crear/Editar/Eliminar documento
+   - [ ] Crear/Editar/Eliminar trabajador
+   - [ ] Crear/Editar/Eliminar nota diario
 
-3. **Documentos:**
-   - [ ] Crear presupuesto
-   - [ ] Convertir a factura
-   - [ ] Cambiar estado a PAID
-   - [ ] Verificar stock descontado
+3. **Documentos avanzados:**
+   - [ ] Crear presupuesto → convertir a factura
+   - [ ] Cambiar estado a PAID → verificar stock descontado
+   - [ ] Generar PDF
 
-4. **Multi-tenant:**
+4. **Cache offline (Fase 13):**
+   - [ ] Con servidor activo: datos se cachean automáticamente
+   - [ ] Desconectar red: app muestra datos cacheados con indicador
+   - [ ] Reconectar: operaciones pendientes se sincronizan
+   - [ ] Limpiar cache → datos se borran
+
+5. **Multi-tenant:**
    - [ ] Registrar 2 empresas diferentes
    - [ ] Verificar que datos están aislados
+
+---
+
+### FASE 15: SEGURIDAD Y CI/CD
+
+**Objetivo:** Hardening de seguridad del backend y pipeline de integración continua.
+**Prioridad:** ALTA - Requisito antes de aceptar usuarios reales.
+
+#### Paso 15.1: CORS Restrictivo
+
+**Archivo:** `backend/app/main.py`
+
+Actualmente CORS está abierto (`allow_origins=["*"]`). Restringir:
+
+```python
+# Cambiar de:
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # ← PELIGROSO
+)
+
+# A:
+ALLOWED_ORIGINS = settings.ALLOWED_ORIGINS.split(",") if settings.ALLOWED_ORIGINS else ["http://localhost"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+```
+
+**Verificar:** Variable `ALLOWED_ORIGINS` en Railway settings.
+
+#### Paso 15.2: Validación de Inputs
+
+**Archivos:** `backend/app/schemas/*.py`
+
+Añadir límites de longitud y validación a todos los schemas:
+
+```python
+from pydantic import Field, validator
+
+class ClientCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    tax_id: Optional[str] = Field(None, max_length=20)
+    email: Optional[str] = Field(None, max_length=254)
+    phone: Optional[str] = Field(None, max_length=20)
+    address: Optional[str] = Field(None, max_length=500)
+    city: Optional[str] = Field(None, max_length=100)
+```
+
+Aplicar patrón similar a: ProductCreate, DocumentCreate, WorkerCreate, SupplierCreate.
+
+#### Paso 15.3: Rate Limiting
+
+**Archivo:** `backend/app/main.py`
+
+Añadir rate limiting básico para login:
+
+```python
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+# En auth router:
+@router.post("/login")
+@limiter.limit("5/minute")
+async def login(request: Request, ...):
+    ...
+```
+
+**Dependencia nueva:** `slowapi` en requirements.txt
+
+#### Paso 15.4: GitHub Actions CI
+
+**Archivo nuevo:** `.github/workflows/test.yml`
+
+```yaml
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: pip install pytest httpx
+      - run: python -m pytest tests/ -v --tb=short
+```
+
+#### Paso 15.5: Logging Estructurado
+
+**Archivo:** `backend/app/main.py` + `backend/app/core/logging.py`
+
+Añadir logging con formato JSON para Railway:
+
+```python
+import logging
+import json
+
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        return json.dumps({
+            "timestamp": self.formatTime(record),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "module": record.module,
+        })
+
+# Middleware para log de requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    duration = time.time() - start
+    logger.info(f"{request.method} {request.url.path} → {response.status_code} ({duration:.2f}s)")
+    return response
+```
+
+---
+
+### FASE 16: FUNCIONALIDADES BACKEND PENDIENTES
+
+**Objetivo:** Completar funcionalidades del backend que la UI espera pero no existen.
+**Prioridad:** MEDIA - Mejoras incrementales.
+
+#### Paso 16.1: Exportar/Importar Datos
+
+**Endpoints nuevos:**
+
+```
+GET  /api/v1/export/clients?format=csv     # Exportar clientes a CSV
+GET  /api/v1/export/products?format=csv    # Exportar productos a CSV
+POST /api/v1/import/clients                # Importar desde CSV
+POST /api/v1/import/products               # Importar desde CSV
+```
+
+**Archivos a crear:**
+- `backend/app/api/v1/export_import.py` - Router con endpoints
+- Usar `csv` stdlib para generación
+- `StreamingResponse` para archivos grandes
+
+**Integración Desktop:**
+- Menú Archivo → Importar / Exportar ya existe en la UI
+- Conectar acciones del menú a diálogos de selección de archivo
+- Llamar a nuevos endpoints del APIClient
+
+#### Paso 16.2: Audit Log (Registro de Auditoría)
+
+**Objetivo:** Registrar quién hizo qué y cuándo.
+
+**Modelo nuevo:** `backend/app/models/audit_log.py`
+
+```python
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    company_id = Column(GUID(), ForeignKey("companies.id"))
+    user_id = Column(GUID(), ForeignKey("users.id"))
+    action = Column(String(50))  # CREATE, UPDATE, DELETE, LOGIN, STATUS_CHANGE
+    entity_type = Column(String(50))  # client, product, document, etc.
+    entity_id = Column(GUID(), nullable=True)
+    details = Column(Text, nullable=True)  # JSON con cambios
+    created_at = Column(DateTime, default=func.now())
+```
+
+**Middleware o servicio:**
+```python
+def log_action(db, user, action, entity_type, entity_id=None, details=None):
+    entry = AuditLog(
+        company_id=user.company_id,
+        user_id=user.id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details=json.dumps(details) if details else None,
+    )
+    db.add(entry)
+    db.commit()
+```
+
+**Endpoint:** GET /api/v1/audit-log?entity_type=&limit=&offset=
+
+#### Paso 16.3: Generación de Informes
+
+**Objetivo:** Endpoint que genera resúmenes financieros.
+
+```
+GET /api/v1/reports/monthly?year=2026&month=2
+GET /api/v1/reports/quarterly?year=2026&quarter=1
+GET /api/v1/reports/annual?year=2026
+```
+
+**Respuesta:**
+```json
+{
+  "period": "2026-02",
+  "total_invoiced": 15000.00,
+  "total_paid": 12000.00,
+  "total_pending": 3000.00,
+  "num_invoices": 15,
+  "num_quotes": 8,
+  "top_clients": [...],
+  "top_products": [...]
+}
+```
+
+**Integración Desktop:**
+- Tab Reports (menú ya existe, tab no implementada)
+- Mostrar tablas y gráficos con datos del endpoint
+
+---
+
+### FASE 17: MEJORAS UI/UX
+
+**Objetivo:** Pulir la experiencia de usuario del desktop.
+**Prioridad:** MEDIA-BAJA - Mejoras de calidad de vida.
+
+#### Paso 17.1: Tema Oscuro
+
+**Archivo:** `dragofactu/ui/styles.py` + `dragofactu_complete.py`
+
+Añadir paleta oscura a UIStyles:
+
+```python
+class UIStyles:
+    _dark_mode = False
+
+    DARK_COLORS = {
+        "bg_app": "#1C1C1E",
+        "bg_card": "#2C2C2E",
+        "bg_hover": "#3A3A3C",
+        "text_primary": "#FFFFFF",
+        "text_secondary": "#AEAEB2",
+        "text_tertiary": "#636366",
+        "accent": "#0A84FF",
+        "border": "#48484A",
+        "border_light": "#38383A",
+    }
+```
+
+- Toggle en Settings → Apariencia → Tema: Claro/Oscuro
+- Persistir en `~/.dragofactu/app_mode.json`
+- Todos los métodos `get_*_style()` verifican `_dark_mode`
+
+#### Paso 17.2: Atajos de Teclado Mejorados
+
+Atajos globales adicionales:
+| Atajo | Acción |
+|-------|--------|
+| `Ctrl+1` a `Ctrl+7` | Cambiar a tab 1-7 |
+| `Ctrl+F` | Focus en barra de búsqueda |
+| `Ctrl+N` | Nuevo elemento (según tab activa) |
+| `Escape` | Cerrar diálogo/limpiar búsqueda |
+| `F5` | Refrescar datos |
+
+#### Paso 17.3: Notificaciones en App
+
+Reemplazar `QMessageBox` por notificaciones tipo toast:
+
+```python
+class ToastNotification(QWidget):
+    """Notificación flotante no-intrusiva."""
+    def __init__(self, message, type="success", parent=None):
+        # Animación slide-in desde la esquina superior derecha
+        # Auto-cerrar en 3 segundos
+        # Tipos: success (verde), warning (amarillo), error (rojo), info (azul)
+```
+
+#### Paso 17.4: Mejoras en Tablas
+
+- Ordenación clickeando en headers (sort ASC/DESC)
+- Columnas redimensionables con persistencia
+- Doble-click para editar
+- Selección múltiple + eliminación masiva
+- Exportar selección a CSV
+
+---
+
+### FASE 18: PRODUCCIÓN Y MONITOREO
+
+**Objetivo:** Preparar para uso real con múltiples empresas.
+**Prioridad:** BAJA - Solo cuando haya usuarios reales.
+
+#### Paso 18.1: Health Check Avanzado
+
+```python
+@app.get("/health")
+async def health(db: Session = Depends(get_db)):
+    return {
+        "status": "healthy",
+        "version": "2.1.0",
+        "database": "connected",  # Verificar conexión real
+        "uptime": get_uptime(),
+        "active_companies": db.query(Company).count(),
+    }
+```
+
+#### Paso 18.2: Backup Automático
+
+Script de backup para Railway PostgreSQL:
+
+```bash
+#!/bin/bash
+# backup.sh - Ejecutar con cron o Railway scheduled job
+pg_dump $DATABASE_URL | gzip > backup_$(date +%Y%m%d).sql.gz
+# Subir a S3 o similar
+```
+
+#### Paso 18.3: Migración Alembic Automatizada
+
+Configurar Alembic para migraciones automáticas en deploy:
+
+```python
+# backend/app/main.py - en lifespan
+from alembic.config import Config
+from alembic import command
+
+async def lifespan(app: FastAPI):
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+    yield
+```
+
+#### Paso 18.4: Métricas y Alertas
+
+- Endpoint `/metrics` con formato Prometheus
+- Métricas: requests/s, latencia, errores, usuarios activos
+- Alertas: error rate > 5%, latencia > 2s
+
+#### Paso 18.5: Documentación API
+
+- Swagger UI ya viene con FastAPI (`/docs`)
+- Añadir descripciones detalladas a cada endpoint
+- Generar página de documentación para clientes API
+
+---
+
+### Resumen de Prioridades
+
+| Fase | Prioridad | Dependencias | Impacto |
+|------|-----------|--------------|---------|
+| **14: Testing** | 🔴 ALTA | Ninguna | Base para todo lo demás |
+| **15: Seguridad + CI** | 🔴 ALTA | Fase 14 | Requisito para usuarios reales |
+| **16: Features Backend** | 🟡 MEDIA | Fase 15 | Funcionalidad completa |
+| **17: UI/UX** | 🟢 MEDIA-BAJA | Ninguna | Calidad de vida |
+| **18: Producción** | 🔵 BAJA | Fases 14-16 | Solo con usuarios reales |
 
 ---
 

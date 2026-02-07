@@ -38,6 +38,7 @@
 | v2.0.1 | 2026-02-06 | Fix auto-login + WorkersManagementTab + mejoras APIClient |
 | v2.0.2 | 2026-02-06 | Fix errores 422/500: límites paginación y timezone reminders |
 | v2.1.0 | 2026-02-07 | Fase 13: Cache offline + cola operaciones + monitor conectividad |
+| v2.2.0 | 2026-02-07 | Fases 14-15: Testing completo (103 tests) + Seguridad + CI/CD |
 
 ---
 
@@ -94,6 +95,61 @@ Implementación completa de Fase 13: sistema de cache offline con cola de operac
 - Flag `_from_cache` en response dict permite a la UI detectar datos cacheados
 - ConnectivityMonitor es thread-safe con threading.Lock
 - Usa QMetaObject.invokeMethod para callbacks thread-safe en Qt
+
+---
+
+### Sesión 2026-02-07 (3): Fase 15 - Seguridad + CI/CD
+**AI Agent:** Claude Opus 4.6
+
+#### Resumen
+Hardening de seguridad del backend y pipeline de integración continua.
+
+#### Cambios Implementados
+
+**1. CORS Configurable (`config.py` + `main.py`)**
+- `ALLOWED_ORIGINS` ahora es string en config (comma-separated)
+- Nuevo método `get_cors_origins()` para parsear a lista
+- En producción, establecer `ALLOWED_ORIGINS=https://tuapp.com,http://localhost`
+
+**2. Validación de Inputs en Schemas (8 archivos)**
+- Añadido `max_length` a 15+ campos que no tenían límite:
+  - `address`: max 500 chars (client, supplier, worker)
+  - `notes`: max 2000 chars (client, supplier, reminder)
+  - `description`: max 2000 chars (product, worker course, reminder)
+  - `content` (diary): max 50000 chars
+  - `tags` (diary): max 500 chars
+  - `notes/internal_notes/terms` (document): max 5000 chars
+  - `description` (document line): max 500 chars
+  - `password` (auth): max 128 chars
+
+**3. Middleware Stack (`main.py`)**
+- `RequestLoggingMiddleware`: Log de cada request con método, path, status y duración
+- `RequestSizeLimitMiddleware`: Rechaza requests > 10MB (configurable via `MAX_REQUEST_SIZE`)
+- Logging migrado de `print()` a `logging` module con formato estructurado
+
+**4. GitHub Actions CI (`.github/workflows/test.yml`)**
+- Ejecuta 103 tests en push/PR a main (solo si cambian archivos en `backend/`)
+- Python 3.11, pip cache, SQLite in-memory para tests
+
+**5. Rate Limiting (ya existía)**
+- Login: 5 intentos / 5 minutos por IP
+- Register: 3 intentos / 1 hora por IP
+- Implementado en `security_utils.py` con threading.Lock
+
+#### Archivos Modificados
+| Archivo | Cambios |
+|---------|---------|
+| `backend/app/config.py` | ALLOWED_ORIGINS como string, get_cors_origins(), MAX_REQUEST_SIZE |
+| `backend/app/main.py` | 2 nuevos middlewares, logging estructurado |
+| `backend/app/schemas/client.py` | max_length en address, notes |
+| `backend/app/schemas/supplier.py` | max_length en address, notes |
+| `backend/app/schemas/product.py` | max_length en description |
+| `backend/app/schemas/worker.py` | max_length en address, description |
+| `backend/app/schemas/diary.py` | max_length en content, tags |
+| `backend/app/schemas/reminder.py` | max_length en description |
+| `backend/app/schemas/document.py` | max_length en description, notes, terms |
+| `backend/app/schemas/auth.py` | max_length en password |
+| `.github/workflows/test.yml` | NUEVO - CI pipeline |
 
 ---
 
@@ -833,9 +889,9 @@ Checklist manual para verificar flujo completo:
 
 ---
 
-### FASE 15: SEGURIDAD Y CI/CD
+### FASE 15: SEGURIDAD Y CI/CD ✅ COMPLETADA
 
-**Objetivo:** Hardening de seguridad del backend y pipeline de integración continua.
+**Completado:** 2026-02-07 — CORS configurable, validación inputs, logging, CI pipeline.
 **Prioridad:** ALTA - Requisito antes de aceptar usuarios reales.
 
 #### Paso 15.1: CORS Restrictivo
@@ -1183,7 +1239,7 @@ async def lifespan(app: FastAPI):
 | Fase | Prioridad | Dependencias | Impacto |
 |------|-----------|--------------|---------|
 | **14: Testing** | ✅ COMPLETADA | - | 103 tests passing |
-| **15: Seguridad + CI** | 🔴 ALTA | Fase 14 | Requisito para usuarios reales |
+| **15: Seguridad + CI** | ✅ COMPLETADA | - | CORS, validación, logging, CI |
 | **16: Features Backend** | 🟡 MEDIA | Fase 15 | Funcionalidad completa |
 | **17: UI/UX** | 🟢 MEDIA-BAJA | Ninguna | Calidad de vida |
 | **18: Producción** | 🔵 BAJA | Fases 14-16 | Solo con usuarios reales |

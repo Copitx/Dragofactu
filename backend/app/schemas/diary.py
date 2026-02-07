@@ -11,9 +11,9 @@ from app.schemas.base import BaseSchema, TimestampMixin, PaginatedResponse
 class DiaryEntryBase(BaseModel):
     """Base diary entry fields."""
     title: str = Field(..., min_length=1, max_length=200)
-    content: str = Field(..., min_length=1)
+    content: str = Field(..., min_length=1, max_length=50000)
     entry_date: datetime
-    tags: Optional[str] = None  # JSON array as string
+    tags: Optional[str] = Field(None, max_length=500)  # JSON array as string
     related_document_id: Optional[UUID] = None
     is_pinned: bool = False
 
@@ -26,7 +26,7 @@ class DiaryEntryCreate(DiaryEntryBase):
 class DiaryEntryUpdate(BaseModel):
     """Diary entry update - all fields optional."""
     title: Optional[str] = Field(None, min_length=1, max_length=200)
-    content: Optional[str] = Field(None, min_length=1)
+    content: Optional[str] = Field(None, min_length=1, max_length=50000)
     entry_date: Optional[datetime] = None
     tags: Optional[str] = None
     related_document_id: Optional[UUID] = None

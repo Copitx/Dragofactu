@@ -11,7 +11,7 @@ from app.schemas.base import BaseSchema, TimestampMixin, PaginatedResponse
 class ReminderBase(BaseModel):
     """Base reminder fields."""
     title: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
     due_date: Optional[datetime] = None
     priority: str = Field("normal", pattern="^(low|normal|high)$")
 
@@ -24,7 +24,7 @@ class ReminderCreate(ReminderBase):
 class ReminderUpdate(BaseModel):
     """Reminder update - all fields optional."""
     title: Optional[str] = Field(None, min_length=1, max_length=200)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
     due_date: Optional[datetime] = None
     priority: Optional[str] = Field(None, pattern="^(low|normal|high)$")
     is_completed: Optional[bool] = None
@@ -35,7 +35,7 @@ class ReminderResponse(BaseSchema, TimestampMixin):
     id: UUID
     company_id: UUID
     title: str
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
     due_date: Optional[datetime] = None
     priority: str
     is_completed: bool

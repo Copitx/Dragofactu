@@ -12,7 +12,7 @@ class DocumentLineBase(BaseModel):
     """Base document line fields."""
     line_type: str = Field("product", pattern="^(product|text)$")
     product_id: Optional[UUID] = None
-    description: str = Field(..., min_length=1)
+    description: str = Field(..., min_length=1, max_length=500)
     quantity: float = Field(1, gt=0)
     unit_price: float = Field(0, ge=0)
     discount_percent: float = Field(0, ge=0, le=100)
@@ -43,9 +43,9 @@ class DocumentBase(BaseModel):
     client_id: UUID
     issue_date: datetime
     due_date: Optional[datetime] = None
-    notes: Optional[str] = None
-    internal_notes: Optional[str] = None
-    terms: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=5000)
+    internal_notes: Optional[str] = Field(None, max_length=5000)
+    terms: Optional[str] = Field(None, max_length=5000)
 
 
 class DocumentCreate(DocumentBase):
@@ -57,9 +57,9 @@ class DocumentUpdate(BaseModel):
     """Document update - limited fields."""
     client_id: Optional[UUID] = None
     due_date: Optional[datetime] = None
-    notes: Optional[str] = None
-    internal_notes: Optional[str] = None
-    terms: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=5000)
+    internal_notes: Optional[str] = Field(None, max_length=5000)
+    terms: Optional[str] = Field(None, max_length=5000)
     lines: Optional[List[DocumentLineCreate]] = None
 
 

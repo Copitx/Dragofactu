@@ -11,7 +11,7 @@ from app.schemas.base import BaseSchema, TimestampMixin, PaginatedResponse
 class CourseBase(BaseModel):
     """Base course fields."""
     name: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
     provider: Optional[str] = Field(None, max_length=200)
     issue_date: Optional[datetime] = None
     expiration_date: Optional[datetime] = None
@@ -27,7 +27,7 @@ class CourseResponse(BaseSchema, TimestampMixin):
     id: UUID
     worker_id: UUID
     name: str
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
     provider: Optional[str] = None
     issue_date: Optional[datetime] = None
     expiration_date: Optional[datetime] = None
@@ -42,7 +42,7 @@ class WorkerBase(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=100)
     phone: Optional[str] = Field(None, max_length=50)
     email: Optional[str] = Field(None, max_length=100)
-    address: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=500)
     position: Optional[str] = Field(None, max_length=100)
     department: Optional[str] = Field(None, max_length=100)
     hire_date: Optional[datetime] = None
@@ -61,7 +61,7 @@ class WorkerUpdate(BaseModel):
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     phone: Optional[str] = Field(None, max_length=50)
     email: Optional[str] = Field(None, max_length=100)
-    address: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=500)
     position: Optional[str] = Field(None, max_length=100)
     department: Optional[str] = Field(None, max_length=100)
     hire_date: Optional[datetime] = None
@@ -78,7 +78,7 @@ class WorkerResponse(BaseSchema, TimestampMixin):
     full_name: str
     phone: Optional[str] = None
     email: Optional[str] = None
-    address: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=500)
     position: Optional[str] = None
     department: Optional[str] = None
     hire_date: Optional[datetime] = None

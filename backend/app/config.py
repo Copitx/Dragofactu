@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "Dragofactu API"
-    APP_VERSION: str = "2.0.0"
+    APP_VERSION: str = "2.2.0"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 
@@ -32,12 +32,16 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS - Set specific origins in production
-    ALLOWED_ORIGINS: List[str] = ["*"]
+    # CORS - Set ALLOWED_ORIGINS env var as comma-separated list
+    # e.g. ALLOWED_ORIGINS=http://localhost,https://myapp.com
+    ALLOWED_ORIGINS: str = "*"
 
     # Rate limiting
     LOGIN_RATE_LIMIT: int = 5  # attempts
     LOGIN_RATE_WINDOW: int = 300  # seconds (5 min)
+
+    # Request size limit (bytes) - 10MB default
+    MAX_REQUEST_SIZE: int = 10 * 1024 * 1024
 
     # Email (optional, for future use)
     SMTP_HOST: str = ""
@@ -69,12 +73,18 @@ class Settings(BaseSettings):
     @classmethod
     def validate_origins(cls, v):
         """Warn if allowing all origins."""
-        if "*" in v:
+        if v == "*" or v == '["*"]':
             warnings.warn(
                 "⚠️  CORS allows all origins (*). Set specific origins in production.",
                 UserWarning
             )
         return v
+
+    def get_cors_origins(self) -> list:
+        """Parse ALLOWED_ORIGINS into a list for CORS middleware."""
+        if self.ALLOWED_ORIGINS == "*":
+            return ["*"]
+        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
 
     class Config:
         env_file = ".env"

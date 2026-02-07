@@ -12,7 +12,7 @@ class SupplierBase(BaseModel):
     code: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=200)
     tax_id: Optional[str] = Field(None, max_length=50)
-    address: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=500)
     city: Optional[str] = Field(None, max_length=100)
     postal_code: Optional[str] = Field(None, max_length=20)
     province: Optional[str] = Field(None, max_length=100)
@@ -20,7 +20,7 @@ class SupplierBase(BaseModel):
     phone: Optional[str] = Field(None, max_length=50)
     email: Optional[str] = Field(None, max_length=100)
     website: Optional[str] = Field(None, max_length=200)
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class SupplierCreate(SupplierBase):
@@ -33,7 +33,7 @@ class SupplierUpdate(BaseModel):
     code: Optional[str] = Field(None, min_length=1, max_length=20)
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     tax_id: Optional[str] = Field(None, max_length=50)
-    address: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=500)
     city: Optional[str] = Field(None, max_length=100)
     postal_code: Optional[str] = Field(None, max_length=20)
     province: Optional[str] = Field(None, max_length=100)
@@ -41,7 +41,7 @@ class SupplierUpdate(BaseModel):
     phone: Optional[str] = Field(None, max_length=50)
     email: Optional[str] = Field(None, max_length=100)
     website: Optional[str] = Field(None, max_length=200)
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class SupplierResponse(BaseSchema, TimestampMixin):
@@ -51,7 +51,7 @@ class SupplierResponse(BaseSchema, TimestampMixin):
     code: str
     name: str
     tax_id: Optional[str] = None
-    address: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=500)
     city: Optional[str] = None
     postal_code: Optional[str] = None
     province: Optional[str] = None
@@ -59,7 +59,7 @@ class SupplierResponse(BaseSchema, TimestampMixin):
     phone: Optional[str] = None
     email: Optional[str] = None
     website: Optional[str] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=2000)
     is_active: bool
 
 

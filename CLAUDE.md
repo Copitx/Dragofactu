@@ -45,7 +45,7 @@ backend/
 
 ## ESTADO ACTUAL DEL PROYECTO
 
-**Versión:** v2.1.0 (2026-02-07)
+**Versión:** v2.2.0 (2026-02-07)
 **URL Producción:** https://dragofactu-production.up.railway.app
 
 | Componente | Estado |
@@ -68,6 +68,7 @@ backend/
 | 12 | Onboarding/Registro empresa | ✅ |
 | 13 | Sincronización/Cache offline | ✅ |
 | 14 | Testing completo (103 tests) | ✅ |
+| 15 | Seguridad + CI/CD | ✅ |
 
 ### Todas las Tabs Soportan Modo Híbrido
 Dashboard, Clientes, Productos, Documentos, Inventario, Diario, Trabajadores
@@ -225,7 +226,7 @@ DEFAULT_LANGUAGE=es
 - [x] PDF generation en modo remoto
 - [x] Fase 13: Sincronización/cache offline
 - [x] **Fase 14:** Testing completo (103 tests backend, TODOs resueltos)
-- [ ] **Fase 15:** Seguridad (CORS, validación inputs, rate limiting) + CI/CD (GitHub Actions)
+- [x] **Fase 15:** Seguridad (CORS configurable, validación inputs, request logging) + CI/CD (GitHub Actions)
 - [ ] **Fase 16:** Features backend (export/import CSV, audit log, informes)
 - [ ] **Fase 17:** Mejoras UI/UX (tema oscuro, atajos, notificaciones toast, tablas mejoradas)
 - [ ] **Fase 18:** Producción y monitoreo (health check avanzado, backups, métricas)

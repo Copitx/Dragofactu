@@ -11,7 +11,7 @@ class ProductBase(BaseModel):
     """Base product fields."""
     code: str = Field(..., min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
     category: Optional[str] = Field(None, max_length=100)
     purchase_price: Optional[float] = Field(0, ge=0)
     sale_price: Optional[float] = Field(0, ge=0)
@@ -30,7 +30,7 @@ class ProductUpdate(BaseModel):
     """Product update - all fields optional."""
     code: Optional[str] = Field(None, min_length=1, max_length=50)
     name: Optional[str] = Field(None, min_length=1, max_length=200)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
     category: Optional[str] = Field(None, max_length=100)
     purchase_price: Optional[float] = Field(None, ge=0)
     sale_price: Optional[float] = Field(None, ge=0)
@@ -46,7 +46,7 @@ class ProductResponse(BaseSchema, TimestampMixin):
     company_id: UUID
     code: str
     name: str
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
     category: Optional[str] = None
     purchase_price: float
     sale_price: float

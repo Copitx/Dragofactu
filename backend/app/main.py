@@ -5,6 +5,8 @@ Multi-tenant ERP backend for the Dragofactu desktop client.
 """
 import os
 import sys
+import time
+import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -16,11 +18,20 @@ from app.models.base import Base
 
 settings = get_settings()
 
+# Configure structured logging
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("dragofactu")
+
 # Startup logging
-print(f"[STARTUP] Python version: {sys.version}", flush=True)
-print(f"[STARTUP] PORT env: {os.environ.get('PORT', 'not set')}", flush=True)
-print(f"[STARTUP] DATABASE_URL: {settings.DATABASE_URL[:30]}...", flush=True)
-print(f"[STARTUP] DEBUG mode: {settings.DEBUG}", flush=True)
+logger.info(f"Python version: {sys.version}")
+logger.info(f"PORT env: {os.environ.get('PORT', 'not set')}")
+logger.info(f"DATABASE_URL: {settings.DATABASE_URL[:30]}...")
+logger.info(f"DEBUG mode: {settings.DEBUG}")
+logger.info(f"CORS origins: {settings.get_cors_origins()}")
 
 
 # ============================================================================
@@ -58,21 +69,47 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Log all requests with method, path, status and duration."""
+
+    async def dispatch(self, request: Request, call_next):
+        start = time.time()
+        response = await call_next(request)
+        duration = time.time() - start
+        logger.info(
+            f"{request.method} {request.url.path} -> {response.status_code} ({duration:.3f}s)"
+        )
+        return response
+
+
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    """Reject requests exceeding MAX_REQUEST_SIZE."""
+
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > settings.MAX_REQUEST_SIZE:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "Request body too large"}
+            )
+        return await call_next(request)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup: Create all tables
-    print("[STARTUP] Creating database tables...", flush=True)
+    logger.info("Creating database tables...")
     try:
         Base.metadata.create_all(bind=engine)
-        print("[STARTUP] Database tables created successfully.", flush=True)
+        logger.info("Database tables created successfully.")
     except Exception as e:
-        print(f"[STARTUP ERROR] Failed to create tables: {e}", flush=True)
+        logger.error(f"Failed to create tables: {e}")
         raise
-    print("[STARTUP] Application ready to receive requests.", flush=True)
+    logger.info("Application ready to receive requests.")
     yield
-    # Shutdown: Clean up if needed
-    print("[SHUTDOWN] Application shutting down.", flush=True)
+    # Shutdown
+    logger.info("Application shutting down.")
 
 # Create FastAPI app
 app = FastAPI(
@@ -86,14 +123,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Security headers middleware
+# Middleware stack (order matters: outermost first)
+app.add_middleware(RequestSizeLimitMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS middleware - Required for desktop client
-# In production, set ALLOWED_ORIGINS to specific domains
+# In production, set ALLOWED_ORIGINS env var to comma-separated list
+cors_origins = settings.get_cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
@@ -123,11 +163,11 @@ async def root():
 
 
 # Include API routers
-print("[STARTUP] Loading API routers...", flush=True)
+logger.info("Loading API routers...")
 try:
     from app.api.router import api_router
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
-    print("[STARTUP] API routers loaded successfully.", flush=True)
+    logger.info("API routers loaded successfully.")
 except Exception as e:
-    print(f"[STARTUP ERROR] Failed to load routers: {e}", flush=True)
+    logger.error(f"Failed to load routers: {e}")
     raise

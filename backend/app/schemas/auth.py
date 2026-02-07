@@ -10,7 +10,7 @@ from app.schemas.base import BaseSchema
 class LoginRequest(BaseModel):
     """Login request with credentials."""
     username: str = Field(..., min_length=3, max_length=50)
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=6, max_length=128)
 
 
 class TokenResponse(BaseModel):
@@ -41,7 +41,7 @@ class RegisterCompanyRequest(BaseModel):
     # Admin user data
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=6, max_length=128)
     first_name: Optional[str] = Field(None, max_length=50)
     last_name: Optional[str] = Field(None, max_length=50)
 

@@ -30,7 +30,9 @@
     "new_invoice": "Neue Rechnung",
     "import": "Importieren",
     "export": "Exportieren",
-    "exit": "Beenden"
+    "exit": "Beenden",
+    "sync": "Ausstehende synchronisieren",
+    "clear_cache": "Cache leeren"
   },
   "tabs": {
     "dashboard": "Übersicht",

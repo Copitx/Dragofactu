@@ -30,7 +30,9 @@
     "new_invoice": "New Invoice",
     "import": "Import",
     "export": "Export",
-    "exit": "Exit"
+    "exit": "Exit",
+    "sync": "Sync pending",
+    "clear_cache": "Clear cache"
   },
   "tabs": {
     "dashboard": "Dashboard",

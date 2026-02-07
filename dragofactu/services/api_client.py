@@ -1,14 +1,19 @@
 """
 API Client for Dragofactu Backend.
 Handles all HTTP communication with the FastAPI backend.
+Includes offline cache support: caches GET responses and falls back
+to cached data when the server is unreachable.
 """
 import os
 import json
+import logging
 import requests
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger('dragofactu.api_client')
 
 
 @dataclass
@@ -110,20 +115,77 @@ class APIClient:
         except:
             return {"raw": response.text}
 
+    def _endpoint_to_cache_key(self, endpoint: str) -> Optional[str]:
+        """Map API endpoint to cache entity key."""
+        # Only cache list endpoints
+        mapping = {
+            "/clients": "clients",
+            "/products": "products",
+            "/documents": "documents",
+            "/workers": "workers",
+            "/diary": "diary",
+            "/suppliers": "suppliers",
+            "/reminders": "reminders",
+            "/dashboard/stats": "dashboard_stats",
+        }
+        for path, key in mapping.items():
+            if endpoint == path:
+                return key
+        return None
+
     def _request(self, method: str, endpoint: str, **kwargs) -> Dict:
-        """Make HTTP request."""
+        """Make HTTP request with offline cache support.
+
+        - GET requests: cache response on success, fall back to cache on failure
+        - Write requests: raise error on failure (caller can queue if needed)
+        """
         url = self._url(endpoint)
         headers = self._get_headers()
+        cache_key = self._endpoint_to_cache_key(endpoint) if method.upper() == "GET" else None
 
         try:
             response = self._session.request(
                 method, url, headers=headers, timeout=30, **kwargs
             )
-            return self._handle_response(response)
-        except requests.exceptions.ConnectionError:
+            result = self._handle_response(response)
+
+            # Cache successful GET responses
+            if cache_key and method.upper() == "GET":
+                try:
+                    from dragofactu.services.offline_cache import get_cache, get_connectivity_monitor
+                    get_cache().save(cache_key, result)
+                    get_connectivity_monitor().set_online()
+                except Exception as e:
+                    logger.debug(f"Cache save error (non-critical): {e}")
+
+            return result
+
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as conn_err:
+            # Mark as offline
+            try:
+                from dragofactu.services.offline_cache import get_connectivity_monitor
+                get_connectivity_monitor().set_offline()
+            except Exception:
+                pass
+
+            # For GET requests, try to serve from cache
+            if cache_key:
+                try:
+                    from dragofactu.services.offline_cache import get_cache
+                    cached = get_cache().load(cache_key, max_age=0)  # Accept any age when offline
+                    if cached is not None:
+                        logger.info(f"Serving {cache_key} from offline cache")
+                        # Mark as cached so UI can show indicator
+                        if isinstance(cached, dict):
+                            cached["_from_cache"] = True
+                        return cached
+                except Exception as e:
+                    logger.debug(f"Cache load error: {e}")
+
+            # No cache available
+            if isinstance(conn_err, requests.exceptions.Timeout):
+                raise APIError("Timeout", 0, "La solicitud tardo demasiado")
             raise APIError("Error de conexion", 0, f"No se puede conectar a {self.base_url}")
-        except requests.exceptions.Timeout:
-            raise APIError("Timeout", 0, "La solicitud tardo demasiado")
 
     def _save_tokens(self):
         """Save tokens to file."""

@@ -1974,6 +1974,14 @@ class Dashboard(QWidget):
         if hasattr(self, '_populate_recent_documents'):
             self._populate_recent_documents()
 
+        # Show cache indicator if data came from offline cache
+        if hasattr(self, 'subtitle_label') and hasattr(self, '_cached_stats'):
+            stats = self._cached_stats or {}
+            if isinstance(stats, dict) and stats.get("_from_cache"):
+                self.subtitle_label.setText(translator.t("app.subtitle") + " (datos en cache - sin conexion)")
+            else:
+                self.subtitle_label.setText(translator.t("app.subtitle"))
+
     def retranslate_ui(self):
         """Update all translatable text"""
         # Welcome section
@@ -3607,10 +3615,11 @@ class ClientManagementTab(QWidget):
             self.status_label.setText(f"Error: {str(e)}")
 
     def _refresh_from_api(self, api):
-        """Refresh clients from remote API."""
+        """Refresh clients from remote API (with cache fallback)."""
         try:
             response = api.list_clients(limit=500, active_only=False)
             clients = response.get("items", [])
+            from_cache = response.get("_from_cache", False)
 
             self.clients_table.setRowCount(0)
             self.client_ids = []
@@ -3630,7 +3639,8 @@ class ClientManagementTab(QWidget):
                 status_text = "Activo" if is_active else "Inactivo"
                 self.clients_table.setItem(row, 6, QTableWidgetItem(status_text))
 
-            self.status_label.setText(f"Mostrando {len(clients)} clientes (servidor)")
+            source = "(cache - sin conexion)" if from_cache else "(servidor)"
+            self.status_label.setText(f"Mostrando {len(clients)} clientes {source}")
 
         except Exception as e:
             logger.error(f"Error fetching clients from API: {e}")
@@ -3904,9 +3914,10 @@ class ProductManagementTab(QWidget):
             self.status_label.setText(f"Error: {str(e)}")
 
     def _refresh_from_api(self, api):
-        """Refresh products from remote API."""
+        """Refresh products from remote API (with cache fallback)."""
         response = api.list_products(limit=500)
         products = response.get("items", [])
+        from_cache = response.get("_from_cache", False)
 
         self.products_table.setRowCount(0)
         self.product_ids = []
@@ -3930,7 +3941,8 @@ class ProductManagementTab(QWidget):
             status_text = f"Activo ({stock_status})" if is_active else "Inactivo"
             self.products_table.setItem(row, 7, QTableWidgetItem(status_text))
 
-        self.status_label.setText(f"Mostrando {len(products)} productos (servidor)")
+        source = "(cache - sin conexion)" if from_cache else "(servidor)"
+        self.status_label.setText(f"Mostrando {len(products)} productos {source}")
 
     def _refresh_from_local(self):
         """Refresh products from local SQLite database."""
@@ -4253,13 +4265,14 @@ class DocumentManagementTab(QWidget):
         return None
 
     def _refresh_from_api(self, api):
-        """Refresh documents from remote API."""
+        """Refresh documents from remote API (with cache fallback)."""
         try:
             doc_type = self._get_doc_type_filter()
             doc_status = self._get_status_filter()
 
             response = api.list_documents(limit=100, doc_type=doc_type, doc_status=doc_status)
             documents = response.get("items", [])
+            from_cache = response.get("_from_cache", False)
 
             self.docs_table.setRowCount(0)
             self._document_ids = []
@@ -4268,7 +4281,8 @@ class DocumentManagementTab(QWidget):
                 self._add_document_row(row, doc, is_remote=True)
 
             filter_type = self.filter_combo.currentText()
-            self.status_label.setText(f"Mostrando {len(documents)} documentos (servidor) - Filtro: {filter_type}")
+            source = "(cache - sin conexion)" if from_cache else "(servidor)"
+            self.status_label.setText(f"Mostrando {len(documents)} documentos {source} - Filtro: {filter_type}")
 
         except Exception as e:
             logger.error(f"Error fetching documents from API: {e}")
@@ -5147,9 +5161,10 @@ class InventoryManagementTab(QWidget):
             self.status_label.setText(f"❌ Error: {str(e)}")
 
     def _refresh_from_api(self, api):
-        """Refresh inventory data from remote API."""
+        """Refresh inventory data from remote API (with cache fallback)."""
         response = api.list_products(limit=500)
         products = response.get("items", [])
+        from_cache = response.get("_from_cache", False)
         self._inventory_products = products
 
         self.inventory_table.setRowCount(0)
@@ -5215,7 +5230,8 @@ class InventoryManagementTab(QWidget):
         self.low_stock_label.setText(f"⚠️ Stock Bajo: {low_stock_count}")
         self.total_value_label.setText(f"💰 Valor Total: {total_value:.2f} €")
 
-        self.status_label.setText(f"📊 Mostrando {len(products)} productos - {low_stock_count} con stock bajo (servidor)")
+        source = "(cache - sin conexion)" if from_cache else "(servidor)"
+        self.status_label.setText(f"📊 Mostrando {len(products)} productos - {low_stock_count} con stock bajo {source}")
 
     def _refresh_from_local(self):
         """Refresh inventory data from local SQLite database."""
@@ -6753,10 +6769,11 @@ class WorkersManagementTab(QWidget):
             self.status_label.setText(f"Error: {str(e)}")
 
     def _refresh_from_api(self, api):
-        """Refresh workers from remote API."""
+        """Refresh workers from remote API (with cache fallback)."""
         try:
             response = api.list_workers(limit=500)
             workers = response.get("items", [])
+            from_cache = response.get("_from_cache", False)
 
             self.workers_table.setRowCount(0)
             self.worker_ids = []
@@ -6785,7 +6802,8 @@ class WorkersManagementTab(QWidget):
 
             # Update department filter
             self._update_department_filter(departments)
-            self.status_label.setText(f"Mostrando {len(workers)} trabajadores (servidor)")
+            source = "(cache - sin conexion)" if from_cache else "(servidor)"
+            self.status_label.setText(f"Mostrando {len(workers)} trabajadores {source}")
 
         except Exception as e:
             logger.error(f"Error fetching workers from API: {e}")
@@ -7339,20 +7357,159 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self.tabs)
 
-        # Create status bar with user info
+        # Create status bar with user info and connectivity indicator
         status_bar = self.statusBar()
+
+        # Connectivity indicator
+        self.connectivity_label = QLabel("")
+        self.connectivity_label.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; padding-right: 8px;")
+        status_bar.addPermanentWidget(self.connectivity_label)
+
+        # Pending operations indicator
+        self.pending_ops_label = QLabel("")
+        self.pending_ops_label.setStyleSheet(f"color: {UIStyles.COLORS['warning']}; padding-right: 8px;")
+        self.pending_ops_label.setVisible(False)
+        status_bar.addPermanentWidget(self.pending_ops_label)
+
         self.user_label = QLabel("")
         self.user_label.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; padding-right: 16px;")
         status_bar.addPermanentWidget(self.user_label)
         status_bar.showMessage(translator.t("status.ready"))
 
+        # Setup connectivity monitoring
+        self._setup_connectivity_monitor()
+
         # Connect tab changes to refresh data
         self.tabs.currentChanged.connect(self.on_tab_changed)
     
+    def _setup_connectivity_monitor(self):
+        """Setup connectivity monitoring for offline/online status."""
+        app_mode = get_app_mode()
+        if not app_mode.is_remote:
+            self.connectivity_label.setText("Modo local")
+            return
+
+        try:
+            from dragofactu.services.offline_cache import get_connectivity_monitor, get_operation_queue
+            monitor = get_connectivity_monitor()
+            monitor.add_listener(self._on_connectivity_changed)
+            # Initial check
+            if app_mode.api:
+                monitor.check_now(app_mode.api)
+            self._update_connectivity_ui()
+            self._update_pending_ops_ui()
+        except Exception as e:
+            logger.warning(f"Error setting up connectivity monitor: {e}")
+
+    def _on_connectivity_changed(self, is_online: bool):
+        """Callback when connectivity status changes."""
+        try:
+            from PySide6.QtCore import QMetaObject, Qt as QtCore_Qt, Q_ARG
+            # Use invokeMethod for thread safety (monitor may call from bg thread)
+            QMetaObject.invokeMethod(self, "_update_connectivity_ui", QtCore_Qt.ConnectionType.QueuedConnection)
+            if is_online:
+                QMetaObject.invokeMethod(self, "_try_auto_sync", QtCore_Qt.ConnectionType.QueuedConnection)
+        except Exception as e:
+            logger.warning(f"Error handling connectivity change: {e}")
+
+    def _update_connectivity_ui(self):
+        """Update status bar connectivity indicator."""
+        app_mode = get_app_mode()
+        if not app_mode.is_remote:
+            self.connectivity_label.setText("Modo local")
+            self.connectivity_label.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; padding-right: 8px;")
+            return
+
+        try:
+            from dragofactu.services.offline_cache import get_connectivity_monitor
+            monitor = get_connectivity_monitor()
+            if monitor.is_online:
+                self.connectivity_label.setText("En linea")
+                self.connectivity_label.setStyleSheet(f"color: {UIStyles.COLORS['success']}; font-weight: 500; padding-right: 8px;")
+            else:
+                self.connectivity_label.setText("Sin conexion (cache)")
+                self.connectivity_label.setStyleSheet(f"color: {UIStyles.COLORS['warning']}; font-weight: 500; padding-right: 8px;")
+        except Exception:
+            pass
+
+    def _update_pending_ops_ui(self):
+        """Update pending operations indicator in status bar."""
+        try:
+            from dragofactu.services.offline_cache import get_operation_queue
+            queue = get_operation_queue()
+            count = queue.pending_count
+            if count > 0:
+                self.pending_ops_label.setText(f"Pendientes: {count}")
+                self.pending_ops_label.setVisible(True)
+            else:
+                self.pending_ops_label.setVisible(False)
+        except Exception:
+            self.pending_ops_label.setVisible(False)
+
+    def _try_auto_sync(self):
+        """Auto-sync pending operations when back online."""
+        self.sync_pending_operations(silent=True)
+
+    def sync_pending_operations(self, silent=False):
+        """Sync pending offline operations with the server."""
+        app_mode = get_app_mode()
+        if not app_mode.is_remote or not app_mode.api:
+            if not silent:
+                QMessageBox.information(self, "Sincronizar", "No hay servidor remoto configurado.")
+            return
+
+        try:
+            from dragofactu.services.offline_cache import get_operation_queue, get_connectivity_monitor
+            queue = get_operation_queue()
+
+            if queue.pending_count == 0:
+                if not silent:
+                    QMessageBox.information(self, "Sincronizar", "No hay operaciones pendientes.")
+                self._update_pending_ops_ui()
+                return
+
+            # Check connectivity first
+            monitor = get_connectivity_monitor()
+            if not monitor.check_now(app_mode.api):
+                if not silent:
+                    QMessageBox.warning(self, "Sin conexion",
+                        "No se puede conectar al servidor. Las operaciones se sincronizaran cuando haya conexion.")
+                return
+
+            result = queue.sync(app_mode.api)
+            self._update_pending_ops_ui()
+            self._update_connectivity_ui()
+
+            if not silent:
+                msg = f"Sincronizadas: {result['synced']}"
+                if result['failed'] > 0:
+                    msg += f"\nFallidas: {result['failed']}"
+                if result['remaining'] > 0:
+                    msg += f"\nPendientes: {result['remaining']}"
+                QMessageBox.information(self, "Sincronizacion", msg)
+
+            # Refresh current tab after sync
+            if result['synced'] > 0:
+                self._refresh_all_panels()
+
+        except Exception as e:
+            if not silent:
+                QMessageBox.critical(self, "Error", f"Error al sincronizar: {str(e)}")
+            logger.error(f"Error syncing operations: {e}")
+
+    def _clear_cache(self):
+        """Clear offline cache."""
+        try:
+            from dragofactu.services.offline_cache import get_cache
+            get_cache().clear()
+            QMessageBox.information(self, "Cache", "Cache limpiada correctamente.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al limpiar cache: {str(e)}")
+
     def on_tab_changed(self, index):
         """Handle tab change to refresh data"""
         tab_widget = self.tabs.widget(index)
-        
+
         # Always refresh dashboard when switching to it
         if index == 0:  # Dashboard tab
             if hasattr(self.dashboard, 'refresh_data'):
@@ -7364,7 +7521,7 @@ class MainWindow(QMainWindow):
         elif index == 2:  # Products tab
             if hasattr(tab_widget, 'refresh_data'):
                 tab_widget.refresh_data()
-    
+
     def create_menu(self):
         """Create clean menu bar with translations"""
         menubar = self.menuBar()
@@ -7408,6 +7565,17 @@ class MainWindow(QMainWindow):
 
         # Tools menu
         self.tools_menu = menubar.addMenu(translator.t("menu.tools"))
+
+        self.sync_action = QAction(translator.t("menu.sync"), self)
+        self.sync_action.setShortcut("Ctrl+Shift+S")
+        self.sync_action.triggered.connect(lambda: self.sync_pending_operations(silent=False))
+        self.tools_menu.addAction(self.sync_action)
+
+        self.clear_cache_action = QAction(translator.t("menu.clear_cache"), self)
+        self.clear_cache_action.triggered.connect(self._clear_cache)
+        self.tools_menu.addAction(self.clear_cache_action)
+
+        self.tools_menu.addSeparator()
 
         self.settings_action = QAction(translator.t("menu.settings") + "...", self)
         self.settings_action.setShortcut("Ctrl+,")

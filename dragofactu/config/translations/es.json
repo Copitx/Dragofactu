@@ -30,7 +30,9 @@
     "new_invoice": "Nueva Factura",
     "import": "Importar",
     "export": "Exportar",
-    "exit": "Salir"
+    "exit": "Salir",
+    "sync": "Sincronizar pendientes",
+    "clear_cache": "Limpiar cache"
   },
   "tabs": {
     "dashboard": "Panel Principal",

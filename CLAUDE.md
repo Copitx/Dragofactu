@@ -23,7 +23,8 @@ Archivo de contexto esencial para agentes AI trabajando en Dragofactu.
 dragofactu/
 ├── main.py              # Entry point modular
 ├── models/entities.py   # User, Client, Product, Document, Worker, DiaryEntry
-├── services/api_client.py  # Cliente HTTP para backend
+├── services/api_client.py     # Cliente HTTP con cache offline
+├── services/offline_cache.py  # Cache local + cola operaciones + monitor conectividad
 ├── ui/styles.py         # Sistema de diseño global
 └── config/translation.py   # es/en/de
 
@@ -44,7 +45,7 @@ backend/
 
 ## ESTADO ACTUAL DEL PROYECTO
 
-**Versión:** v2.0.2 (2026-02-06)
+**Versión:** v2.1.0 (2026-02-07)
 **URL Producción:** https://dragofactu-production.up.railway.app
 
 | Componente | Estado |
@@ -53,7 +54,7 @@ backend/
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
 | Tests Backend | ✅ 52 PASSING |
 | PostgreSQL | ✅ CONFIGURADO (Railway) |
-| PDF en remoto | 🔄 PENDIENTE |
+| PDF en remoto | ✅ COMPLETADO |
 
 ### Fases Completadas
 | Fase | Descripción | Estado |
@@ -63,6 +64,9 @@ backend/
 | 8 | Deployment Railway | ✅ |
 | 9 | Integración Desktop (modo híbrido) | ✅ |
 | 10 | Tabs con API remota | ✅ |
+| 11 | PostgreSQL en Railway | ✅ |
+| 12 | Onboarding/Registro empresa | ✅ |
+| 13 | Sincronización/Cache offline | ✅ |
 
 ### Todas las Tabs Soportan Modo Híbrido
 Dashboard, Clientes, Productos, Documentos, Inventario, Diario, Trabajadores
@@ -126,6 +130,22 @@ status_text = get_status_label(doc.status)  # "Pagado", "Borrador"
 status_value = get_status_value("Pagado")    # "paid"
 ```
 
+### Cache Offline (Fase 13)
+```python
+# El APIClient cachea automáticamente GET responses
+# y devuelve datos cacheados si el servidor no responde.
+# Detectar datos en cache:
+response = api.list_clients(limit=500)
+if response.get("_from_cache"):
+    # Mostrar indicador al usuario
+
+# Cola de operaciones pendientes:
+from dragofactu.services.offline_cache import get_operation_queue
+queue = get_operation_queue()
+queue.add("create", "clients", {"code": "C001", "name": "Test"})
+queue.sync(api_client)  # Cuando haya conexión
+```
+
 ### Sistema de Traducción
 ```python
 from dragofactu.config.translation import translator
@@ -174,6 +194,8 @@ GET  /api/v1/dashboard/stats
 | `~/.dragofactu/tokens.json` | JWT tokens persistidos |
 | `~/.dragofactu/app_mode.json` | Configuración modo local/remoto |
 | `~/.dragofactu/pdf_settings.json` | Configuración PDF empresa |
+| `~/.dragofactu/cache/*.json` | Cache offline de datos API |
+| `~/.dragofactu/pending_operations.json` | Cola de operaciones pendientes |
 
 ---
 
@@ -199,8 +221,8 @@ DEFAULT_LANGUAGE=es
 
 ## PENDIENTES PRIORITARIOS
 
-- [ ] PDF generation en modo remoto (requiere backend endpoint)
-- [ ] Fase 13: Sincronización/cache offline
+- [x] PDF generation en modo remoto
+- [x] Fase 13: Sincronización/cache offline
 - [ ] Fase 14: Testing integración
 
 ---

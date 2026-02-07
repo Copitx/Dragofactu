@@ -37,10 +37,65 @@
 | v2.0.0 | 2026-02-02 | Backend API Multi-tenant + 52 tests |
 | v2.0.1 | 2026-02-06 | Fix auto-login + WorkersManagementTab + mejoras APIClient |
 | v2.0.2 | 2026-02-06 | Fix errores 422/500: límites paginación y timezone reminders |
+| v2.1.0 | 2026-02-07 | Fase 13: Cache offline + cola operaciones + monitor conectividad |
 
 ---
 
 ## Sesiones de Desarrollo por Fecha
+
+### Sesión 2026-02-07: Fase 13 - Cache Offline y Sincronización
+**AI Agent:** Claude Opus 4.6
+
+#### Resumen
+Implementación completa de Fase 13: sistema de cache offline con cola de operaciones pendientes y detección de conectividad.
+
+#### Componentes Creados
+
+**1. `dragofactu/services/offline_cache.py`** - Módulo central
+- **LocalCache**: Cache JSON en `~/.dragofactu/cache/` con TTL configurable
+  - Cachea: clients, products, documents, workers, diary, suppliers, reminders, dashboard_stats
+  - Métodos: save(), load(), clear(), has_cache(), get_cache_age()
+- **OperationQueue**: Cola de operaciones write (create/update/delete) pendientes
+  - Persistida en `~/.dragofactu/pending_operations.json`
+  - Sync automático al recuperar conexión
+  - 3 reintentos máximo por operación
+- **ConnectivityMonitor**: Detección online/offline
+  - Listeners para cambios de estado
+  - Auto-sync al volver online
+
+**2. Modificaciones en `api_client.py`**
+- `_request()` ahora cachea respuestas GET exitosas automáticamente
+- En ConnectionError/Timeout para GET: devuelve datos cacheados con flag `_from_cache=True`
+- ConnectivityMonitor se actualiza en cada request
+
+**3. Integración UI en `dragofactu_complete.py`**
+- Status bar: indicador de conectividad ("En linea" / "Sin conexion (cache)")
+- Status bar: contador de operaciones pendientes
+- Menu Herramientas: "Sincronizar pendientes" (Ctrl+Shift+S) y "Limpiar cache"
+- Todas las tabs: muestran "(cache - sin conexion)" cuando datos vienen de cache
+- Dashboard: indicador de datos cacheados en subtítulo
+
+**4. Traducciones**
+- `menu.sync` y `menu.clear_cache` en es/en/de
+
+#### Archivos Modificados
+| Archivo | Cambios |
+|---------|---------|
+| `dragofactu/services/offline_cache.py` | NUEVO - 300+ líneas |
+| `dragofactu/services/api_client.py` | Cache integrado en _request() |
+| `dragofactu_complete.py` | Status bar, menú sync, indicadores cache en tabs |
+| `dragofactu/config/translations/es.json` | +2 claves menu |
+| `dragofactu/config/translations/en.json` | +2 claves menu |
+| `dragofactu/config/translations/de.json` | +2 claves menu |
+| `CLAUDE.md` | Actualizado con Fase 13 |
+
+#### Notas Técnicas
+- Cache sin límite de edad cuando offline (`max_age=0`)
+- Flag `_from_cache` en response dict permite a la UI detectar datos cacheados
+- ConnectivityMonitor es thread-safe con threading.Lock
+- Usa QMetaObject.invokeMethod para callbacks thread-safe en Qt
+
+---
 
 ### Sesión 2026-02-06: Fix Auto-login + WorkersManagementTab
 **AI Agent:** Claude Opus 4.5 (claude-opus-4-5-20251101)
@@ -616,66 +671,17 @@ class OnboardingDialog(QDialog):
 
 ---
 
-### FASE 13: SINCRONIZACIÓN Y MODO OFFLINE
+### FASE 13: SINCRONIZACIÓN Y MODO OFFLINE ✅ COMPLETADA
 
-**Objetivo:** Permitir trabajo offline con sincronización posterior.
+**Implementado en v2.1.0 (2026-02-07)**
 
-#### Paso 13.1: Cache local de datos
+Ver sesión 2026-02-07 arriba para detalles completos.
 
-```python
-class LocalCache:
-    """Cache local para modo offline."""
-
-    def __init__(self):
-        self.cache_dir = Path.home() / ".dragofactu" / "cache"
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-
-    def save_clients(self, clients: list):
-        with open(self.cache_dir / "clients.json", "w") as f:
-            json.dump(clients, f)
-
-    def load_clients(self) -> list:
-        cache_file = self.cache_dir / "clients.json"
-        if cache_file.exists():
-            with open(cache_file) as f:
-                return json.load(f)
-        return []
-```
-
-#### Paso 13.2: Cola de operaciones pendientes
-
-```python
-class OperationQueue:
-    """Cola de operaciones para sincronizar cuando haya conexión."""
-
-    def __init__(self):
-        self.queue_file = Path.home() / ".dragofactu" / "pending_operations.json"
-        self.operations = self._load()
-
-    def add(self, operation_type: str, entity_type: str, data: dict):
-        self.operations.append({
-            "type": operation_type,
-            "entity": entity_type,
-            "data": data,
-            "timestamp": datetime.now().isoformat()
-        })
-        self._save()
-
-    def sync(self, api_client):
-        """Sincronizar operaciones pendientes."""
-        synced = []
-        for op in self.operations:
-            try:
-                if op["type"] == "create":
-                    if op["entity"] == "client":
-                        api_client.create_client(**op["data"])
-                synced.append(op)
-            except Exception as e:
-                print(f"Error syncing {op}: {e}")
-
-        self.operations = [op for op in self.operations if op not in synced]
-        self._save()
-```
+**Archivos clave:**
+- `dragofactu/services/offline_cache.py` - LocalCache, OperationQueue, ConnectivityMonitor
+- `dragofactu/services/api_client.py` - Cache integrado en _request()
+- `~/.dragofactu/cache/` - Directorio de cache JSON
+- `~/.dragofactu/pending_operations.json` - Cola de operaciones
 
 ---
 

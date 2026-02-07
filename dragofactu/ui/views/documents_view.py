@@ -16,8 +16,7 @@ class DocumentsView(QWidget):
         title_label.setText("Documents Management")
         layout.addWidget(title_label)
         
-        # TODO: Implement documents table and functionality
-        placeholder = QLabel("Documents management will be implemented here")
+        placeholder = QLabel("Use dragofactu_complete.py for full document management")
         layout.addWidget(placeholder)
     
     def refresh(self):

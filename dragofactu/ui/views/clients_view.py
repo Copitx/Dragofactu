@@ -16,8 +16,7 @@ class ClientsView(QWidget):
         title_label.setText("Clients Management")
         layout.addWidget(title_label)
         
-        # TODO: Implement clients table and functionality
-        placeholder = QLabel("Clients management will be implemented here")
+        placeholder = QLabel("Use dragofactu_complete.py for full client management")
         layout.addWidget(placeholder)
     
     def refresh(self):

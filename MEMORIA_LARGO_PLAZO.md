@@ -3,7 +3,7 @@
 > **Este archivo contiene el historial completo del proyecto Dragofactu.**
 > Para el contexto operativo esencial, ver `CLAUDE.md`.
 >
-> Última actualización: 2026-02-06
+> Última actualización: 2026-02-07
 
 ---
 
@@ -94,6 +94,41 @@ Implementación completa de Fase 13: sistema de cache offline con cola de operac
 - Flag `_from_cache` en response dict permite a la UI detectar datos cacheados
 - ConnectivityMonitor es thread-safe con threading.Lock
 - Usa QMetaObject.invokeMethod para callbacks thread-safe en Qt
+
+---
+
+### Sesión 2026-02-07 (2): Fase 14 - Testing Completo + TODOs Resueltos
+**AI Agent:** Claude Opus 4.6
+
+#### Resumen
+Testing completo del backend (de 52 a 103 tests) y resolución de todos los TODOs pendientes en el código.
+
+#### Tests Nuevos (51 tests)
+
+| Archivo | Tests | Cobertura |
+|---------|-------|-----------|
+| `test_suppliers.py` | 12 | CRUD completo + búsqueda + paginación + multi-tenancy |
+| `test_workers.py` | 13 | CRUD + filtro departamento + búsqueda + cursos + multi-tenancy |
+| `test_diary.py` | 10 | CRUD + filtro pinned + multi-tenancy |
+| `test_reminders.py` | 12 | CRUD + prioridad + pending_only + complete + multi-tenancy |
+| `test_dashboard.py` | 4 | Stats vacío + con datos + unauthorized + multi-tenancy |
+
+#### TODOs Resueltos
+
+| TODO | Archivo | Solución |
+|------|---------|----------|
+| Unpaid Invoices count | `dashboard_view.py:173` | Query real: facturas con status SENT/ACCEPTED/NOT_SENT |
+| Activity logging | `dashboard_view.py:195` | Muestra 5 documentos recientes con código, status y fecha |
+| Clients placeholder | `clients_view.py:19` | Actualizado texto (legacy view, funcionalidad en monolítico) |
+| Documents placeholder | `documents_view.py:19` | Actualizado texto (legacy view, funcionalidad en monolítico) |
+
+#### Plan Detallado Fases 14-18
+Se escribió roadmap completo (~450 líneas) en la sección "Fases Futuras" de este archivo con guías paso a paso para:
+- Fase 14: Testing (✅ completada en esta sesión)
+- Fase 15: Seguridad + CI/CD
+- Fase 16: Features backend
+- Fase 17: UI/UX
+- Fase 18: Producción
 
 ---
 
@@ -685,11 +720,10 @@ Ver sesión 2026-02-07 arriba para detalles completos.
 
 ---
 
-### FASE 14: TESTING COMPLETO (Backend + Integración)
+### FASE 14: TESTING COMPLETO (Backend + Integración) ✅ COMPLETADA
 
-**Objetivo:** Cubrir todos los endpoints con tests automatizados y verificar integración end-to-end.
-**Prioridad:** ALTA - Es la base para poder iterar con confianza.
-**Estimación:** ~40 tests nuevos sobre los 52 existentes.
+**Completado:** 2026-02-07 — 103 tests passing (51 nuevos).
+**Tests de integración manual:** Pendientes para el usuario (ver checklist abajo).
 
 #### Estado Actual de Tests
 
@@ -1148,7 +1182,7 @@ async def lifespan(app: FastAPI):
 
 | Fase | Prioridad | Dependencias | Impacto |
 |------|-----------|--------------|---------|
-| **14: Testing** | 🔴 ALTA | Ninguna | Base para todo lo demás |
+| **14: Testing** | ✅ COMPLETADA | - | 103 tests passing |
 | **15: Seguridad + CI** | 🔴 ALTA | Fase 14 | Requisito para usuarios reales |
 | **16: Features Backend** | 🟡 MEDIA | Fase 15 | Funcionalidad completa |
 | **17: UI/UX** | 🟢 MEDIA-BAJA | Ninguna | Calidad de vida |

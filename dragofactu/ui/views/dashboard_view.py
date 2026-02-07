@@ -170,8 +170,19 @@ class DashboardView(QWidget):
                 self.summary_labels["Active Products"].setText(str(product_count))
                 self.summary_labels["Pending Documents"].setText(str(pending_docs))
                 self.summary_labels["Low Stock Items"].setText(str(low_stock_count))
-                self.summary_labels["Unpaid Invoices"].setText("0")  # TODO: Implement unpaid invoices
-                
+                # Count unpaid invoices (SENT or ACCEPTED status)
+                from dragofactu.models.entities import Document, DocumentType
+                unpaid_count = db.query(Document).filter(
+                    Document.type == DocumentType.INVOICE,
+                    Document.is_active == True,
+                    Document.status.in_([
+                        DocumentStatus.SENT,
+                        DocumentStatus.ACCEPTED,
+                        DocumentStatus.NOT_SENT,
+                    ])
+                ).count()
+                self.summary_labels["Unpaid Invoices"].setText(str(unpaid_count))
+
                 # Clear and update recent activity
                 self.clear_activity_layout()
                 self.update_recent_activity(db)
@@ -191,26 +202,27 @@ class DashboardView(QWidget):
                 item.widget().deleteLater()
     
     def update_recent_activity(self, db):
-        """Update recent activity section"""
-        # TODO: Implement activity logging and retrieval
-        # For now, show placeholder content
-        
-        placeholder_label = QLabel("Recent activity will appear here")
-        placeholder_label.setStyleSheet("color: #666; padding: 8px;")
-        self.activity_layout.addWidget(placeholder_label)
-        
-        # Example activity items (would come from database in real implementation)
-        # activities = [
-        #     "New client 'ABC Corp' added by John Doe",
-        #     "Invoice INV2024001 created by Jane Smith",
-        #     "Product 'Widget A' stock updated to 50 units",
-        #     "Quote QT2024001 converted to invoice",
-        # ]
-        
-        # for activity in activities:
-        #     activity_item = QLabel(f"• {activity}")
-        #     activity_item.setStyleSheet("padding: 4px; border-bottom: 1px solid #f0f0f0;")
-        #     self.activity_layout.addWidget(activity_item)
-        
-        # Add stretch at bottom
+        """Update recent activity section with recent documents."""
+        from dragofactu.models.entities import Document
+
+        recent_docs = (
+            db.query(Document)
+            .filter(Document.is_active == True)
+            .order_by(Document.created_at.desc())
+            .limit(5)
+            .all()
+        )
+
+        if not recent_docs:
+            placeholder_label = QLabel("No recent activity")
+            placeholder_label.setStyleSheet("color: #666; padding: 8px;")
+            self.activity_layout.addWidget(placeholder_label)
+        else:
+            for doc in recent_docs:
+                status_text = doc.status.value if doc.status else "unknown"
+                date_str = doc.created_at.strftime("%d/%m/%Y") if doc.created_at else ""
+                activity_item = QLabel(f"• {doc.code} - {status_text} ({date_str})")
+                activity_item.setStyleSheet("padding: 4px; border-bottom: 1px solid #f0f0f0;")
+                self.activity_layout.addWidget(activity_item)
+
         self.activity_layout.addStretch()

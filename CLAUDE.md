@@ -52,7 +52,7 @@ backend/
 |------------|--------|
 | Backend API | ✅ EN PRODUCCIÓN (Railway) |
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
-| Tests Backend | ✅ 52 PASSING |
+| Tests Backend | ✅ 103 PASSING |
 | PostgreSQL | ✅ CONFIGURADO (Railway) |
 | PDF en remoto | ✅ COMPLETADO |
 
@@ -60,13 +60,14 @@ backend/
 | Fase | Descripción | Estado |
 |------|-------------|--------|
 | 1-6 | Backend API + Modelos + Auth + CRUD | ✅ |
-| 7 | Testing (52 tests) | ✅ |
+| 7 | Testing (103 tests) | ✅ |
 | 8 | Deployment Railway | ✅ |
 | 9 | Integración Desktop (modo híbrido) | ✅ |
 | 10 | Tabs con API remota | ✅ |
 | 11 | PostgreSQL en Railway | ✅ |
 | 12 | Onboarding/Registro empresa | ✅ |
 | 13 | Sincronización/Cache offline | ✅ |
+| 14 | Testing completo (103 tests) | ✅ |
 
 ### Todas las Tabs Soportan Modo Híbrido
 Dashboard, Clientes, Productos, Documentos, Inventario, Diario, Trabajadores
@@ -223,7 +224,7 @@ DEFAULT_LANGUAGE=es
 
 - [x] PDF generation en modo remoto
 - [x] Fase 13: Sincronización/cache offline
-- [ ] **Fase 14:** Testing completo (backend ~40 tests nuevos + integración manual)
+- [x] **Fase 14:** Testing completo (103 tests backend, TODOs resueltos)
 - [ ] **Fase 15:** Seguridad (CORS, validación inputs, rate limiting) + CI/CD (GitHub Actions)
 - [ ] **Fase 16:** Features backend (export/import CSV, audit log, informes)
 - [ ] **Fase 17:** Mejoras UI/UX (tema oscuro, atajos, notificaciones toast, tablas mejoradas)

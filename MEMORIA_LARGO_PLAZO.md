@@ -40,6 +40,7 @@
 | v2.1.0 | 2026-02-07 | Fase 13: Cache offline + cola operaciones + monitor conectividad |
 | v2.2.0 | 2026-02-07 | Fases 14-15: Testing completo (103 tests) + Seguridad + CI/CD |
 | v2.3.0 | 2026-02-07 | Fase 16: Export/Import CSV, Audit Log, Financial Reports (130 tests) |
+| v2.4.0 | 2026-02-07 | Fase 17: Dark mode, keyboard shortcuts, toast notifications, sortable tables |
 
 ---
 
@@ -96,6 +97,49 @@ Implementación completa de Fase 13: sistema de cache offline con cola de operac
 - Flag `_from_cache` en response dict permite a la UI detectar datos cacheados
 - ConnectivityMonitor es thread-safe con threading.Lock
 - Usa QMetaObject.invokeMethod para callbacks thread-safe en Qt
+
+---
+
+### Sesión 2026-02-07 (5): Fase 17 - Mejoras UI/UX
+**AI Agent:** Claude Opus 4.6
+
+#### Resumen
+Mejoras de experiencia de usuario en la app desktop: tema oscuro, atajos de teclado, notificaciones toast y tablas ordenables.
+
+#### Componentes Implementados
+
+**1. Dark Mode (UIStyles)**
+- `LIGHT_COLORS` y `DARK_COLORS` paletas separadas en UIStyles
+- `set_dark_mode(enabled)` / `is_dark_mode()` class methods
+- Persistencia en `~/.dragofactu/theme.json`
+- Toggle en Settings > Apariencia > Tema (Claro/Oscuro)
+- `_build_main_stylesheet()` y `_apply_theme()` en MainWindow
+- Preview en tiempo real al cambiar combo en Settings
+
+**2. Keyboard Shortcuts**
+- `Ctrl+1..7` → Cambiar entre las 7 tabs
+- `F5` → Refrescar datos de la tab actual (con toast)
+- `Ctrl+N` → Nuevo elemento (contexto-dependiente: cliente, producto, factura, etc.)
+- `Ctrl+F` → Focus en barra de búsqueda
+- `Escape` → Limpiar búsqueda
+
+**3. Toast Notifications**
+- `ToastNotification` widget flotante con fade-in/out animado
+- 4 tipos: success (verde), warning (naranja), error (rojo), info (azul)
+- Auto-dismiss a los 3 segundos, botón X para cerrar
+- `show_toast(parent, msg, type)` convenience function
+- Reemplaza ~12 QMessageBox.information por toasts no-intrusivos
+
+**4. Sortable Tables**
+- `setSortingEnabled(True)` en las 5 tablas principales
+- Clients, Products, Documents, Inventory, Workers
+- `setSortingEnabled(False/True)` wrapping durante populate para evitar re-sorts
+- Click en header de columna ordena ASC/DESC
+
+#### Archivos Modificados
+| Archivo | Cambios |
+|---------|---------|
+| `dragofactu_complete.py` | UIStyles dark/light, ToastNotification, shortcuts, sortable tables, toast replacements |
 
 ---
 
@@ -1167,10 +1211,11 @@ GET /api/v1/reports/annual?year=2026
 
 ---
 
-### FASE 17: MEJORAS UI/UX
+### FASE 17: MEJORAS UI/UX ✅ COMPLETADA
 
 **Objetivo:** Pulir la experiencia de usuario del desktop.
 **Prioridad:** MEDIA-BAJA - Mejoras de calidad de vida.
+**Estado:** ✅ Completada (2026-02-07)
 
 #### Paso 17.1: Tema Oscuro
 

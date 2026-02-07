@@ -163,8 +163,9 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox, QCheckBox, QGroupBox, QGridLayout,
     QTimeEdit, QInputDialog, QFileDialog, QListWidget, QListWidgetItem
 )
-from PySide6.QtCore import Qt, QDate, QTime
+from PySide6.QtCore import Qt, QDate, QTime, QTimer, QPropertyAnimation
 from PySide6.QtGui import QFont, QAction, QColor, QPixmap
+from PySide6.QtWidgets import QGraphicsOpacityEffect
 
 from sqlalchemy.orm import joinedload
 
@@ -178,8 +179,8 @@ from dragofactu.ui.styles import apply_stylesheet
 class UIStyles:
     """Shared UI styles for Apple-inspired design system"""
 
-    # Color palette
-    COLORS = {
+    # Light color palette
+    LIGHT_COLORS = {
         'bg_app': '#FAFAFA',
         'bg_card': '#FFFFFF',
         'bg_hover': '#F5F5F7',
@@ -197,6 +198,42 @@ class UIStyles:
         'border': '#D2D2D7',
         'border_light': '#E5E5EA',
     }
+
+    # Dark color palette
+    DARK_COLORS = {
+        'bg_app': '#1C1C1E',
+        'bg_card': '#2C2C2E',
+        'bg_hover': '#3A3A3C',
+        'bg_pressed': '#48484A',
+        'text_primary': '#FFFFFF',
+        'text_secondary': '#AEAEB2',
+        'text_tertiary': '#636366',
+        'text_inverse': '#FFFFFF',
+        'accent': '#0A84FF',
+        'accent_hover': '#409CFF',
+        'success': '#30D158',
+        'warning': '#FF9F0A',
+        'danger': '#FF453A',
+        'danger_hover': '#FF6961',
+        'border': '#48484A',
+        'border_light': '#38383A',
+    }
+
+    _dark_mode = False
+
+    # Active palette (starts as light)
+    COLORS = dict(LIGHT_COLORS)
+
+    @classmethod
+    def set_dark_mode(cls, enabled: bool):
+        """Toggle dark/light mode and update the active palette."""
+        cls._dark_mode = enabled
+        source = cls.DARK_COLORS if enabled else cls.LIGHT_COLORS
+        cls.COLORS.update(source)
+
+    @classmethod
+    def is_dark_mode(cls) -> bool:
+        return cls._dark_mode
 
     @classmethod
     def get_panel_style(cls):
@@ -425,6 +462,130 @@ class UIStyles:
                 background-color: {cls.COLORS['bg_hover']};
             }}
         """
+
+
+# =============================================================================
+# Toast Notification System
+# =============================================================================
+
+class ToastNotification(QWidget):
+    """Non-intrusive floating notification that auto-dismisses."""
+
+    TOAST_COLORS = {
+        "success": {"bg": "#34C759", "icon": "OK"},
+        "warning": {"bg": "#FF9500", "icon": "!"},
+        "error": {"bg": "#FF3B30", "icon": "X"},
+        "info": {"bg": "#007AFF", "icon": "i"},
+    }
+
+    def __init__(self, message, toast_type="success", duration=3000, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+
+        self._duration = duration
+        self._toast_type = toast_type
+        colors = self.TOAST_COLORS.get(toast_type, self.TOAST_COLORS["info"])
+
+        # Layout
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 10, 16, 10)
+        layout.setSpacing(10)
+
+        # Icon
+        icon_label = QLabel(colors["icon"])
+        icon_label.setFixedSize(24, 24)
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_label.setStyleSheet(f"""
+            background-color: rgba(255,255,255,0.3);
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 12px;
+            color: white;
+        """)
+        layout.addWidget(icon_label)
+
+        # Message
+        msg_label = QLabel(message)
+        msg_label.setStyleSheet("color: white; font-size: 13px; font-weight: 500; background: transparent;")
+        msg_label.setWordWrap(True)
+        layout.addWidget(msg_label, 1)
+
+        # Close button
+        close_btn = QPushButton("x")
+        close_btn.setFixedSize(20, 20)
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.setStyleSheet("""
+            QPushButton { background: transparent; border: none; color: rgba(255,255,255,0.7); font-size: 14px; font-weight: 600; }
+            QPushButton:hover { color: white; }
+        """)
+        close_btn.clicked.connect(self._fade_out)
+        layout.addWidget(close_btn)
+
+        # Background styling
+        self._bg_color = colors["bg"]
+        self.setMinimumWidth(320)
+        self.setMaximumWidth(420)
+
+        # Opacity effect for fade animation
+        self._opacity = QGraphicsOpacityEffect(self)
+        self._opacity.setOpacity(0.0)
+        self.setGraphicsEffect(self._opacity)
+
+        # Timer for auto-close
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self._fade_out)
+
+    def paintEvent(self, event):
+        """Custom paint for rounded background."""
+        from PySide6.QtGui import QPainter, QColor, QPainterPath
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        path = QPainterPath()
+        path.addRoundedRect(self.rect().toRectF(), 10, 10)
+        painter.fillPath(path, QColor(self._bg_color))
+        painter.end()
+
+    def show_toast(self, parent_widget=None):
+        """Show the toast with fade-in animation at top-right of parent."""
+        if parent_widget:
+            parent_geo = parent_widget.geometry()
+            x = parent_geo.right() - self.sizeHint().width() - 20
+            y = parent_geo.top() + 60
+            self.move(x, y)
+
+        self.show()
+        self.raise_()
+
+        # Fade in
+        self._fade_anim = QPropertyAnimation(self._opacity, b"opacity")
+        self._fade_anim.setDuration(200)
+        self._fade_anim.setStartValue(0.0)
+        self._fade_anim.setEndValue(1.0)
+        self._fade_anim.start()
+
+        self._timer.start(self._duration)
+
+    def _fade_out(self):
+        """Fade out and close."""
+        self._timer.stop()
+        anim = QPropertyAnimation(self._opacity, b"opacity")
+        anim.setDuration(300)
+        anim.setStartValue(self._opacity.opacity())
+        anim.setEndValue(0.0)
+        anim.finished.connect(self.close)
+        anim.finished.connect(self.deleteLater)
+        anim.start()
+        self._close_anim = anim  # prevent GC
+
+
+def show_toast(parent, message, toast_type="success", duration=3000):
+    """Convenience function to show a toast notification."""
+    toast = ToastNotification(message, toast_type, duration)
+    toast.show_toast(parent)
+    return toast
 
 
 # =============================================================================
@@ -2081,14 +2242,14 @@ class Dashboard(QWidget):
         """Add new client"""
         dialog = ClientDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            QMessageBox.information(self, "Éxito", "Cliente añadido correctamente")
+            show_toast(self, "Cliente añadido correctamente", "success")
             self.refresh_data()
 
     def add_product(self):
         """Add new product"""
         dialog = ProductDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            QMessageBox.information(self, "Éxito", "Producto añadido correctamente")
+            show_toast(self, "Producto añadido correctamente", "success")
             self.refresh_data()
 
     def add_quote(self):
@@ -3583,6 +3744,7 @@ class ClientManagementTab(QWidget):
         self.clients_table.setAlternatingRowColors(False)
         self.clients_table.setShowGrid(False)
         self.clients_table.verticalHeader().setVisible(False)
+        self.clients_table.setSortingEnabled(True)
 
         header = self.clients_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -3621,6 +3783,7 @@ class ClientManagementTab(QWidget):
             clients = response.get("items", [])
             from_cache = response.get("_from_cache", False)
 
+            self.clients_table.setSortingEnabled(False)
             self.clients_table.setRowCount(0)
             self.client_ids = []
 
@@ -3639,6 +3802,7 @@ class ClientManagementTab(QWidget):
                 status_text = "Activo" if is_active else "Inactivo"
                 self.clients_table.setItem(row, 6, QTableWidgetItem(status_text))
 
+            self.clients_table.setSortingEnabled(True)
             source = "(cache - sin conexion)" if from_cache else "(servidor)"
             self.status_label.setText(f"Mostrando {len(clients)} clientes {source}")
 
@@ -3651,6 +3815,7 @@ class ClientManagementTab(QWidget):
         with SessionLocal() as db:
             clients = db.query(Client).order_by(Client.name).all()
 
+            self.clients_table.setSortingEnabled(False)
             self.clients_table.setRowCount(0)
             self.client_ids = []
 
@@ -3668,6 +3833,7 @@ class ClientManagementTab(QWidget):
                 status_text = "Activo" if client.is_active else "Inactivo"
                 self.clients_table.setItem(row, 6, QTableWidgetItem(status_text))
 
+            self.clients_table.setSortingEnabled(True)
             self.status_label.setText(f"Mostrando {len(clients)} clientes (local)")
 
     def filter_clients(self):
@@ -3688,7 +3854,7 @@ class ClientManagementTab(QWidget):
         dialog = ClientDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh_data()
-            QMessageBox.information(self, "✅ Éxito", "Cliente creado correctamente")
+            show_toast(self, "Cliente creado correctamente", "success")
 
     def edit_client(self):
         """Edit selected client"""
@@ -3705,7 +3871,7 @@ class ClientManagementTab(QWidget):
         dialog = ClientDialog(self, client_id=client_id)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh_data()
-            QMessageBox.information(self, "✅ Éxito", "Cliente actualizado correctamente")
+            show_toast(self, "Cliente actualizado correctamente", "success")
 
     def delete_client(self):
         """Delete selected client - supports local and remote modes"""
@@ -3881,6 +4047,7 @@ class ProductManagementTab(QWidget):
         self.products_table.setAlternatingRowColors(False)
         self.products_table.setShowGrid(False)
         self.products_table.verticalHeader().setVisible(False)
+        self.products_table.setSortingEnabled(True)
 
         header = self.products_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -3919,6 +4086,7 @@ class ProductManagementTab(QWidget):
         products = response.get("items", [])
         from_cache = response.get("_from_cache", False)
 
+        self.products_table.setSortingEnabled(False)
         self.products_table.setRowCount(0)
         self.product_ids = []
 
@@ -3941,6 +4109,7 @@ class ProductManagementTab(QWidget):
             status_text = f"Activo ({stock_status})" if is_active else "Inactivo"
             self.products_table.setItem(row, 7, QTableWidgetItem(status_text))
 
+        self.products_table.setSortingEnabled(True)
         source = "(cache - sin conexion)" if from_cache else "(servidor)"
         self.status_label.setText(f"Mostrando {len(products)} productos {source}")
 
@@ -3949,6 +4118,7 @@ class ProductManagementTab(QWidget):
         with SessionLocal() as db:
             products = db.query(Product).order_by(Product.name).all()
 
+            self.products_table.setSortingEnabled(False)
             self.products_table.setRowCount(0)
             self.product_ids = []
 
@@ -3968,6 +4138,7 @@ class ProductManagementTab(QWidget):
                 status_text = f"Activo ({stock_status})" if product.is_active else "Inactivo"
                 self.products_table.setItem(row, 7, QTableWidgetItem(status_text))
 
+            self.products_table.setSortingEnabled(True)
             self.status_label.setText(f"Mostrando {len(products)} productos (local)")
 
     def filter_products(self):
@@ -3988,7 +4159,7 @@ class ProductManagementTab(QWidget):
         dialog = ProductDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh_data()
-            QMessageBox.information(self, "✅ Éxito", "Producto creado correctamente")
+            show_toast(self, "Producto creado correctamente", "success")
 
     def edit_product(self):
         """Edit selected product"""
@@ -4005,7 +4176,7 @@ class ProductManagementTab(QWidget):
         dialog = ProductDialog(self, product_id=product_id)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh_data()
-            QMessageBox.information(self, "✅ Éxito", "Producto actualizado correctamente")
+            show_toast(self, "Producto actualizado correctamente", "success")
 
     def delete_product(self):
         """Delete selected product"""
@@ -4200,6 +4371,7 @@ class DocumentManagementTab(QWidget):
         self.docs_table.setAlternatingRowColors(False)
         self.docs_table.setShowGrid(False)
         self.docs_table.verticalHeader().setVisible(False)
+        self.docs_table.setSortingEnabled(True)
 
         header = self.docs_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -4274,12 +4446,14 @@ class DocumentManagementTab(QWidget):
             documents = response.get("items", [])
             from_cache = response.get("_from_cache", False)
 
+            self.docs_table.setSortingEnabled(False)
             self.docs_table.setRowCount(0)
             self._document_ids = []
 
             for row, doc in enumerate(documents):
                 self._add_document_row(row, doc, is_remote=True)
 
+            self.docs_table.setSortingEnabled(True)
             filter_type = self.filter_combo.currentText()
             source = "(cache - sin conexion)" if from_cache else "(servidor)"
             self.status_label.setText(f"Mostrando {len(documents)} documentos {source} - Filtro: {filter_type}")
@@ -4344,12 +4518,14 @@ class DocumentManagementTab(QWidget):
 
             documents = query.limit(100).all()
 
+            self.docs_table.setSortingEnabled(False)
             self.docs_table.setRowCount(0)
             self._document_ids = []
 
             for row, doc in enumerate(documents):
                 self._add_document_row_local(row, doc)
 
+            self.docs_table.setSortingEnabled(True)
             self.status_label.setText(f"Mostrando {len(documents)} documentos (local) - Filtro: {filter_type}")
 
     def _add_document_row(self, row, doc, is_remote=False):
@@ -5130,6 +5306,7 @@ class InventoryManagementTab(QWidget):
         self.inventory_table.setAlternatingRowColors(False)
         self.inventory_table.setShowGrid(False)
         self.inventory_table.verticalHeader().setVisible(False)
+        self.inventory_table.setSortingEnabled(True)
 
         header = self.inventory_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -5167,6 +5344,7 @@ class InventoryManagementTab(QWidget):
         from_cache = response.get("_from_cache", False)
         self._inventory_products = products
 
+        self.inventory_table.setSortingEnabled(False)
         self.inventory_table.setRowCount(0)
         low_stock_count = 0
         total_value = 0.0
@@ -5182,13 +5360,13 @@ class InventoryManagementTab(QWidget):
 
             current_stock = product.get("current_stock", 0) or 0
             minimum_stock = product.get("minimum_stock", 0) or 0
-            stock_status = "✅ OK"
+            stock_status = "OK"
             stock_color = "green"
             if current_stock <= 0:
-                stock_status = "❌ SIN STOCK"
+                stock_status = "SIN STOCK"
                 stock_color = "red"
             elif current_stock <= minimum_stock:
-                stock_status = "⚠️ BAJO"
+                stock_status = "BAJO"
                 stock_color = "orange"
                 low_stock_count += 1
 
@@ -5226,9 +5404,10 @@ class InventoryManagementTab(QWidget):
             last_movement = "N/A"
             self.inventory_table.setItem(row, 8, QTableWidgetItem(last_movement))
 
-        self.total_products_label.setText(f"📦 Total: {len(products)}")
-        self.low_stock_label.setText(f"⚠️ Stock Bajo: {low_stock_count}")
-        self.total_value_label.setText(f"💰 Valor Total: {total_value:.2f} €")
+        self.inventory_table.setSortingEnabled(True)
+        self.total_products_label.setText(f"Total: {len(products)}")
+        self.low_stock_label.setText(f"Stock Bajo: {low_stock_count}")
+        self.total_value_label.setText(f"Valor Total: {total_value:.2f} €")
 
         source = "(cache - sin conexion)" if from_cache else "(servidor)"
         self.status_label.setText(f"📊 Mostrando {len(products)} productos - {low_stock_count} con stock bajo {source}")
@@ -5239,6 +5418,7 @@ class InventoryManagementTab(QWidget):
             products = db.query(Product).all()
             self._inventory_products = products
 
+            self.inventory_table.setSortingEnabled(False)
             self.inventory_table.setRowCount(0)
             low_stock_count = 0
             total_value = 0.0
@@ -5253,13 +5433,13 @@ class InventoryManagementTab(QWidget):
                 self.inventory_table.setItem(row, 4, QTableWidgetItem(str(product.minimum_stock or 0)))
 
                 # Stock status
-                stock_status = "✅ OK"
+                stock_status = "OK"
                 stock_color = "green"
                 if product.current_stock <= 0:
-                    stock_status = "❌ SIN STOCK"
+                    stock_status = "SIN STOCK"
                     stock_color = "red"
                 elif product.current_stock <= product.minimum_stock:
-                    stock_status = "⚠️ BAJO"
+                    stock_status = "BAJO"
                     stock_color = "orange"
                     low_stock_count += 1
 
@@ -5302,12 +5482,14 @@ class InventoryManagementTab(QWidget):
                     last_movement = product.updated_at.strftime('%Y-%m-%d %H:%M')
                 self.inventory_table.setItem(row, 8, QTableWidgetItem(last_movement))
 
-            # Update statistics
-            self.total_products_label.setText(f"📦 Total: {len(products)}")
-            self.low_stock_label.setText(f"⚠️ Stock Bajo: {low_stock_count}")
-            self.total_value_label.setText(f"💰 Valor Total: {total_value:.2f} €")
+            self.inventory_table.setSortingEnabled(True)
 
-            self.status_label.setText(f"📊 Mostrando {len(products)} productos - {low_stock_count} con stock bajo")
+            # Update statistics
+            self.total_products_label.setText(f"Total: {len(products)}")
+            self.low_stock_label.setText(f"Stock Bajo: {low_stock_count}")
+            self.total_value_label.setText(f"Valor Total: {total_value:.2f} €")
+
+            self.status_label.setText(f"Mostrando {len(products)} productos - {low_stock_count} con stock bajo")
     
     def filter_products(self):
         """Filter products based on search and filter criteria"""
@@ -6155,7 +6337,7 @@ class DiaryManagementTab(QWidget):
                         db.commit()
 
                 reminder_dialog.accept()
-                QMessageBox.information(self, "Exito", "Recordatorio guardado correctamente")
+                show_toast(self, "Recordatorio guardado correctamente", "success")
                 # Sync with dashboard
                 self._sync_dashboard()
             except Exception as e:
@@ -6734,6 +6916,7 @@ class WorkersManagementTab(QWidget):
         self.workers_table.setAlternatingRowColors(False)
         self.workers_table.setShowGrid(False)
         self.workers_table.verticalHeader().setVisible(False)
+        self.workers_table.setSortingEnabled(True)
         self.workers_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.workers_table.doubleClicked.connect(self.edit_worker)
 
@@ -6775,6 +6958,7 @@ class WorkersManagementTab(QWidget):
             workers = response.get("items", [])
             from_cache = response.get("_from_cache", False)
 
+            self.workers_table.setSortingEnabled(False)
             self.workers_table.setRowCount(0)
             self.worker_ids = []
 
@@ -6800,6 +6984,7 @@ class WorkersManagementTab(QWidget):
                 status_text = "Activo" if is_active else "Inactivo"
                 self.workers_table.setItem(row, 7, QTableWidgetItem(status_text))
 
+            self.workers_table.setSortingEnabled(True)
             # Update department filter
             self._update_department_filter(departments)
             source = "(cache - sin conexion)" if from_cache else "(servidor)"
@@ -6814,6 +6999,7 @@ class WorkersManagementTab(QWidget):
         with SessionLocal() as db:
             workers = db.query(Worker).order_by(Worker.last_name, Worker.first_name).all()
 
+            self.workers_table.setSortingEnabled(False)
             self.workers_table.setRowCount(0)
             self.worker_ids = []
 
@@ -6838,6 +7024,7 @@ class WorkersManagementTab(QWidget):
                 status_text = "Activo" if worker.is_active else "Inactivo"
                 self.workers_table.setItem(row, 7, QTableWidgetItem(status_text))
 
+            self.workers_table.setSortingEnabled(True)
             # Update department filter
             self._update_department_filter(departments)
             self.status_label.setText(f"Mostrando {len(workers)} trabajadores (local)")
@@ -6888,7 +7075,7 @@ class WorkersManagementTab(QWidget):
         dialog = WorkerDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh_data()
-            QMessageBox.information(self, "Exito", "Trabajador creado correctamente")
+            show_toast(self, "Trabajador creado correctamente", "success")
 
     def edit_worker(self):
         """Edit selected worker."""
@@ -6905,7 +7092,7 @@ class WorkersManagementTab(QWidget):
         dialog = WorkerDialog(self, worker_id=worker_id)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh_data()
-            QMessageBox.information(self, "Exito", "Trabajador actualizado correctamente")
+            show_toast(self, "Trabajador actualizado correctamente", "success")
 
     def delete_worker(self):
         """Delete selected worker - supports local and remote modes."""
@@ -7230,6 +7417,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.current_user = None
+        self._load_theme()
         self.setup_ui()
 
     def set_current_user(self, user):
@@ -7242,13 +7430,92 @@ class MainWindow(QMainWindow):
         self.user_label.setText(f"{full_name} ({role})")
         self.statusBar().showMessage("Listo")
 
-    def setup_ui(self):
-        """Setup modern main window"""
-        self.setWindowTitle("Dragofactu - Sistema de Gestión")
-        self.setGeometry(100, 100, 1400, 900)
+    def _load_theme(self):
+        """Load saved theme preference."""
+        try:
+            theme_path = Path.home() / ".dragofactu" / "theme.json"
+            if theme_path.exists():
+                with open(theme_path) as f:
+                    data = json.load(f)
+                theme = data.get("theme", "Claro")
+                UIStyles.set_dark_mode(theme == "Oscuro")
+        except Exception:
+            pass
 
-        # Apply main window style
-        self.setStyleSheet(f"""
+    def _setup_shortcuts(self):
+        """Setup additional keyboard shortcuts."""
+        from PySide6.QtGui import QShortcut, QKeySequence
+
+        # Ctrl+1..7 → switch tabs
+        for i in range(min(7, self.tabs.count())):
+            shortcut = QShortcut(QKeySequence(f"Ctrl+{i+1}"), self)
+            shortcut.activated.connect(lambda idx=i: self.tabs.setCurrentIndex(idx))
+
+        # F5 → refresh current tab
+        refresh_shortcut = QShortcut(QKeySequence("F5"), self)
+        refresh_shortcut.activated.connect(self._refresh_current_tab)
+
+        # Ctrl+N → new element (context-dependent)
+        new_shortcut = QShortcut(QKeySequence("Ctrl+N"), self)
+        new_shortcut.activated.connect(self._new_element_for_current_tab)
+
+        # Ctrl+F → focus search bar in current tab
+        search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        search_shortcut.activated.connect(self._focus_search)
+
+        # Escape → close dialogs / clear search
+        esc_shortcut = QShortcut(QKeySequence("Escape"), self)
+        esc_shortcut.activated.connect(self._handle_escape)
+
+    def _refresh_current_tab(self):
+        """Refresh the data of the currently active tab."""
+        tab = self.tabs.currentWidget()
+        if hasattr(tab, 'refresh_data'):
+            tab.refresh_data()
+            show_toast(self, "Datos actualizados", "info", 1500)
+
+    def _new_element_for_current_tab(self):
+        """Trigger new element creation based on the active tab."""
+        idx = self.tabs.currentIndex()
+        tab = self.tabs.currentWidget()
+        if idx == 1 and hasattr(tab, 'add_client'):  # Clients
+            tab.add_client()
+        elif idx == 2 and hasattr(tab, 'add_product'):  # Products
+            tab.add_product()
+        elif idx == 3:  # Documents
+            self.new_invoice()
+        elif idx == 5 and hasattr(tab, 'add_entry'):  # Diary
+            tab.add_entry()
+        elif idx == 6 and hasattr(tab, 'add_worker'):  # Workers
+            tab.add_worker()
+
+    def _focus_search(self):
+        """Focus the search bar in the current tab."""
+        tab = self.tabs.currentWidget()
+        if hasattr(tab, 'search_input'):
+            tab.search_input.setFocus()
+            tab.search_input.selectAll()
+
+    def _handle_escape(self):
+        """Handle Escape key: clear search or deselect."""
+        tab = self.tabs.currentWidget()
+        if hasattr(tab, 'search_input') and tab.search_input.text():
+            tab.search_input.clear()
+            if hasattr(tab, 'refresh_data'):
+                tab.refresh_data()
+
+    def _apply_theme(self):
+        """Re-apply the current theme stylesheet to the main window."""
+        self.setStyleSheet(self._build_main_stylesheet())
+        # Refresh tab panels
+        for i in range(self.tabs.count()):
+            w = self.tabs.widget(i)
+            if hasattr(w, 'setStyleSheet'):
+                w.setStyleSheet(UIStyles.get_panel_style())
+
+    def _build_main_stylesheet(self):
+        """Build the main window stylesheet from current UIStyles colors."""
+        return f"""
             QMainWindow {{
                 background-color: {UIStyles.COLORS['bg_app']};
             }}
@@ -7316,7 +7583,15 @@ class MainWindow(QMainWindow):
             QTabBar::tab:hover:!selected {{
                 color: {UIStyles.COLORS['text_primary']};
             }}
-        """)
+        """
+
+    def setup_ui(self):
+        """Setup modern main window"""
+        self.setWindowTitle("Dragofactu - Sistema de Gestión")
+        self.setGeometry(100, 100, 1400, 900)
+
+        # Apply main window style (theme-aware)
+        self.setStyleSheet(self._build_main_stylesheet())
 
         # Create menu bar
         self.create_menu()
@@ -7378,6 +7653,9 @@ class MainWindow(QMainWindow):
 
         # Setup connectivity monitoring
         self._setup_connectivity_monitor()
+
+        # Setup keyboard shortcuts
+        self._setup_shortcuts()
 
         # Connect tab changes to refresh data
         self.tabs.currentChanged.connect(self.on_tab_changed)
@@ -7502,7 +7780,7 @@ class MainWindow(QMainWindow):
         try:
             from dragofactu.services.offline_cache import get_cache
             get_cache().clear()
-            QMessageBox.information(self, "Cache", "Cache limpiada correctamente.")
+            show_toast(self, "Cache limpiada correctamente", "info")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error al limpiar cache: {str(e)}")
 
@@ -8116,9 +8394,19 @@ class SettingsDialog(QDialog):
         ui_form.setSpacing(10)
 
         self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["Claro", "Oscuro", "Auto"])
-        self.theme_combo.setCurrentText("Auto")
+        self.theme_combo.addItems(["Claro", "Oscuro"])
+        # Load saved theme
+        saved_theme = "Claro"
+        try:
+            theme_path = Path.home() / ".dragofactu" / "theme.json"
+            if theme_path.exists():
+                with open(theme_path) as f:
+                    saved_theme = json.load(f).get("theme", "Claro")
+        except Exception:
+            pass
+        self.theme_combo.setCurrentText(saved_theme)
         self.theme_combo.setStyleSheet(UIStyles.get_input_style())
+        self.theme_combo.currentTextChanged.connect(self.preview_theme)
         ui_form.addRow("Tema:", self.theme_combo)
 
         self.language_combo = QComboBox()
@@ -8346,8 +8634,15 @@ class SettingsDialog(QDialog):
         self.logo_path_temp = ""
 
     def preview_theme(self, theme_name):
-        """Preview theme change"""
-        pass
+        """Preview theme change - applies dark/light mode."""
+        if theme_name == "Oscuro":
+            UIStyles.set_dark_mode(True)
+        else:
+            UIStyles.set_dark_mode(False)
+        # Refresh the main window stylesheet
+        main_window = self.parent()
+        if main_window and hasattr(main_window, '_apply_theme'):
+            main_window._apply_theme()
 
     def save_settings(self):
         """Save all settings"""
@@ -8380,11 +8675,17 @@ class SettingsDialog(QDialog):
 
             self.pdf_settings.save_settings(pdf_data)
 
-            QMessageBox.information(
-                self,
-                "Guardado",
-                "Configuracion guardada correctamente.\n\nLos cambios en PDF se aplicaran a las proximas facturas generadas."
-            )
+            # Save theme preference
+            theme = self.theme_combo.currentText()
+            theme_config_path = Path.home() / ".dragofactu" / "theme.json"
+            theme_config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(theme_config_path, 'w') as f:
+                json.dump({"theme": theme}, f)
+
+            # Apply theme
+            self.preview_theme(theme)
+
+            show_toast(self.parent() or self, "Configuracion guardada correctamente", "success")
             self.accept()
 
         except Exception as e:

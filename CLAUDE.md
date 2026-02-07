@@ -45,7 +45,7 @@ backend/
 
 ## ESTADO ACTUAL DEL PROYECTO
 
-**Versión:** v2.3.0 (2026-02-07)
+**Versión:** v2.4.0 (2026-02-07)
 **URL Producción:** https://dragofactu-production.up.railway.app
 
 | Componente | Estado |
@@ -70,6 +70,7 @@ backend/
 | 14 | Testing completo (103 tests) | ✅ |
 | 15 | Seguridad + CI/CD | ✅ |
 | 16 | Features backend (export, audit, reports) | ✅ |
+| 17 | UI/UX (dark mode, shortcuts, toasts, tables) | ✅ |
 
 ### Todas las Tabs Soportan Modo Híbrido
 Dashboard, Clientes, Productos, Documentos, Inventario, Diario, Trabajadores
@@ -239,7 +240,7 @@ DEFAULT_LANGUAGE=es
 - [x] **Fase 14:** Testing completo (103 tests backend, TODOs resueltos)
 - [x] **Fase 15:** Seguridad (CORS configurable, validación inputs, request logging) + CI/CD (GitHub Actions)
 - [x] **Fase 16:** Features backend (export/import CSV, audit log, informes)
-- [ ] **Fase 17:** Mejoras UI/UX (tema oscuro, atajos, notificaciones toast, tablas mejoradas)
+- [x] **Fase 17:** Mejoras UI/UX (tema oscuro, atajos, notificaciones toast, tablas mejoradas)
 - [ ] **Fase 18:** Producción y monitoreo (health check avanzado, backups, métricas)
 
 > **Plan detallado paso a paso de cada fase:** ver `MEMORIA_LARGO_PLAZO.md` § "Fases Futuras"

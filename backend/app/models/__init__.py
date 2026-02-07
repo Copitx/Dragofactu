@@ -28,6 +28,7 @@ from app.models.worker import Worker, Course
 # Auxiliary
 from app.models.diary import DiaryEntry
 from app.models.reminder import Reminder, ReminderPriority
+from app.models.audit_log import AuditLog
 
 __all__ = [
     # Base
@@ -54,4 +55,5 @@ __all__ = [
     'DiaryEntry',
     'Reminder',
     'ReminderPriority',
+    'AuditLog',
 ]

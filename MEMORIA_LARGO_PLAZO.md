@@ -39,6 +39,7 @@
 | v2.0.2 | 2026-02-06 | Fix errores 422/500: límites paginación y timezone reminders |
 | v2.1.0 | 2026-02-07 | Fase 13: Cache offline + cola operaciones + monitor conectividad |
 | v2.2.0 | 2026-02-07 | Fases 14-15: Testing completo (103 tests) + Seguridad + CI/CD |
+| v2.3.0 | 2026-02-07 | Fase 16: Export/Import CSV, Audit Log, Financial Reports (130 tests) |
 
 ---
 
@@ -95,6 +96,62 @@ Implementación completa de Fase 13: sistema de cache offline con cola de operac
 - Flag `_from_cache` en response dict permite a la UI detectar datos cacheados
 - ConnectivityMonitor es thread-safe con threading.Lock
 - Usa QMetaObject.invokeMethod para callbacks thread-safe en Qt
+
+---
+
+### Sesión 2026-02-07 (4): Fase 16 - Features Backend
+**AI Agent:** Claude Opus 4.6
+
+#### Resumen
+Implementación de tres nuevas funcionalidades backend: export/import CSV, audit log, e informes financieros. 27 tests nuevos (103 → 130).
+
+#### Componentes Creados
+
+**1. Export/Import CSV (`backend/app/api/v1/export_import.py`)**
+- Export CSV para: clients, products, suppliers
+- Import CSV para: clients, products
+- Detección de duplicados (skip por code), validación de campos obligatorios
+- Soporte UTF-8 y Latin-1 fallback
+- Multi-tenancy: solo exporta/importa datos de la empresa autenticada
+
+**2. Audit Log (`backend/app/models/audit_log.py` + `backend/app/api/v1/audit.py`)**
+- Modelo AuditLog: company_id, user_id, action, entity_type, entity_id, details (JSON)
+- Endpoint GET /api/v1/audit con filtros por action y entity_type
+- Helper `log_action()` para usar desde otros endpoints
+- Paginación y multi-tenancy
+
+**3. Financial Reports (`backend/app/api/v1/reports.py`)**
+- GET /api/v1/reports/monthly?year=&month=
+- GET /api/v1/reports/quarterly?year=&quarter=
+- GET /api/v1/reports/annual?year= (12 meses desglosados)
+- Totales: invoiced, paid, pending, quotes, por tipo de documento
+
+**4. Schemas (`backend/app/schemas/audit_log.py` + `backend/app/schemas/report.py`)**
+- AuditLogResponse, AuditLogList
+- PeriodReport, DocumentTypeSummary, AnnualReport
+
+#### Tests Nuevos (27 tests)
+| Archivo | Tests | Cobertura |
+|---------|-------|-----------|
+| `test_export_import.py` | 12 | Export CSV (empty, data, unauthorized, multi-tenancy), Import (success, duplicates, invalid file, missing fields) |
+| `test_audit.py` | 7 | List (empty, data, pagination, filter action, filter entity), unauthorized, multi-tenancy |
+| `test_reports.py` | 8 | Monthly (empty, data), quarterly, annual, unauthorized, invalid params, multi-tenancy |
+
+#### Archivos Creados/Modificados
+| Archivo | Cambios |
+|---------|---------|
+| `backend/app/models/audit_log.py` | NUEVO - Modelo AuditLog |
+| `backend/app/schemas/audit_log.py` | NUEVO - Schemas audit |
+| `backend/app/schemas/report.py` | NUEVO - Schemas reports |
+| `backend/app/api/v1/export_import.py` | NUEVO - Export/Import endpoints |
+| `backend/app/api/v1/audit.py` | NUEVO - Audit log endpoint + helper |
+| `backend/app/api/v1/reports.py` | NUEVO - Financial reports |
+| `backend/app/models/__init__.py` | + AuditLog |
+| `backend/app/schemas/__init__.py` | + audit_log, report schemas |
+| `backend/app/api/router.py` | + 3 nuevos routers |
+| `backend/tests/test_export_import.py` | NUEVO - 12 tests |
+| `backend/tests/test_audit.py` | NUEVO - 7 tests |
+| `backend/tests/test_reports.py` | NUEVO - 8 tests |
 
 ---
 
@@ -1017,10 +1074,11 @@ async def log_requests(request: Request, call_next):
 
 ---
 
-### FASE 16: FUNCIONALIDADES BACKEND PENDIENTES
+### FASE 16: FUNCIONALIDADES BACKEND PENDIENTES ✅ COMPLETADA
 
 **Objetivo:** Completar funcionalidades del backend que la UI espera pero no existen.
 **Prioridad:** MEDIA - Mejoras incrementales.
+**Estado:** ✅ Completada (2026-02-07) - 27 tests nuevos, total 130.
 
 #### Paso 16.1: Exportar/Importar Datos
 

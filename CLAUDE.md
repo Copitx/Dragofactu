@@ -45,14 +45,14 @@ backend/
 
 ## ESTADO ACTUAL DEL PROYECTO
 
-**Versión:** v2.2.0 (2026-02-07)
+**Versión:** v2.3.0 (2026-02-07)
 **URL Producción:** https://dragofactu-production.up.railway.app
 
 | Componente | Estado |
 |------------|--------|
 | Backend API | ✅ EN PRODUCCIÓN (Railway) |
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
-| Tests Backend | ✅ 103 PASSING |
+| Tests Backend | ✅ 130 PASSING |
 | PostgreSQL | ✅ CONFIGURADO (Railway) |
 | PDF en remoto | ✅ COMPLETADO |
 
@@ -69,6 +69,7 @@ backend/
 | 13 | Sincronización/Cache offline | ✅ |
 | 14 | Testing completo (103 tests) | ✅ |
 | 15 | Seguridad + CI/CD | ✅ |
+| 16 | Features backend (export, audit, reports) | ✅ |
 
 ### Todas las Tabs Soportan Modo Híbrido
 Dashboard, Clientes, Productos, Documentos, Inventario, Diario, Trabajadores
@@ -181,6 +182,16 @@ GET/POST /api/v1/documents     # CRUD documentos
 POST /api/v1/documents/{id}/change-status
 POST /api/v1/products/{id}/adjust-stock
 GET  /api/v1/dashboard/stats
+
+GET  /api/v1/export/clients      # Export CSV
+GET  /api/v1/export/products     # Export CSV
+GET  /api/v1/export/suppliers    # Export CSV
+POST /api/v1/export/import/clients   # Import CSV
+POST /api/v1/export/import/products  # Import CSV
+GET  /api/v1/audit               # Audit log
+GET  /api/v1/reports/monthly     # Informe mensual
+GET  /api/v1/reports/quarterly   # Informe trimestral
+GET  /api/v1/reports/annual      # Informe anual
 ```
 
 ---
@@ -227,7 +238,7 @@ DEFAULT_LANGUAGE=es
 - [x] Fase 13: Sincronización/cache offline
 - [x] **Fase 14:** Testing completo (103 tests backend, TODOs resueltos)
 - [x] **Fase 15:** Seguridad (CORS configurable, validación inputs, request logging) + CI/CD (GitHub Actions)
-- [ ] **Fase 16:** Features backend (export/import CSV, audit log, informes)
+- [x] **Fase 16:** Features backend (export/import CSV, audit log, informes)
 - [ ] **Fase 17:** Mejoras UI/UX (tema oscuro, atajos, notificaciones toast, tablas mejoradas)
 - [ ] **Fase 18:** Producción y monitoreo (health check avanzado, backups, métricas)
 

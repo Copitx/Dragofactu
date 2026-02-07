@@ -56,6 +56,12 @@ from app.schemas.reminder import (
     ReminderResponse, ReminderList
 )
 
+# Audit Log
+from app.schemas.audit_log import AuditLogResponse, AuditLogList
+
+# Reports
+from app.schemas.report import PeriodReport, DocumentTypeSummary, AnnualReport
+
 __all__ = [
     # Base
     'BaseSchema', 'TimestampMixin', 'PaginatedResponse', 'MessageResponse',
@@ -86,4 +92,8 @@ __all__ = [
     # Reminder
     'ReminderBase', 'ReminderCreate', 'ReminderUpdate',
     'ReminderResponse', 'ReminderList',
+    # Audit Log
+    'AuditLogResponse', 'AuditLogList',
+    # Reports
+    'PeriodReport', 'DocumentTypeSummary', 'AnnualReport',
 ]

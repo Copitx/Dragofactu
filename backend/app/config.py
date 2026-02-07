@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "Dragofactu API"
-    APP_VERSION: str = "2.2.0"
+    APP_VERSION: str = "2.3.0"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 

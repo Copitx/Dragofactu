@@ -62,7 +62,7 @@ frontend/                      # Web client (React) - EN DESARROLLO
 |------------|--------|
 | Backend API | ✅ EN PRODUCCIÓN (Railway) |
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
-| **Frontend Web** | **🟡 EN DESARROLLO (Fase 21 completada)** |
+| **Frontend Web** | **🟡 EN DESARROLLO (Fase 22 completada)** |
 | Tests Backend | ✅ 144 PASSING |
 | PostgreSQL | ✅ CONFIGURADO (Railway) |
 | Monitoring | ✅ Health checks, métricas, Sentry |
@@ -87,8 +87,8 @@ frontend/                      # Web client (React) - EN DESARROLLO
 | 19 | Scaffolding + Auth + Routing | ✅ |
 | 20 | Layout + Dashboard | ✅ |
 | **21** | **CRUD Clientes/Productos/Proveedores** | **✅** |
-| **22** | **Documentos (line editor, status, PDF)** | **⬜ SIGUIENTE** |
-| 23 | Inventario, Workers, Diary, Reminders | ⬜ Pendiente |
+| 22 | Documentos (line editor, status, PDF) | ✅ |
+| **23** | **Inventario, Workers, Diary, Reminders** | **⬜ SIGUIENTE** |
 | 24 | Reports, Export/Import, Audit, Admin, Settings | ⬜ Pendiente |
 | 25 | PWA + Mobile + Deploy + Testing | ⬜ Pendiente |
 
@@ -272,9 +272,8 @@ SENTRY_DSN=               # Opcional: DSN de Sentry para error tracking
 - [x] Fase 19: Frontend scaffolding + auth + routing
 - [x] Fase 20: Layout (sidebar, header, mobile nav) + Dashboard con API real
 - [x] Fase 21: CRUD Clientes/Productos/Proveedores (DataTable reutilizable)
-- [ ] **Fase 22:** Documentos (line editor, status transitions, PDF)
-- [ ] Fase 22: Documentos (line editor, status transitions, PDF)
-- [ ] Fase 23: Inventario, Workers, Diary, Reminders
+- [x] Fase 22: Documentos (line editor, status transitions, PDF)
+- [ ] **Fase 23:** Inventario, Workers, Diary, Reminders
 - [ ] Fase 24: Reports, Export/Import, Audit, Admin, Settings
 - [ ] Fase 25: PWA + Mobile + Deploy + Testing
 

@@ -1,7 +1,7 @@
 # PLAN_FRONTEND.md - Frontend Web Dragofactu (Fases 19-25)
 
 > **Última actualización:** 2026-02-08
-> **Estado general:** Fases 19-21 completadas, Fase 22 siguiente
+> **Estado general:** Fases 19-22 completadas, Fase 23 siguiente
 
 ---
 
@@ -12,8 +12,8 @@
 | 19 | Scaffolding + Auth + Routing | ✅ Completada | 2026-02-08 |
 | 20 | Layout + Dashboard | ✅ Completada | 2026-02-08 |
 | 21 | CRUD Clientes/Productos/Proveedores | ✅ Completada | 2026-02-08 |
-| **22** | **Documentos (line editor, status, PDF)** | **⬜ SIGUIENTE** | - |
-| 23 | Inventario, Workers, Diary, Reminders | ⬜ Pendiente | - |
+| 22 | Documentos (line editor, status, PDF) | ✅ Completada | 2026-02-08 |
+| **23** | **Inventario, Workers, Diary, Reminders** | **⬜ SIGUIENTE** | - |
 | 24 | Reports, Export/Import, Audit, Admin, Settings | ⬜ Pendiente | - |
 | 25 | PWA + Mobile + Deploy + Testing | ⬜ Pendiente | - |
 
@@ -129,52 +129,20 @@
 
 ---
 
-## FASE 22: Documentos (la más compleja)
+## FASE 22: Documentos ✅ COMPLETADA
 
-### Objetivo
-Gestión completa de documentos: listado con filtros, creación con editor de líneas, transiciones de estado, conversión y PDF.
-
-### Archivos a crear
-1. `src/pages/documents/index.tsx` - Lista con filtros tipo/estado/fecha
-2. `src/pages/documents/new.tsx` - Formulario creación con line editor
-3. `src/pages/documents/[id].tsx` - Detalle + acciones estado
-4. `src/api/documents.ts` - Todos los endpoints
-5. `src/hooks/use-documents.ts` - Query hooks
-6. `src/types/document.ts` - Types completos
-7. `src/components/document-editor/line-editor.tsx` - Editor líneas con cálculo automático
-8. `src/components/document-editor/totals-panel.tsx` - Subtotal/IVA/Total
-9. `src/components/document-editor/status-badge.tsx` - Badge coloreado por estado
-10. `src/lib/constants.ts` - STATUS_TRANSITIONS, DOC_TYPES
-
-### Editor de líneas
-- Cada línea: producto_id, descripción, cantidad, precio, descuento %
-- Cálculo automático: subtotal = qty * price * (1 - discount/100)
-- Total = sum(subtotals), IVA = subtotal * 21%
-- Botón + para añadir línea, X para eliminar
-- Selector de producto rellena precio automáticamente
-
-### Transiciones de estado
-```
-DRAFT → [Enviar] → NOT_SENT → [Marcar Enviado] → SENT
-SENT → [Aceptar] | [Rechazar]
-ACCEPTED → [Marcar Pagado] | [Pago Parcial]
-Cualquier no-final → [Cancelar]
-```
-
-### Conversión
-- Solo presupuestos ACCEPTED/SENT
-- Botón "Convertir a Factura" / "Convertir a Albarán"
-
-### PDF
-- Botón "Descargar PDF" → fetch blob → download
-- Preview en nueva pestaña
-
-### Verificable
-- Listar documentos con filtro tipo/estado/fecha
-- Crear factura con 3 líneas → totales correctos
-- Cambiar estado paso a paso hasta PAID
-- Convertir presupuesto a factura
-- Descargar PDF
+### Archivos creados
+- `src/types/document.ts` - Document, DocumentSummary, DocumentLine, DocumentCreate, etc.
+- `src/api/documents.ts` - listDocuments, getDocument, createDocument, updateDocument, deleteDocument, changeStatus, convert, downloadPdf
+- `src/lib/constants.ts` - DOC_TYPES, DOC_STATUSES, STATUS_TRANSITIONS, TAX_RATE, i18n maps
+- `src/hooks/use-documents.ts` - useDocuments, useDocument, useCreateDocument, useUpdateDocument, useDeleteDocument, useChangeStatus, useConvertDocument
+- `src/components/document-editor/status-badge.tsx` - Badge coloreado por estado
+- `src/components/document-editor/totals-panel.tsx` - Subtotal/IVA(21%)/Total
+- `src/components/document-editor/line-editor.tsx` - Editor de líneas con selector producto, cálculo automático, descuento %
+- `src/pages/documents/index.tsx` - Lista con filtros tipo/estado, paginación
+- `src/pages/documents/new.tsx` - Crear documento con line editor, selector cliente/fecha/tipo
+- `src/pages/documents/detail.tsx` - Detalle + edición DRAFT + transiciones de estado + conversión + PDF download
+- App.tsx: /documents, /documents/new, /documents/:id con lazy loading
 
 ---
 

@@ -11,6 +11,9 @@ const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const ClientsPage = lazy(() => import("@/pages/clients"));
 const ProductsPage = lazy(() => import("@/pages/products"));
 const SuppliersPage = lazy(() => import("@/pages/suppliers"));
+const DocumentsPage = lazy(() => import("@/pages/documents"));
+const DocumentNewPage = lazy(() => import("@/pages/documents/new"));
+const DocumentDetailPage = lazy(() => import("@/pages/documents/detail"));
 const NotFoundPage = lazy(() => import("@/pages/not-found"));
 const PlaceholderPage = lazy(() => import("@/pages/placeholder"));
 
@@ -66,7 +69,9 @@ export default function App() {
               <Route path="/clients" element={<ClientsPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/suppliers" element={<SuppliersPage />} />
-              <Route path="/documents" element={<PlaceholderPage />} />
+              <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/documents/new" element={<DocumentNewPage />} />
+              <Route path="/documents/:id" element={<DocumentDetailPage />} />
               <Route path="/inventory" element={<PlaceholderPage />} />
               <Route path="/workers" element={<PlaceholderPage />} />
               <Route path="/diary" element={<PlaceholderPage />} />

@@ -250,6 +250,17 @@ Codigos automaticos: `PRE-2026-00001`, `FAC-2026-00001`, `ALB-2026-00001`
 - TanStack Query hooks con cache e invalidacion
 - Responsive: columnas se ocultan en mobile
 
+**Fase 22: Documentos (Presupuestos, Albaranes, Facturas)**
+- Lista con filtros por tipo y estado, paginacion
+- Creacion con editor de lineas interactivo
+- Selector de producto auto-rellena precio
+- Calculo automatico subtotal/IVA(21%)/total
+- Transiciones de estado validadas (DRAFT→NOT_SENT→SENT→ACCEPTED→PAID)
+- Conversion de presupuesto a factura/albaran
+- Edicion en modo borrador con reemplazo de lineas
+- Descarga de PDF
+- Detalle completo con tabla de lineas y acciones contextuales
+
 ### v2.5.0 (2026-02-07) - Produccion y Monitoreo
 - Health checks (liveness + readiness)
 - Metricas de requests

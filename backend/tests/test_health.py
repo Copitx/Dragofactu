@@ -9,7 +9,7 @@ class TestHealthEndpoints:
     """Test health and root endpoints."""
 
     def test_health_check(self, client: TestClient):
-        """Test health check returns healthy status."""
+        """Test health check returns healthy status with uptime."""
         response = client.get("/health")
 
         assert response.status_code == 200
@@ -17,6 +17,7 @@ class TestHealthEndpoints:
         assert data["status"] == "healthy"
         assert "version" in data
         assert "app" in data
+        assert "uptime_seconds" in data
 
     def test_root_endpoint(self, client: TestClient):
         """Test root endpoint returns API info."""

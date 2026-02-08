@@ -45,16 +45,17 @@ backend/
 
 ## ESTADO ACTUAL DEL PROYECTO
 
-**Versión:** v2.4.1 (2026-02-08)
+**Versión:** v2.5.0 (2026-02-08)
 **URL Producción:** https://dragofactu-production.up.railway.app
 
 | Componente | Estado |
 |------------|--------|
 | Backend API | ✅ EN PRODUCCIÓN (Railway) |
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
-| Tests Backend | ✅ 131 PASSING |
+| Tests Backend | ✅ 144 PASSING |
 | PostgreSQL | ✅ CONFIGURADO (Railway) |
 | PDF en remoto | ✅ COMPLETADO |
+| Monitoring | ✅ Health checks, métricas, Sentry |
 
 ### Fases Completadas
 | Fase | Descripción | Estado |
@@ -71,6 +72,7 @@ backend/
 | 15 | Seguridad + CI/CD | ✅ |
 | 16 | Features backend (export, audit, reports) | ✅ |
 | 17 | UI/UX (dark mode, shortcuts, toasts, tables) | ✅ |
+| 18 | Producción y monitoreo | ✅ |
 
 ### Todas las Tabs Soportan Modo Híbrido
 Dashboard, Clientes, Productos, Documentos, Inventario, Diario, Trabajadores
@@ -163,7 +165,7 @@ translator.t("clients.title")  # Soporta claves anidadas
 - **Códigos automáticos:** `PRE-2026-00001`, `FAC-2026-00001`, `ALB-2026-00001`
 - **Tipos documento:** QUOTE, DELIVERY_NOTE, INVOICE
 - **Estados:** DRAFT → NOT_SENT → SENT → ACCEPTED → PAID
-- **Deducción stock:** Al marcar factura como PAID
+- **Deducción stock:** Al crear factura (permite stock negativo)
 - **Soft delete:** `is_active=False`
 - **Multi-tenancy:** Queries filtradas por `company_id`
 
@@ -193,6 +195,13 @@ GET  /api/v1/audit               # Audit log
 GET  /api/v1/reports/monthly     # Informe mensual
 GET  /api/v1/reports/quarterly   # Informe trimestral
 GET  /api/v1/reports/annual      # Informe anual
+
+GET  /api/v1/admin/system-info   # Info sistema (admin only)
+GET  /api/v1/admin/backup-info   # Info backups (admin only)
+
+GET  /health                     # Liveness probe
+GET  /health/ready               # Readiness probe (verifica DB)
+GET  /metrics                    # Métricas de requests
 ```
 
 ---
@@ -229,6 +238,7 @@ DATABASE_URL=sqlite:///dragofactu.db
 DEBUG=true
 SECRET_KEY=tu-clave-secreta-32-chars
 DEFAULT_LANGUAGE=es
+SENTRY_DSN=               # Opcional: DSN de Sentry para error tracking
 ```
 
 ---
@@ -241,7 +251,7 @@ DEFAULT_LANGUAGE=es
 - [x] **Fase 15:** Seguridad (CORS configurable, validación inputs, request logging) + CI/CD (GitHub Actions)
 - [x] **Fase 16:** Features backend (export/import CSV, audit log, informes)
 - [x] **Fase 17:** Mejoras UI/UX (tema oscuro, atajos, notificaciones toast, tablas mejoradas)
-- [ ] **Fase 18:** Producción y monitoreo (health check avanzado, backups, métricas)
+- [x] **Fase 18:** Producción y monitoreo (health checks, Sentry, métricas, rate limiting, admin endpoints)
 
 > **Plan detallado paso a paso de cada fase:** ver `MEMORIA_LARGO_PLAZO.md` § "Fases Futuras"
 

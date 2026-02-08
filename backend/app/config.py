@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "Dragofactu API"
-    APP_VERSION: str = "2.4.1"
+    APP_VERSION: str = "2.5.0"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 
@@ -42,6 +42,9 @@ class Settings(BaseSettings):
 
     # Request size limit (bytes) - 10MB default
     MAX_REQUEST_SIZE: int = 10 * 1024 * 1024
+
+    # Monitoring
+    SENTRY_DSN: str = ""  # Set to enable error tracking
 
     # Email (optional, for future use)
     SMTP_HOST: str = ""

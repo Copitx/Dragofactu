@@ -6,23 +6,73 @@ Multi-tenant ERP backend for the Dragofactu desktop client.
 import os
 import sys
 import time
+import uuid
 import logging
+import json
+from datetime import datetime, timezone
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
+from sqlalchemy import text
 from app.config import get_settings
-from app.database import engine
+from app.database import engine, SessionLocal
 from app.models.base import Base
 
 settings = get_settings()
 
-# Configure structured logging
+# App start time for uptime calculation
+_app_start_time = time.time()
+
+# Request metrics (in-memory counters)
+_request_metrics = {
+    "total_requests": 0,
+    "total_errors": 0,
+    "status_codes": {},
+    "endpoint_latency": {},
+}
+_metrics_lock = __import__("threading").Lock()
+
+
+# ============================================================================
+# STRUCTURED JSON LOGGING
+# ============================================================================
+
+class JSONFormatter(logging.Formatter):
+    """JSON log formatter for production log aggregation."""
+
+    def format(self, record):
+        log_entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if hasattr(record, "request_id"):
+            log_entry["request_id"] = record.request_id
+        if hasattr(record, "user_id"):
+            log_entry["user_id"] = record.user_id
+        if hasattr(record, "company_id"):
+            log_entry["company_id"] = record.company_id
+        if record.exc_info and record.exc_info[0]:
+            log_entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_entry, default=str)
+
+
+# Configure logging - JSON in production, readable in dev
+log_handler = logging.StreamHandler()
+if settings.DEBUG:
+    log_handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+else:
+    log_handler.setFormatter(JSONFormatter())
+
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[log_handler],
 )
 logger = logging.getLogger("dragofactu")
 
@@ -70,14 +120,34 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log all requests with method, path, status and duration."""
+    """Log all requests with method, path, status, duration, and request_id."""
 
     async def dispatch(self, request: Request, call_next):
+        # Generate unique request ID for tracing
+        request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:12])
+        request.state.request_id = request_id
+
         start = time.time()
         response = await call_next(request)
         duration = time.time() - start
+
+        # Add request ID to response
+        response.headers["X-Request-ID"] = request_id
+
+        # Update metrics
+        status_code = response.status_code
+        path = request.url.path
+        with _metrics_lock:
+            _request_metrics["total_requests"] += 1
+            if status_code >= 400:
+                _request_metrics["total_errors"] += 1
+            status_key = str(status_code)
+            _request_metrics["status_codes"][status_key] = _request_metrics["status_codes"].get(status_key, 0) + 1
+            # Track latency per endpoint (keep last value)
+            _request_metrics["endpoint_latency"][f"{request.method} {path}"] = round(duration * 1000, 2)
+
         logger.info(
-            f"{request.method} {request.url.path} -> {response.status_code} ({duration:.3f}s)"
+            f"{request.method} {path} -> {status_code} ({duration:.3f}s) [{request_id}]"
         )
         return response
 
@@ -95,9 +165,70 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
+    """Global rate limiting: 120 requests/minute per IP."""
+
+    # Paths exempt from rate limiting
+    EXEMPT_PATHS = {"/health", "/health/ready", "/metrics", "/", "/docs", "/redoc", "/openapi.json"}
+
+    async def dispatch(self, request: Request, call_next):
+        # Disable in DEBUG/test mode
+        if settings.DEBUG:
+            return await call_next(request)
+
+        path = request.url.path
+        if path in self.EXEMPT_PATHS:
+            return await call_next(request)
+
+        from app.core.security_utils import api_rate_limiter
+        client_ip = request.client.host if request.client else "unknown"
+
+        if not api_rate_limiter.is_allowed(client_ip):
+            retry_after = api_rate_limiter.get_retry_after(client_ip)
+            return JSONResponse(
+                status_code=429,
+                content={"detail": f"Too many requests. Retry after {retry_after} seconds."},
+                headers={"Retry-After": str(retry_after)},
+            )
+        return await call_next(request)
+
+
+def _init_sentry():
+    """Initialize Sentry error tracking if DSN is configured."""
+    if not settings.SENTRY_DSN:
+        logger.info("Sentry DSN not configured, error tracking disabled.")
+        return
+
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            environment="production" if not settings.DEBUG else "development",
+            release=f"dragofactu@{settings.APP_VERSION}",
+            traces_sample_rate=0.1,  # 10% of transactions for performance
+            profiles_sample_rate=0.1,
+            integrations=[
+                FastApiIntegration(transaction_style="endpoint"),
+                SqlalchemyIntegration(),
+            ],
+            send_default_pii=False,  # Don't send user emails/IPs
+        )
+        logger.info("Sentry error tracking initialized.")
+    except ImportError:
+        logger.warning("sentry-sdk not installed, error tracking disabled.")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Sentry: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
+    # Initialize Sentry
+    _init_sentry()
+
     # Startup: Create all tables
     logger.info("Creating database tables...")
     try:
@@ -125,6 +256,7 @@ app = FastAPI(
 
 # Middleware stack (order matters: outermost first)
 app.add_middleware(RequestSizeLimitMiddleware)
+app.add_middleware(GlobalRateLimitMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
@@ -144,12 +276,74 @@ app.add_middleware(
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    """Health check endpoint for monitoring."""
+    """
+    Liveness probe - checks if the app is running.
+    Used by Railway healthcheck and load balancers.
+    """
+    uptime = time.time() - _app_start_time
     return {
         "status": "healthy",
         "version": settings.APP_VERSION,
-        "app": settings.APP_NAME
+        "app": settings.APP_NAME,
+        "uptime_seconds": round(uptime, 1),
     }
+
+
+@app.get("/health/ready", tags=["Health"])
+async def readiness_check():
+    """
+    Readiness probe - checks if the app can serve requests.
+    Verifies database connectivity.
+    """
+    checks = {}
+    overall_healthy = True
+
+    # Check database connectivity
+    try:
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+            checks["database"] = {"status": "ok"}
+        finally:
+            db.close()
+    except Exception as e:
+        checks["database"] = {"status": "error", "detail": str(e)}
+        overall_healthy = False
+
+    uptime = time.time() - _app_start_time
+    status_code = 200 if overall_healthy else 503
+
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if overall_healthy else "degraded",
+            "version": settings.APP_VERSION,
+            "uptime_seconds": round(uptime, 1),
+            "checks": checks,
+        }
+    )
+
+
+@app.get("/metrics", tags=["Monitoring"])
+async def get_metrics():
+    """
+    Application metrics endpoint.
+    Returns request counts, error rates, and latency data.
+    """
+    uptime = time.time() - _app_start_time
+    with _metrics_lock:
+        total = _request_metrics["total_requests"]
+        errors = _request_metrics["total_errors"]
+        return {
+            "uptime_seconds": round(uptime, 1),
+            "requests": {
+                "total": total,
+                "errors": errors,
+                "error_rate": round(errors / max(total, 1) * 100, 2),
+            },
+            "status_codes": dict(_request_metrics["status_codes"]),
+            "endpoint_latency_ms": dict(_request_metrics["endpoint_latency"]),
+        }
 
 
 @app.get("/", tags=["Root"])

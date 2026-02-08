@@ -110,6 +110,8 @@ class RateLimiter:
 # Global rate limiters
 login_rate_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 attempts per 5 min
 register_rate_limiter = RateLimiter(max_requests=3, window_seconds=3600)  # 3 per hour
+# Global API rate limiter: 120 requests/minute per IP
+api_rate_limiter = RateLimiter(max_requests=120, window_seconds=60)
 
 
 def check_login_rate_limit(request: Request):

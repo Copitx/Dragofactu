@@ -25,6 +25,9 @@ python-dotenv>=1.0.0
 # PDF generation (same as desktop)
 reportlab>=4.0.0
 
+# Monitoring
+sentry-sdk[fastapi]>=2.0.0
+
 # Email (optional)
 # aiosmtplib>=3.0.0
 

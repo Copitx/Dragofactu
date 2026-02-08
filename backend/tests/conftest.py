@@ -10,6 +10,7 @@ import uuid
 
 # Set test database URL BEFORE importing app modules
 os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
+os.environ['DEBUG'] = 'true'
 
 # Clear any cached settings
 from app import config

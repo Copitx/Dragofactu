@@ -1,74 +1,82 @@
 # DRAGOFACTU - Sistema de Gestion Empresarial
 
-**Version:** 2.0.0 (Multi-tenant API)
-**Estado:** Beta - Backend API + Desktop Client
-**Stack:** Python 3.10+ / FastAPI / PySide6 / SQLAlchemy / SQLite|PostgreSQL
+**Version:** v2.5.0 (Backend) / v3.0.0-dev (Frontend Web)
+**Estado:** Backend en produccion | Frontend web en desarrollo activo
+**URL Produccion:** https://dragofactu-production.up.railway.app
 
 ---
 
 ## Arquitectura
 
-Dragofactu ahora soporta dos modos de operación:
-
-| Modo | Descripción | Uso |
-|------|-------------|-----|
-| **Desktop Local** | App standalone con SQLite local | Uso personal, sin internet |
-| **Multi-tenant API** | Backend FastAPI + Cliente Desktop | Multi-empresa, multi-usuario, cloud |
+Dragofactu es un ERP multi-plataforma con tres clientes:
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Desktop App    │────▶│  FastAPI API    │────▶│  PostgreSQL     │
-│  (PySide6)      │ JWT │  (Backend)      │     │  (Cloud DB)     │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                              │
-                              ▼
-                        Multi-tenancy
-                        (company_id)
+│  Desktop App    │────▶│                 │────▶│  PostgreSQL     │
+│  (PySide6)      │ JWT │  FastAPI API    │     │  (Railway)      │
+└─────────────────┘     │  (Backend)      │     └─────────────────┘
+                        │                 │
+┌─────────────────┐     │  Multi-tenant   │
+│  Frontend Web   │────▶│  (company_id)   │
+│  (React + TS)   │ JWT │                 │
+└─────────────────┘     └─────────────────┘
 ```
+
+| Modo | Stack | Estado |
+|------|-------|--------|
+| **Backend API** | FastAPI + PostgreSQL | En produccion (Railway) |
+| **Desktop** | PySide6 (Qt6) + modo hibrido | Funcional |
+| **Frontend Web** | React 18 + TypeScript + Vite 5 | En desarrollo |
 
 ---
 
 ## Que es Dragofactu
 
-ERP para gestion empresarial:
+ERP completo para gestion empresarial:
+
 - **Facturacion**: Presupuestos, facturas, albaranes con workflow de estados
 - **Inventario**: Stock con alertas y deduccion automatica al facturar
-- **Clientes/Proveedores**: CRUD completo con busqueda
+- **Clientes/Proveedores**: CRUD completo con busqueda y paginacion
 - **Trabajadores**: Gestion de personal y cursos de formacion
-- **Diario**: Notas diarias con recordatorios
+- **Diario y Recordatorios**: Notas con prioridad y fechas limite
+- **Informes**: Reportes mensuales, trimestrales y anuales
+- **Export/Import**: CSV para clientes, productos, proveedores
+- **Audit Log**: Registro de todas las acciones del sistema
 - **Multi-idioma**: ES/EN/DE con cambio en vivo
+- **Dark Mode**: Tema oscuro/claro/sistema
+- **Cache Offline**: Desktop funciona sin conexion
 
 ---
 
 ## Instalacion Rapida
 
-### Modo Desktop Local (Standalone)
+### Frontend Web (Desarrollo)
 
 ```bash
-# Clonar repositorio
-git clone https://github.com/Copitx/Dragofactu.git
-cd Dragofactu
-
-# Ejecutar (instalacion automatica)
-./start_dragofactu.sh
+cd frontend
+npm install
+npm run dev
+# Disponible en http://localhost:5173
 ```
 
-**Credenciales por defecto:** `admin` / `admin123`
-
-### Modo API Multi-tenant
+### Backend API (Local)
 
 ```bash
-# Backend
 cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-
-# Iniciar servidor
-uvicorn app.main:app --reload
-# API disponible en http://localhost:8000
-# Docs en http://localhost:8000/docs
+uvicorn app.main:app --reload --port 8000
+# API en http://localhost:8000 | Docs en http://localhost:8000/docs
 ```
+
+### Desktop (Standalone)
+
+```bash
+./start_dragofactu.sh
+```
+
+**Credenciales por defecto:** `admin` / `admin123`
 
 ---
 
@@ -76,64 +84,85 @@ uvicorn app.main:app --reload
 
 ```
 Dragofactu/
-├── backend/                    # 🆕 FastAPI Backend (API Multi-tenant)
+├── backend/                    # FastAPI Backend (Produccion)
 │   ├── app/
-│   │   ├── api/v1/            # Endpoints REST
-│   │   │   ├── auth.py        # Login, register, JWT
-│   │   │   ├── clients.py     # CRUD clientes
-│   │   │   ├── products.py    # CRUD productos + stock
-│   │   │   ├── documents.py   # Documentos + workflow
-│   │   │   ├── suppliers.py   # CRUD proveedores
-│   │   │   ├── workers.py     # CRUD trabajadores
-│   │   │   ├── diary.py       # Entradas diario
-│   │   │   └── reminders.py   # Recordatorios
+│   │   ├── api/v1/            # Endpoints REST (50+)
 │   │   ├── models/            # SQLAlchemy ORM (11 modelos)
-│   │   ├── schemas/           # Pydantic schemas
-│   │   ├── core/security.py   # JWT + bcrypt
+│   │   ├── schemas/           # Pydantic v2 schemas
+│   │   ├── core/              # Seguridad, config, DB
 │   │   └── main.py            # FastAPI app
-│   ├── tests/                 # 🆕 Pytest suite (52 tests)
-│   └── requirements.txt
+│   └── tests/                 # 144 tests pytest
 │
-├── dragofactu/                # Paquete desktop modular
-│   ├── services/
-│   │   └── api_client.py      # 🆕 Cliente HTTP para API
-│   ├── models/
-│   ├── ui/
-│   └── config/
+├── frontend/                   # React Web Client
+│   ├── src/
+│   │   ├── api/               # Axios clients por entidad
+│   │   ├── components/        # shadcn/ui + layout + data-table
+│   │   ├── hooks/             # TanStack Query hooks
+│   │   ├── stores/            # Zustand (auth, ui)
+│   │   ├── pages/             # Lazy-loaded pages (CRUD)
+│   │   ├── i18n/              # es.json, en.json, de.json
+│   │   ├── types/             # TypeScript interfaces
+│   │   └── lib/               # Utils, validators (Zod)
+│   ├── vite.config.ts         # Proxy API → Railway
+│   └── tailwind.config.ts     # Paleta Dragofactu
 │
-├── dragofactu_complete.py     # App monolitica (modo local)
-├── start_dragofactu.sh        # Entry point
-└── docker-compose.yml         # 🆕 PostgreSQL para produccion
+├── dragofactu/                 # Desktop Client (PySide6)
+│   ├── services/api_client.py # Cliente HTTP con cache offline
+│   ├── models/                # ORM models
+│   ├── ui/                    # Componentes Qt
+│   └── config/                # Traduccion, settings
+│
+├── dragofactu_complete.py      # App monolitica desktop
+└── start_dragofactu.sh         # Entry point desktop
 ```
 
 ---
 
 ## API Endpoints
 
-### Autenticación
-| Método | Endpoint | Descripción |
+### Autenticacion
+| Metodo | Endpoint | Descripcion |
 |--------|----------|-------------|
 | POST | `/api/v1/auth/register` | Registrar empresa + admin |
-| POST | `/api/v1/auth/login` | Login → access_token + refresh_token |
-| POST | `/api/v1/auth/refresh` | Renovar access_token |
+| POST | `/api/v1/auth/login` | Login → JWT tokens |
+| POST | `/api/v1/auth/refresh` | Renovar access token |
 | GET | `/api/v1/auth/me` | Info usuario actual |
 
-### CRUD (Todos requieren JWT)
-| Recurso | Endpoints | Descripción |
-|---------|-----------|-------------|
-| `/clients` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Clientes |
-| `/products` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Productos |
-| `/products/:id/adjust-stock` | POST | Ajustar stock |
-| `/suppliers` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Proveedores |
-| `/documents` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Documentos |
-| `/documents/:id/change-status` | POST | Cambiar estado |
-| `/documents/:id/convert` | POST | Convertir PRE→FAC/ALB |
-| `/documents/stats/summary` | GET | Resumen dashboard |
-| `/workers` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Trabajadores |
-| `/workers/:id/courses` | POST | Añadir curso |
-| `/diary` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Diario |
-| `/reminders` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Recordatorios |
-| `/reminders/:id/complete` | POST | Marcar completado |
+### CRUD (Requieren JWT)
+| Recurso | Endpoints | Extra |
+|---------|-----------|-------|
+| `/clients` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Busqueda, paginacion |
+| `/products` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Stock, categorias |
+| `/products/:id/adjust-stock` | POST | Ajustar stock +/- |
+| `/suppliers` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Busqueda, paginacion |
+| `/documents` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Workflow estados |
+| `/documents/:id/change-status` | POST | Transiciones validadas |
+| `/workers` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Cursos |
+| `/diary` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Pin toggle |
+| `/reminders` | GET, POST, GET/:id, PUT/:id, DELETE/:id | Prioridad, completar |
+| `/dashboard/stats` | GET | Metricas dashboard |
+
+### Export/Import & Reports
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| GET | `/api/v1/export/clients` | Export CSV clientes |
+| GET | `/api/v1/export/products` | Export CSV productos |
+| GET | `/api/v1/export/suppliers` | Export CSV proveedores |
+| POST | `/api/v1/export/import/clients` | Import CSV clientes |
+| POST | `/api/v1/export/import/products` | Import CSV productos |
+| GET | `/api/v1/audit` | Log de auditoria |
+| GET | `/api/v1/reports/monthly` | Informe mensual |
+| GET | `/api/v1/reports/quarterly` | Informe trimestral |
+| GET | `/api/v1/reports/annual` | Informe anual |
+
+### Admin & Monitoring
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| GET | `/health` | Liveness probe |
+| GET | `/health/ready` | Readiness probe (verifica DB) |
+| GET | `/metrics` | Metricas de requests |
+| GET | `/api/v1/admin/system-info` | Info sistema (admin) |
+| GET | `/api/v1/admin/backup-info` | Info backups (admin) |
 
 ---
 
@@ -144,38 +173,23 @@ cd backend
 source venv/bin/activate
 python -m pytest tests/ -v
 
-# Resultado: 52 tests passing
-# - test_auth.py: 13 tests
-# - test_clients.py: 12 tests
-# - test_products.py: 11 tests
-# - test_documents.py: 12 tests
-# - test_health.py: 4 tests
+# Resultado: 144 tests passing
+# test_auth.py:          13 tests
+# test_clients.py:       12 tests
+# test_products.py:      12 tests
+# test_documents.py:     12 tests
+# test_suppliers.py:     12 tests
+# test_workers.py:       13 tests
+# test_diary.py:         10 tests
+# test_reminders.py:     12 tests
+# test_dashboard.py:      4 tests
+# test_export_import.py: 12 tests
+# test_audit.py:          7 tests
+# test_reports.py:        8 tests
+# test_health.py:         5 tests
+# test_admin.py:          6 tests
+# test_security.py:       6 tests
 ```
-
----
-
-## Multi-tenancy
-
-Cada empresa es un **tenant** aislado:
-
-```python
-# Modelo Company
-class Company(Base):
-    id = Column(GUID(), primary_key=True)
-    code = Column(String(20), unique=True)  # Ej: "ACME001"
-    name = Column(String(100))
-    # ...
-
-# Todos los modelos tienen company_id
-class Client(Base):
-    company_id = Column(GUID(), ForeignKey("companies.id"))
-    # Unique constraint per company
-    __table_args__ = (
-        UniqueConstraint('company_id', 'code'),
-    )
-```
-
-Los endpoints filtran automaticamente por `company_id` del usuario autenticado.
 
 ---
 
@@ -187,99 +201,106 @@ DRAFT → NOT_SENT → SENT → ACCEPTED → PAID
                   CANCELLED
 ```
 
-- **DRAFT**: Editable, eliminable
-- **NOT_SENT**: Listo para enviar
-- **SENT**: Enviado al cliente
-- **ACCEPTED**: Aceptado, puede convertirse
-- **PAID**: Factura pagada (deduce stock automaticamente)
-- **PARTIALLY_PAID**: Pago parcial
-- **CANCELLED**: Cancelado
-
 Codigos automaticos: `PRE-2026-00001`, `FAC-2026-00001`, `ALB-2026-00001`
-
----
-
-## Changelog
-
-### v2.0.0 (2026-02-02) - Multi-tenant API 🚀
-
-**Backend FastAPI Completo:**
-- Arquitectura multi-tenant con `company_id` en todas las entidades
-- 11 modelos SQLAlchemy con relaciones
-- 35+ endpoints REST documentados en OpenAPI
-- Autenticación JWT con access/refresh tokens
-- RBAC: admin, management, warehouse, read_only
-- Workflow de documentos con transiciones validadas
-- Deducción automática de stock al marcar PAID
-- Conversión de presupuestos a facturas/albaranes
-
-**Testing:**
-- 52 tests pytest passing
-- Cobertura: auth, clients, products, documents, health
-- Fixtures con test database in-memory
-
-**Cliente Desktop:**
-- APIClient para comunicación con backend
-- Token storage en `~/.dragofactu/api_tokens.json`
-- Refresh token automático
-
-**Archivos nuevos:**
-- `backend/` - Estructura completa FastAPI
-- `dragofactu/services/api_client.py` - Cliente HTTP
-- `docker-compose.yml` - PostgreSQL para producción
-
-### v1.0.0.9 (2026-02-01) - Documentos, Estados, Recordatorios
-
-- Configuración PDF personalizable (logo, datos empresa)
-- Nuevos estados: NOT_SENT, PARTIALLY_PAID, CANCELLED
-- Sistema de recordatorios completo
-- Dashboard mejorado con pendientes
-
-### v1.0.0.8 (2026-01-31) - Sistema de Traducción
-
-- Traducción UI completa ES/EN/DE
-- Cambio de idioma en vivo sin reinicio
-
-### v1.0.0.7 (2026-01-31) - Clean Repo
-
-- Reducido de 457MB a 11MB
-- Sistema de instalación mejorado
-
-### v1.0.0.6 (2026-01-13) - UI Redesign
-
-- Sistema de diseño Apple-inspired
-- Clase UIStyles centralizada
 
 ---
 
 ## Stack Tecnologico
 
-| Componente | Tecnología |
+| Componente | Tecnologia |
 |------------|------------|
-| Desktop GUI | PySide6 (Qt6) |
 | Backend API | FastAPI + Uvicorn |
+| Desktop GUI | PySide6 (Qt6) |
+| Frontend Web | React 18 + TypeScript + Vite 5 |
+| UI Components | shadcn/ui + TailwindCSS |
+| State Management | Zustand + TanStack Query |
+| Forms | react-hook-form + Zod |
 | ORM | SQLAlchemy 2.0 |
-| DB Dev | SQLite |
-| DB Prod | PostgreSQL |
-| Auth | bcrypt + JWT (python-jose) |
+| DB | PostgreSQL (prod) / SQLite (dev) |
+| Auth | bcrypt + JWT |
 | Validation | Pydantic v2 |
 | PDF | ReportLab |
-| Testing | pytest + httpx |
-| i18n | JSON translations |
+| Testing | pytest + httpx (144 tests) |
+| CI/CD | GitHub Actions |
+| Hosting | Railway |
+| i18n | react-i18next / JSON translations |
 
 ---
 
-## Despliegue (Próximo)
+## Changelog
 
-El backend está preparado para desplegar en Railway (free tier):
+### v3.0.0-dev (2026-02-08) - Frontend Web
+
+**Fase 19-20: Scaffolding + Auth + Layout + Dashboard**
+- Proyecto React 18 + TypeScript + Vite 5
+- Autenticacion (login/register) con JWT
+- Routing protegido con lazy loading
+- Layout responsive (sidebar, header, mobile nav)
+- Dashboard con 6 metricas desde API real
+- i18n completo (ES/EN/DE) para toda la app
+- Dark mode (claro/oscuro/sistema)
+- shadcn/ui como sistema de componentes
+
+**Fase 21: CRUD Clientes/Productos/Proveedores**
+- DataTable reutilizable con busqueda y paginacion
+- CRUD completo para clientes, productos, proveedores
+- Formularios con validacion Zod
+- Ajuste de stock desde la tabla de productos
+- Dialogo de confirmacion para eliminacion
+- TanStack Query hooks con cache e invalidacion
+- Responsive: columnas se ocultan en mobile
+
+### v2.5.0 (2026-02-07) - Produccion y Monitoreo
+- Health checks (liveness + readiness)
+- Metricas de requests
+- Integracion Sentry
+- Deploy en Railway con PostgreSQL
+
+### v2.4.0 (2026-02-07) - Desktop UI/UX
+- Dark mode completo
+- Atajos de teclado (Ctrl+N, Ctrl+F, Ctrl+R...)
+- Sistema de toasts/notificaciones
+- Tablas ordenables por columna
+
+### v2.3.0 (2026-02-07) - Features Backend
+- Export/Import CSV para clientes, productos, proveedores
+- Audit log con registro de acciones
+- Reportes financieros (mensual, trimestral, anual)
+- Panel de administracion
+
+### v2.2.0 (2026-02-07) - Testing Completo
+- 144 tests pytest passing
+- Cobertura de todas las entidades y endpoints
+- CI/CD con GitHub Actions
+
+### v2.1.0 (2026-02-07) - Cache Offline
+- Cache local de respuestas API
+- Cola de operaciones pendientes
+- Sincronizacion al recuperar conexion
+
+### v2.0.0 (2026-02-02) - Multi-tenant API
+- Backend FastAPI con 50+ endpoints
+- 11 modelos SQLAlchemy con multi-tenancy
+- JWT con access/refresh tokens
+- RBAC: admin, management, warehouse, read_only
+- Workflow de documentos con transiciones validadas
+- Deduccion automatica de stock
+
+---
+
+## Despliegue
+
+Backend desplegado en **Railway** (produccion):
 
 ```bash
-# Variables de entorno necesarias
+# Variables de entorno
 DATABASE_URL=postgresql://...
 SECRET_KEY=<32-char-random>
 DEBUG=false
-ALLOWED_ORIGINS=http://localhost,https://tuapp.com
+ALLOWED_ORIGINS=http://localhost:5173,https://tuapp.com
 ```
+
+Frontend en desarrollo local con proxy a produccion via `vite.config.ts`.
 
 ---
 

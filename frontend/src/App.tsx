@@ -8,6 +8,9 @@ import { AppLayout } from "@/components/layout/app-layout";
 const LoginPage = lazy(() => import("@/pages/auth/login"));
 const RegisterPage = lazy(() => import("@/pages/auth/register"));
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
+const ClientsPage = lazy(() => import("@/pages/clients"));
+const ProductsPage = lazy(() => import("@/pages/products"));
+const SuppliersPage = lazy(() => import("@/pages/suppliers"));
 const NotFoundPage = lazy(() => import("@/pages/not-found"));
 const PlaceholderPage = lazy(() => import("@/pages/placeholder"));
 
@@ -60,9 +63,9 @@ export default function App() {
             {/* Protected routes with layout */}
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<DashboardPage />} />
-              <Route path="/clients" element={<PlaceholderPage />} />
-              <Route path="/products" element={<PlaceholderPage />} />
-              <Route path="/suppliers" element={<PlaceholderPage />} />
+              <Route path="/clients" element={<ClientsPage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/suppliers" element={<SuppliersPage />} />
               <Route path="/documents" element={<PlaceholderPage />} />
               <Route path="/inventory" element={<PlaceholderPage />} />
               <Route path="/workers" element={<PlaceholderPage />} />

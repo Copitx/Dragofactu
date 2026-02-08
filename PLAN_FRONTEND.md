@@ -1,7 +1,7 @@
 # PLAN_FRONTEND.md - Frontend Web Dragofactu (Fases 19-25)
 
 > **Última actualización:** 2026-02-08
-> **Estado general:** Fases 19-20 completadas, Fase 21 siguiente
+> **Estado general:** Fases 19-21 completadas, Fase 22 siguiente
 
 ---
 
@@ -11,8 +11,8 @@
 |------|-------------|--------|-------|
 | 19 | Scaffolding + Auth + Routing | ✅ Completada | 2026-02-08 |
 | 20 | Layout + Dashboard | ✅ Completada | 2026-02-08 |
-| **21** | **CRUD Clientes/Productos/Proveedores** | **⬜ SIGUIENTE** | - |
-| 22 | Documentos (line editor, status, PDF) | ⬜ Pendiente | - |
+| 21 | CRUD Clientes/Productos/Proveedores | ✅ Completada | 2026-02-08 |
+| **22** | **Documentos (line editor, status, PDF)** | **⬜ SIGUIENTE** | - |
 | 23 | Inventario, Workers, Diary, Reminders | ⬜ Pendiente | - |
 | 24 | Reports, Export/Import, Audit, Admin, Settings | ⬜ Pendiente | - |
 | 25 | PWA + Mobile + Deploy + Testing | ⬜ Pendiente | - |
@@ -108,70 +108,24 @@
 - `src/lib/utils.ts` - cn(), formatCurrency, formatDate
 - `src/styles/globals.css` - Tailwind + CSS vars light/dark
 
-### Archivos parciales (empezados, no usados aún)
-Estos archivos existen como untracked files pero NO están integrados:
-- `src/api/clients.ts` - Funciones API
-- `src/api/products.ts` - Funciones API
-- `src/api/suppliers.ts` - Funciones API
-- `src/types/client.ts` - Interfaces
-- `src/types/product.ts` - Interfaces
-- `src/types/supplier.ts` - Interfaces
+### Archivos Fase 21 (integrados)
+- `src/api/clients.ts`, `products.ts`, `suppliers.ts` - Funciones API completas
+- `src/types/client.ts`, `product.ts`, `supplier.ts` - Interfaces TypeScript
+- `src/components/data-table/data-table.tsx` - DataTable genérico reutilizable
+- `src/components/data-table/toolbar.tsx` - Search + filters + add button
+- `src/components/data-table/pagination.tsx` - Paginación con selector de filas
+- `src/components/forms/confirm-dialog.tsx` - Confirmación de borrado
+- `src/components/ui/table.tsx`, `badge.tsx`, `textarea.tsx` - shadcn/ui nuevos
+- `src/lib/validators.ts` - Zod schemas (client, product, supplier, stockAdjustment)
+- `src/hooks/use-clients.ts`, `use-products.ts`, `use-suppliers.ts` - TanStack Query hooks
+- `src/pages/clients/index.tsx` - CRUD clientes completo
+- `src/pages/products/index.tsx` - CRUD productos + ajuste stock
+- `src/pages/suppliers/index.tsx` - CRUD proveedores completo
+- App.tsx actualizado: /clients, /products, /suppliers enrutan a páginas reales
 
 ---
 
-## FASE 21: CRUD - Clientes, Productos, Proveedores
-
-### Objetivo
-Tablas de datos reutilizables con búsqueda, paginación, y formularios CRUD.
-
-### Archivos a crear
-1. `src/components/data-table/data-table.tsx` - Tabla genérica reutilizable
-2. `src/components/data-table/pagination.tsx` - Controles paginación
-3. `src/components/data-table/toolbar.tsx` - Barra herramientas (search + filters + add)
-4. `src/components/forms/form-dialog.tsx` - Dialog modal para create/edit
-5. `src/components/forms/form-field.tsx` - Wrapper react-hook-form
-6. `src/components/forms/confirm-dialog.tsx` - Confirmación borrado
-7. `src/lib/validators.ts` - Zod schemas (clientSchema, productSchema, supplierSchema)
-
-**Clientes:**
-- `src/pages/clients/index.tsx` - Lista con DataTable
-- `src/hooks/use-clients.ts` - useQuery + useMutation hooks
-- Completar `src/api/clients.ts` y `src/types/client.ts`
-
-**Productos:**
-- `src/pages/products/index.tsx` - Lista con filtro categoría
-- `src/hooks/use-products.ts`
-- Completar `src/api/products.ts` y `src/types/product.ts`
-
-**Proveedores:**
-- `src/pages/suppliers/index.tsx` - Lista con DataTable
-- `src/hooks/use-suppliers.ts`
-- Completar `src/api/suppliers.ts` y `src/types/supplier.ts`
-
-**Actualizar App.tsx:** Reemplazar PlaceholderPage por páginas reales en /clients, /products, /suppliers
-
-### Instalar shadcn/ui adicionales
-table, badge, sheet, separator (crearlos manualmente en src/components/ui/)
-
-### Patrón DataTable reutilizable
-```typescript
-<DataTable
-  columns={columns}
-  data={data}
-  isLoading={isLoading}
-  searchPlaceholder={t("clients.search_placeholder")}
-  onSearch={setSearch}
-  pagination={{ page, pageSize, total, onPageChange }}
-  actions={<Button onClick={() => setDialogOpen(true)}>{t("clients.new")}</Button>}
-/>
-```
-
-### Verificable
-- Tabla de clientes con búsqueda, paginación, sort por columna
-- Crear/editar/eliminar cliente via dialog modal
-- Productos: misma funcionalidad + filtro por categoría
-- Proveedores: misma funcionalidad
-- Responsive: tablas scroll horizontal en móvil
+## FASE 21: CRUD - Clientes, Productos, Proveedores ✅ COMPLETADA
 
 ---
 

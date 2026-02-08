@@ -2,8 +2,9 @@
 
 > **Este archivo contiene el historial completo del proyecto Dragofactu.**
 > Para el contexto operativo esencial, ver `CLAUDE.md`.
+> Para el plan del frontend web, ver `PLAN_FRONTEND.md`.
 >
-> Última actualización: 2026-02-07
+> Última actualización: 2026-02-08
 
 ---
 
@@ -41,10 +42,68 @@
 | v2.2.0 | 2026-02-07 | Fases 14-15: Testing completo (103 tests) + Seguridad + CI/CD |
 | v2.3.0 | 2026-02-07 | Fase 16: Export/Import CSV, Audit Log, Financial Reports (130 tests) |
 | v2.4.0 | 2026-02-07 | Fase 17: Dark mode, keyboard shortcuts, toast notifications, sortable tables |
+| v2.4.1 | 2026-02-07 | Debug session: 6 bugs corregidos (registration, dark mode, traducciones, stock, PDF) |
+| v2.5.0 | 2026-02-07 | Fase 18: Producción y monitoreo (health checks, Sentry, métricas, rate limiting) |
+| v3.0.0-dev | 2026-02-08 | Frontend web: Fases 19-20 (scaffolding + auth + layout + dashboard) |
 
 ---
 
 ## Sesiones de Desarrollo por Fecha
+
+### Sesión 2026-02-08: Frontend Web - Fases 19-20
+**AI Agent:** Claude Opus 4.6
+
+#### Resumen
+Inicio del frontend web React para acceso móvil. Completadas Fase 19 (scaffolding + auth) y Fase 20 (layout + dashboard).
+
+#### Stack Elegido
+React 18 + TypeScript + Vite 5 + TailwindCSS + shadcn/ui + TanStack Query v5 + Zustand + react-hook-form + zod + react-i18next + Recharts
+
+#### Fase 19: Scaffolding + Auth + Routing ✅
+- Proyecto `frontend/` creado con todas las dependencias
+- API client Axios con interceptor de refresh token automático (queue de requests pendientes)
+- Auth store (Zustand persist en localStorage) con tokens + user
+- UI store: theme (light/dark/system), locale (es/en/de), sidebar collapsed
+- Login y Register pages con react-hook-form + zod validation
+- i18n completo para toda la app (es/en/de) con todas las claves necesarias
+- Dark mode via CSS variables en globals.css
+- shadcn/ui components: button, input, label, card, dialog, select, dropdown-menu
+- Routing protegido con React Router v7 + lazy loading
+- Build OK, TypeScript strict OK
+
+#### Fase 20: Layout + Dashboard ✅
+- Sidebar responsive: 240px desktop, 64px tablet (iconos), hidden mobile
+- Header con título + user menu + theme toggle + language selector
+- MobileNav: 5 bottom tabs + overlay menu para resto de secciones
+- AppLayout wraps todo con Outlet de React Router
+- Dashboard con 6 MetricCards con datos reales de GET /dashboard/stats
+- Loading skeletons para estados de carga
+- Empty state component reutilizable
+
+#### Archivos Parciales (NO integrados, solo creados)
+Estos archivos fueron empezados pero NO forman parte de ninguna fase completada:
+- `src/api/clients.ts`, `src/api/products.ts`, `src/api/suppliers.ts`
+- `src/types/client.ts`, `src/types/product.ts`, `src/types/supplier.ts`
+
+Son archivos untracked en git que deben revisarse/completarse en Fase 21.
+
+#### Documentación Creada
+- `PLAN_FRONTEND.md` - Plan completo fases 19-25 con estado actual
+
+#### Commits
+```
+45c1c3a feat: Fase 19-20 parcial - Frontend web scaffolding + auth + layout
+02959c8 fix: add frontend .gitignore, remove node_modules from tracking
+e748098 fix: remove node_modules from git tracking
+```
+
+#### Notas Técnicas
+- Proxy API en dev: vite.config.ts proxy `/api` → `https://dragofactu-production.up.railway.app`
+- CSS variables para dark mode (clase `dark` en html root, gestionada por ui-store)
+- Token refresh: queue de requests concurrentes durante refresh, retry automático
+- Todas las páginas usan React.lazy() para code splitting
+
+---
 
 ### Sesión 2026-02-07: Fase 13 - Cache Offline y Sincronización
 **AI Agent:** Claude Opus 4.6
@@ -1337,15 +1396,29 @@ async def lifespan(app: FastAPI):
 
 ---
 
-### Resumen de Prioridades
+### Resumen de Prioridades (Backend + Desktop)
 
-| Fase | Prioridad | Dependencias | Impacto |
-|------|-----------|--------------|---------|
-| **14: Testing** | ✅ COMPLETADA | - | 103 tests passing |
-| **15: Seguridad + CI** | ✅ COMPLETADA | - | CORS, validación, logging, CI |
-| **16: Features Backend** | 🟡 MEDIA | Fase 15 | Funcionalidad completa |
-| **17: UI/UX** | 🟢 MEDIA-BAJA | Ninguna | Calidad de vida |
-| **18: Producción** | 🔵 BAJA | Fases 14-16 | Solo con usuarios reales |
+| Fase | Estado |
+|------|--------|
+| **14: Testing** | ✅ Completada (103→144 tests) |
+| **15: Seguridad + CI** | ✅ Completada |
+| **16: Features Backend** | ✅ Completada |
+| **17: UI/UX** | ✅ Completada |
+| **18: Producción** | ✅ Completada |
+
+### Frontend Web (Fases 19-25)
+
+> **Plan detallado y estado actual:** ver `PLAN_FRONTEND.md`
+
+| Fase | Descripción | Estado |
+|------|-------------|--------|
+| 19 | Scaffolding + Auth + Routing | ✅ |
+| 20 | Layout + Dashboard | ✅ |
+| 21 | CRUD Clientes/Productos/Proveedores | ⬜ Siguiente |
+| 22 | Documentos | ⬜ |
+| 23 | Inventario, Workers, Diary, Reminders | ⬜ |
+| 24 | Reports, Export/Import, Audit, Admin | ⬜ |
+| 25 | PWA + Deploy + Testing | ⬜ |
 
 ---
 

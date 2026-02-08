@@ -8,74 +8,91 @@ Archivo de contexto esencial para agentes AI trabajando en Dragofactu.
 
 ## CONTEXTO BASE
 
-**Qué es:** ERP de escritorio para gestión empresarial: facturación, inventario, clientes, proveedores, trabajadores y diario.
+**Qué es:** ERP empresarial con 3 clientes: desktop (PySide6), web (React), y API REST (FastAPI).
 
 **Stack Tecnológico:**
-- Python 3.10+ / PySide6 (Qt6) - GUI
-- SQLAlchemy 2.0 - ORM
-- SQLite (dev) / PostgreSQL (prod)
-- bcrypt + JWT - Autenticación
-- ReportLab - PDFs
-- FastAPI - Backend API
+- **Desktop:** Python 3.10+ / PySide6 (Qt6) / SQLAlchemy 2.0 / ReportLab
+- **Backend:** FastAPI / PostgreSQL (prod) / SQLite (dev) / bcrypt + JWT
+- **Frontend Web:** React 18 + TypeScript + Vite 5 + TailwindCSS + shadcn/ui
 
 **Estructura Principal:**
 ```
-dragofactu/
-├── main.py              # Entry point modular
-├── models/entities.py   # User, Client, Product, Document, Worker, DiaryEntry
+dragofactu/                    # Desktop client (PySide6)
+├── main.py                    # Entry point modular
+├── models/entities.py         # ORM models
 ├── services/api_client.py     # Cliente HTTP con cache offline
-├── services/offline_cache.py  # Cache local + cola operaciones + monitor conectividad
-├── ui/styles.py         # Sistema de diseño global
-└── config/translation.py   # es/en/de
+├── services/offline_cache.py  # Cache local + cola operaciones
+├── ui/styles.py               # Sistema de diseño global
+└── config/translation.py      # es/en/de
 
-backend/
-├── app/main.py          # FastAPI entry point
-├── app/api/v1/*.py      # Endpoints REST
-├── app/models/*.py      # SQLAlchemy models
-└── app/schemas/*.py     # Pydantic schemas
+backend/                       # API REST (FastAPI) - EN PRODUCCIÓN
+├── app/main.py                # FastAPI entry point
+├── app/api/v1/*.py            # Endpoints REST
+├── app/models/*.py            # SQLAlchemy models
+└── app/schemas/*.py           # Pydantic schemas
+
+frontend/                      # Web client (React) - EN DESARROLLO
+├── package.json               # Dependencias npm
+├── vite.config.ts             # Proxy API en dev
+├── tailwind.config.ts         # Paleta Dragofactu
+└── src/
+    ├── api/                   # Axios clients por entidad
+    ├── components/            # shadcn/ui + layout + common
+    ├── hooks/                 # TanStack Query hooks
+    ├── stores/                # Zustand (auth, ui)
+    ├── pages/                 # Lazy-loaded pages
+    ├── i18n/                  # es.json, en.json, de.json
+    └── types/                 # TypeScript interfaces
 ```
 
 **Archivos Raíz Clave:**
-- `dragofactu_complete.py` - Versión monolítica (~7000 líneas)
-- `start_dragofactu.sh` → lanza app
-- `pyproject.toml` - Dependencias
+- `dragofactu_complete.py` - App desktop monolítica (~7000 líneas)
+- `start_dragofactu.sh` → lanza app desktop
+- `pyproject.toml` - Dependencias Python
 - `.env` - Configuración local
 
 ---
 
 ## ESTADO ACTUAL DEL PROYECTO
 
-**Versión:** v2.5.0 (2026-02-08)
-**URL Producción:** https://dragofactu-production.up.railway.app
+**Versión:** v2.5.0 (backend) / v3.0.0-dev (frontend web)
+**URL Producción Backend:** https://dragofactu-production.up.railway.app
 
 | Componente | Estado |
 |------------|--------|
 | Backend API | ✅ EN PRODUCCIÓN (Railway) |
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
+| **Frontend Web** | **🟡 EN DESARROLLO (Fase 20 completada)** |
 | Tests Backend | ✅ 144 PASSING |
 | PostgreSQL | ✅ CONFIGURADO (Railway) |
-| PDF en remoto | ✅ COMPLETADO |
 | Monitoring | ✅ Health checks, métricas, Sentry |
 
-### Fases Completadas
+### Fases Backend + Desktop (1-18) - COMPLETADAS
 | Fase | Descripción | Estado |
 |------|-------------|--------|
 | 1-6 | Backend API + Modelos + Auth + CRUD | ✅ |
 | 7 | Testing (103 tests) | ✅ |
 | 8 | Deployment Railway | ✅ |
-| 9 | Integración Desktop (modo híbrido) | ✅ |
-| 10 | Tabs con API remota | ✅ |
-| 11 | PostgreSQL en Railway | ✅ |
-| 12 | Onboarding/Registro empresa | ✅ |
+| 9-10 | Integración Desktop + Tabs híbridas | ✅ |
+| 11-12 | PostgreSQL + Onboarding | ✅ |
 | 13 | Sincronización/Cache offline | ✅ |
-| 14 | Testing completo (103 tests) | ✅ |
-| 15 | Seguridad + CI/CD | ✅ |
+| 14-15 | Testing completo + Seguridad + CI/CD | ✅ |
 | 16 | Features backend (export, audit, reports) | ✅ |
-| 17 | UI/UX (dark mode, shortcuts, toasts, tables) | ✅ |
+| 17 | UI/UX desktop (dark mode, shortcuts, toasts) | ✅ |
 | 18 | Producción y monitoreo | ✅ |
 
-### Todas las Tabs Soportan Modo Híbrido
-Dashboard, Clientes, Productos, Documentos, Inventario, Diario, Trabajadores
+### Fases Frontend Web (19-25) - EN DESARROLLO
+| Fase | Descripción | Estado |
+|------|-------------|--------|
+| 19 | Scaffolding + Auth + Routing | ✅ |
+| 20 | Layout + Dashboard | ✅ |
+| **21** | **CRUD Clientes/Productos/Proveedores** | **⬜ SIGUIENTE** |
+| 22 | Documentos (line editor, status, PDF) | ⬜ Pendiente |
+| 23 | Inventario, Workers, Diary, Reminders | ⬜ Pendiente |
+| 24 | Reports, Export/Import, Audit, Admin, Settings | ⬜ Pendiente |
+| 25 | PWA + Mobile + Deploy + Testing | ⬜ Pendiente |
+
+> **Plan detallado de fases 19-25:** ver `PLAN_FRONTEND.md`
 
 ---
 
@@ -90,8 +107,13 @@ python3 dragofactu_complete.py
 cd backend && source venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 
-# Tests
+# Tests backend
 cd backend && python -m pytest tests/ -v
+
+# Frontend web (desarrollo)
+cd frontend && npm install && npm run dev    # http://localhost:5173
+cd frontend && npm run build                 # Build producción
+cd frontend && npx tsc --noEmit              # Type check
 ```
 
 **Credenciales Default:** `admin` / `admin123`
@@ -211,26 +233,27 @@ GET  /metrics                    # Métricas de requests
 | Archivo | Propósito |
 |---------|-----------|
 | `dragofactu_complete.py` | App monolítica desktop |
-| `dragofactu/services/api_client.py` | Cliente HTTP singleton |
+| `dragofactu/services/api_client.py` | Cliente HTTP singleton (desktop) |
 | `backend/app/main.py` | Entry point FastAPI |
 | `backend/app/api/v1/*.py` | Endpoints REST |
-| `~/.dragofactu/tokens.json` | JWT tokens persistidos |
+| `frontend/src/api/client.ts` | Axios client + refresh interceptor (web) |
+| `frontend/src/stores/auth-store.ts` | Auth state (Zustand persist) |
+| `frontend/src/App.tsx` | Router + providers (web) |
+| `PLAN_FRONTEND.md` | Plan completo fases 19-25 frontend |
+| `~/.dragofactu/tokens.json` | JWT tokens desktop |
 | `~/.dragofactu/app_mode.json` | Configuración modo local/remoto |
-| `~/.dragofactu/pdf_settings.json` | Configuración PDF empresa |
-| `~/.dragofactu/cache/*.json` | Cache offline de datos API |
-| `~/.dragofactu/pending_operations.json` | Cola de operaciones pendientes |
 
 ---
 
 ## NOTAS PARA AGENTES
 
 1. **Leer antes de modificar** - No asumas el contenido de archivos
-2. **Verificar app_mode** - Antes de CUALQUIER `SessionLocal()`
-3. **Usar UIStyles** - Para consistencia visual
-4. **No hardcodear credenciales** - Usar env vars
-5. **Commits pequeños** - Un commit por feature/fix
-6. **Testing rápido:** `python3 dragofactu_complete.py`
-7. **Backend en producción** - No tocar a menos que sea necesario
+2. **Una fase a la vez** - No mezclar fases. Completar, verificar y commitear cada una por separado
+3. **Verificar app_mode** (desktop) - Antes de CUALQUIER `SessionLocal()`
+4. **Backend en producción** - No tocar a menos que sea estrictamente necesario
+5. **Frontend: respetar patrones existentes** - shadcn/ui, TanStack Query, Zustand, i18n
+6. **Commits pequeños** - Un commit por feature/fix
+7. **Actualizar documentación** - Al terminar cada fase, actualizar CLAUDE.md, MEMORIA_LARGO_PLAZO.md y PLAN_FRONTEND.md
 
 ### Variables de Entorno (.env)
 ```bash
@@ -245,26 +268,14 @@ SENTRY_DSN=               # Opcional: DSN de Sentry para error tracking
 
 ## PENDIENTES PRIORITARIOS
 
-- [x] PDF generation en modo remoto
-- [x] Fase 13: Sincronización/cache offline
-- [x] **Fase 14:** Testing completo (103 tests backend, TODOs resueltos)
-- [x] **Fase 15:** Seguridad (CORS configurable, validación inputs, request logging) + CI/CD (GitHub Actions)
-- [x] **Fase 16:** Features backend (export/import CSV, audit log, informes)
-- [x] **Fase 17:** Mejoras UI/UX (tema oscuro, atajos, notificaciones toast, tablas mejoradas)
-- [x] **Fase 18:** Producción y monitoreo (health checks, Sentry, métricas, rate limiting, admin endpoints)
+- [x] Fases 1-18: Backend + Desktop completos
+- [x] Fase 19: Frontend scaffolding + auth + routing
+- [x] Fase 20: Layout (sidebar, header, mobile nav) + Dashboard con API real
+- [ ] **Fase 21:** CRUD Clientes/Productos/Proveedores (DataTable reutilizable)
+- [ ] Fase 22: Documentos (line editor, status transitions, PDF)
+- [ ] Fase 23: Inventario, Workers, Diary, Reminders
+- [ ] Fase 24: Reports, Export/Import, Audit, Admin, Settings
+- [ ] Fase 25: PWA + Mobile + Deploy + Testing
 
-> **Plan detallado paso a paso de cada fase:** ver `MEMORIA_LARGO_PLAZO.md` § "Fases Futuras"
-
----
-
-## REFERENCIA HISTÓRICA
-
-Para información detallada sobre:
-- Sesiones de desarrollo anteriores
-- Sistema de diseño UI completo
-- Modelos de datos detallados
-- Arquitectura de servicios
-- Guías paso a paso para fases futuras
-- Plan de migración original
-
-**Ver:** `MEMORIA_LARGO_PLAZO.md`
+> **Plan detallado frontend:** ver `PLAN_FRONTEND.md`
+> **Historial y referencia:** ver `MEMORIA_LARGO_PLAZO.md`

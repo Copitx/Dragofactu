@@ -45,6 +45,7 @@
 | v2.4.1 | 2026-02-07 | Debug session: 6 bugs corregidos (registration, dark mode, traducciones, stock, PDF) |
 | v2.5.0 | 2026-02-07 | Fase 18: Producción y monitoreo (health checks, Sentry, métricas, rate limiting) |
 | v3.0.0-dev | 2026-02-08 | Frontend web: Fases 19-20 (scaffolding + auth + layout + dashboard) |
+| v3.0.0 | 2026-02-08 | Frontend web COMPLETO: Fases 21-25 (CRUD, docs, inventario, reports, PWA+deploy) |
 
 ---
 
@@ -102,6 +103,46 @@ e748098 fix: remove node_modules from git tracking
 - CSS variables para dark mode (clase `dark` en html root, gestionada por ui-store)
 - Token refresh: queue de requests concurrentes durante refresh, retry automático
 - Todas las páginas usan React.lazy() para code splitting
+
+---
+
+### Sesión 2026-02-08 (continuación): Frontend Web - Fases 21-25
+**AI Agent:** Claude Opus 4.6
+
+#### Resumen
+Completadas todas las fases restantes del frontend web (21-25), llevando el proyecto a v3.0.0.
+
+#### Fase 21: CRUD Clientes/Productos/Proveedores ✅
+- DataTable genérico reutilizable con toolbar, paginación, búsqueda
+- CRUD completo para clientes, productos, proveedores con dialogs
+- Validación Zod, react-hook-form, TanStack Query hooks
+
+#### Fase 22: Documentos ✅
+- Line editor para líneas de documento con selector de producto, cálculo automático
+- Status badge coloreado, totals panel (subtotal/IVA/total)
+- Workflow de transiciones de estado, conversión entre tipos, PDF download
+
+#### Fase 23: Inventario, Workers, Diary, Reminders ✅
+- Inventario: vista stock con 3 métricas, filtros, ajuste stock
+- Workers: CRUD con detalle + cursos sub-recurso
+- Diary: pin toggle, tags, create/edit dialog
+- Reminders: prioridad, pending/completed toggle, overdue badge
+
+#### Fase 24: Reports, Export/Import, Audit, Admin, Settings ✅
+- Reports: Recharts bar chart, selector periodo, métricas financieras
+- Export/Import CSV en clientes, productos, proveedores
+- Audit log: tabla read-only con filtros
+- Admin: system info + backup info (admin only)
+- Settings: theme, language, logout
+
+#### Fase 25: PWA + Deploy + CI ✅
+- PWA: vite-plugin-pwa con Workbox (precache assets, NetworkFirst API)
+- Icons: 192x192 y 512x512 PNG, apple-touch-icon
+- Backend: StaticFiles mount + SPA catch-all route en main.py
+- CSP actualizado: diferenciado para API vs SPA
+- Dockerfile multi-stage en raíz: Node 20 (frontend build) + Python 3.11 (backend)
+- CI: `.github/workflows/frontend-test.yml` (tsc + build)
+- 144 backend tests passing, frontend build OK
 
 ---
 

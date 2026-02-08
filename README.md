@@ -6,7 +6,7 @@
   <p align="center">
     <a href="https://dragofactu-production.up.railway.app"><img src="https://img.shields.io/badge/API-Production-brightgreen" alt="API Status" /></a>
     <img src="https://img.shields.io/badge/backend-v2.5.0-blue" alt="Backend Version" />
-    <img src="https://img.shields.io/badge/frontend-v3.0.0--dev-orange" alt="Frontend Version" />
+    <img src="https://img.shields.io/badge/frontend-v3.0.0-blue" alt="Frontend Version" />
     <img src="https://img.shields.io/badge/tests-144%20passing-brightgreen" alt="Tests" />
     <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="License" />
   </p>
@@ -51,6 +51,7 @@ Dragofactu es un **ERP completo** para gestion empresarial, disponible como apli
 | **Multi-idioma** | Espanol, Ingles y Aleman con cambio en vivo |
 | **Dark Mode** | Tema claro, oscuro y automatico (sistema) |
 | **Cache Offline** | Desktop funciona sin conexion con sincronizacion posterior |
+| **PWA** | App web instalable con Service Worker y cache offline |
 
 ---
 
@@ -159,8 +160,9 @@ Dragofactu/
 │   ├── ui/                          # Componentes Qt
 │   └── config/                      # Traduccion, settings
 │
-├── dragofactu_complete.py           # App monolitica desktop
-└── start_dragofactu.sh              # Entry point desktop
+├── Dockerfile                          # Multi-stage build (Node + Python)
+├── dragofactu_complete.py              # App monolitica desktop
+└── start_dragofactu.sh                 # Entry point desktop
 ```
 
 ---
@@ -259,13 +261,13 @@ DEBUG=false
 ALLOWED_ORIGINS=http://localhost:5173,https://tuapp.com
 ```
 
-El frontend en desarrollo usa un proxy via `vite.config.ts` que redirige `/api` al backend en Railway.
+En produccion, un Dockerfile multi-stage en la raiz del repositorio construye el frontend (Node 20) y lo sirve como archivos estaticos desde el backend (Python 3.11). En desarrollo, `vite.config.ts` usa un proxy que redirige `/api` al backend en Railway.
 
 ---
 
 ## Changelog
 
-### v3.0.0-dev — Frontend Web
+### v3.0.0 — Frontend Web + PWA
 
 | Fase | Descripcion | Estado |
 |------|-------------|--------|
@@ -275,7 +277,7 @@ El frontend en desarrollo usa un proxy via `vite.config.ts` que redirige `/api` 
 | 22 | Documentos: line editor, status transitions, conversion, PDF download | Completada |
 | 23 | Inventario, trabajadores (cursos), diario (pins), recordatorios (prioridad) | Completada |
 | 24 | Reports (Recharts), export/import CSV, audit log, admin panel, settings | Completada |
-| 25 | PWA, mobile optimization, deploy, testing E2E | Pendiente |
+| 25 | PWA (installable), Dockerfile multi-stage, CI frontend, static serving | Completada |
 
 ### v2.5.0 — Produccion y Monitoreo
 Health checks, metricas de requests, integracion Sentry, deploy Railway

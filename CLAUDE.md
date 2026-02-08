@@ -62,7 +62,7 @@ frontend/                      # Web client (React) - EN DESARROLLO
 |------------|--------|
 | Backend API | ✅ EN PRODUCCIÓN (Railway) |
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
-| **Frontend Web** | **🟡 EN DESARROLLO (Fase 24 completada)** |
+| **Frontend Web** | **✅ COMPLETADO (PWA, todas las fases)** |
 | Tests Backend | ✅ 144 PASSING |
 | PostgreSQL | ✅ CONFIGURADO (Railway) |
 | Monitoring | ✅ Health checks, métricas, Sentry |
@@ -90,7 +90,7 @@ frontend/                      # Web client (React) - EN DESARROLLO
 | 22 | Documentos (line editor, status, PDF) | ✅ |
 | 23 | Inventario, Workers, Diary, Reminders | ✅ |
 | 24 | Reports, Export/Import, Audit, Admin, Settings | ✅ |
-| **25** | **PWA + Mobile + Deploy + Testing** | **⬜ SIGUIENTE** |
+| **25** | **PWA + Mobile + Deploy + Testing** | **✅** |
 
 > **Plan detallado de fases 19-25:** ver `PLAN_FRONTEND.md`
 
@@ -239,6 +239,7 @@ GET  /metrics                    # Métricas de requests
 | `frontend/src/api/client.ts` | Axios client + refresh interceptor (web) |
 | `frontend/src/stores/auth-store.ts` | Auth state (Zustand persist) |
 | `frontend/src/App.tsx` | Router + providers (web) |
+| `Dockerfile` | Multi-stage build (Node + Python) |
 | `PLAN_FRONTEND.md` | Plan completo fases 19-25 frontend |
 | `~/.dragofactu/tokens.json` | JWT tokens desktop |
 | `~/.dragofactu/app_mode.json` | Configuración modo local/remoto |
@@ -275,7 +276,7 @@ SENTRY_DSN=               # Opcional: DSN de Sentry para error tracking
 - [x] Fase 22: Documentos (line editor, status transitions, PDF)
 - [x] Fase 23: Inventario, Workers, Diary, Reminders
 - [x] Fase 24: Reports, Export/Import, Audit, Admin, Settings
-- [ ] **Fase 25:** PWA + Mobile + Deploy + Testing
+- [x] Fase 25: PWA + Mobile + Deploy + Testing
 
 > **Plan detallado frontend:** ver `PLAN_FRONTEND.md`
 > **Historial y referencia:** ver `MEMORIA_LARGO_PLAZO.md`

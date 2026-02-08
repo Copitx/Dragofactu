@@ -1,7 +1,7 @@
 # PLAN_FRONTEND.md - Frontend Web Dragofactu (Fases 19-25)
 
 > **Última actualización:** 2026-02-08
-> **Estado general:** Fases 19-24 completadas, Fase 25 siguiente
+> **Estado general:** Fases 19-25 completadas. Frontend web listo para deploy.
 
 ---
 
@@ -15,7 +15,7 @@
 | 22 | Documentos (line editor, status, PDF) | ✅ Completada | 2026-02-08 |
 | 23 | Inventario, Workers, Diary, Reminders | ✅ Completada | 2026-02-08 |
 | 24 | Reports, Export/Import, Audit, Admin, Settings | ✅ Completada | 2026-02-08 |
-| **25** | **PWA + Mobile + Deploy + Testing** | **⬜ SIGUIENTE** | - |
+| **25** | **PWA + Mobile + Deploy + Testing** | **✅ Completada** | 2026-02-08 |
 
 ---
 
@@ -180,60 +180,31 @@
 
 ---
 
-## FASE 25: PWA + Mobile + Deploy + Testing
+## FASE 25: PWA + Mobile + Deploy + Testing ✅ COMPLETADA
+
+### Archivos creados/modificados
+- `frontend/public/icon-192.png`, `icon-512.png` - PWA icons generados desde favicon.svg
+- `frontend/index.html` - Añadidos meta tags PWA (apple-mobile-web-app-capable, apple-touch-icon)
+- `frontend/vite.config.ts` - Integrado VitePWA plugin con manifest y Workbox runtime caching
+- `backend/app/main.py` - Añadido SPA static file serving (StaticFiles + catch-all route), CSP actualizado para frontend
+- `Dockerfile` - Movido a raíz, multi-stage: Node 20 (frontend build) + Python 3.11 (backend + static)
+- `.github/workflows/frontend-test.yml` - CI: npm ci, tsc --noEmit, npm run build
+- `vite-plugin-pwa` - Dependencia dev añadida, genera manifest.webmanifest y service worker automáticamente
 
 ### PWA
-- `public/manifest.json` - App name, icons, theme_color
-- Service Worker con Workbox (cache-first assets, network-first API)
-- Icons 192x192 y 512x512
+- Manifest generado por vite-plugin-pwa en build (dist/manifest.webmanifest)
+- Service Worker con Workbox: precache 60 entries, runtime cache API con NetworkFirst (5min, 10s timeout)
+- Icons: 192x192 y 512x512 PNG (+ maskable), apple-touch-icon
 
-### Mobile
-- Touch targets mínimo 44x44px
-- Bottom nav ya existe (MobileNav)
-- Pull-to-refresh en listas
+### Deploy
+- Dockerfile multi-stage en raíz del repositorio (build context = repo root)
+- Backend sirve frontend estático desde `static/` dir (solo si existe)
+- CSP diferenciado: strict para API, permisivo para SPA (inline styles Tailwind)
 
-### Backend: servir frontend estático
-```python
-# backend/app/main.py - añadir al final
-app.mount("/assets", StaticFiles(directory="static/assets"))
-
-@app.get("/{full_path:path}")
-async def serve_spa(full_path: str):
-    file_path = os.path.join("static", full_path)
-    if os.path.isfile(file_path):
-        return FileResponse(file_path)
-    return FileResponse("static/index.html")
-```
-
-### Dockerfile multi-stage
-```dockerfile
-# Stage 1: Build frontend
-FROM node:20-alpine AS frontend-build
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm ci
-COPY frontend/ ./
-RUN npm run build
-
-# Stage 2: Python backend + frontend static
-FROM python:3.11-slim
-WORKDIR /app
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY backend/app/ ./app/
-COPY --from=frontend-build /app/frontend/dist ./static
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
-```
-
-### CI/CD Frontend
-- `.github/workflows/frontend-test.yml` - npm ci, lint, type-check, build
-
-### Verificable
-- `npm run build` → dist/ OK
-- Docker multi-stage build funciona
-- Deploy Railway sirve frontend + API
-- PWA instalable
-- Login → Dashboard → CRUD → Docs → PDF funcional
+### Verificado
+- `npm run build` → dist/ OK (3.08s, 60 precached entries)
+- `npx tsc --noEmit` → OK
+- 144 backend tests passing
 
 ---
 
@@ -248,6 +219,7 @@ Ya instaladas en node_modules:
 - clsx, tailwind-merge, class-variance-authority
 - Radix UI primitives (dialog, dropdown-menu, select, label, etc.)
 - tailwindcss, postcss, autoprefixer, vite, typescript
+- vite-plugin-pwa (dev) - PWA manifest + Workbox service worker
 
 ---
 

@@ -10,9 +10,11 @@ import uuid
 import logging
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
@@ -106,8 +108,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Referrer policy
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
-        # Content Security Policy (basic)
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        # Content Security Policy
+        if request.url.path.startswith("/api/") or request.url.path.startswith("/docs") or request.url.path.startswith("/redoc"):
+            response.headers["Content-Security-Policy"] = "default-src 'self'"
+        else:
+            # SPA frontend needs inline styles (Tailwind) and scripts (Vite)
+            response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; font-src 'self' data:"
 
         # Strict Transport Security (only in production)
         if not settings.DEBUG:
@@ -365,3 +371,24 @@ try:
 except Exception as e:
     logger.error(f"Failed to load routers: {e}")
     raise
+
+
+# ============================================================================
+# SERVE FRONTEND STATIC FILES (production)
+# ============================================================================
+
+_static_dir = Path(__file__).resolve().parent.parent / "static"
+
+if _static_dir.is_dir():
+    logger.info(f"Serving frontend static files from {_static_dir}")
+    app.mount("/assets", StaticFiles(directory=str(_static_dir / "assets")), name="static-assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        """Serve the SPA frontend. API routes are handled above by priority."""
+        file_path = _static_dir / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(_static_dir / "index.html"))
+else:
+    logger.info("No static directory found, frontend not served.")

@@ -352,16 +352,6 @@ async def get_metrics():
         }
 
 
-@app.get("/", tags=["Root"])
-async def root():
-    """Root endpoint with API info."""
-    return {
-        "message": "Dragofactu API",
-        "version": settings.APP_VERSION,
-        "docs": "/docs"
-    }
-
-
 # Include API routers
 logger.info("Loading API routers...")
 try:
@@ -383,6 +373,11 @@ if _static_dir.is_dir():
     logger.info(f"Serving frontend static files from {_static_dir}")
     app.mount("/assets", StaticFiles(directory=str(_static_dir / "assets")), name="static-assets")
 
+    @app.get("/", include_in_schema=False)
+    async def serve_index():
+        """Serve the SPA index page."""
+        return FileResponse(str(_static_dir / "index.html"))
+
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
         """Serve the SPA frontend. API routes are handled above by priority."""
@@ -392,3 +387,12 @@ if _static_dir.is_dir():
         return FileResponse(str(_static_dir / "index.html"))
 else:
     logger.info("No static directory found, frontend not served.")
+
+    @app.get("/", tags=["Root"])
+    async def root():
+        """Root endpoint with API info (no frontend deployed)."""
+        return {
+            "message": "Dragofactu API",
+            "version": settings.APP_VERSION,
+            "docs": "/docs"
+        }

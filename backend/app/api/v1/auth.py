@@ -66,11 +66,17 @@ async def login(
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
+    user_response = UserResponse.model_validate(user)
+    # Add company name
+    company = db.query(Company).filter(Company.id == user.company_id).first()
+    if company:
+        user_response.company_name = company.name
+
     return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         token_type="bearer",
-        user=UserResponse.model_validate(user)
+        user=user_response
     )
 
 
@@ -197,11 +203,19 @@ async def register_company(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Obtener informacion del usuario autenticado.
     """
-    return UserResponse.model_validate(current_user)
+    response = UserResponse.model_validate(current_user)
+    # Add company name
+    company = db.query(Company).filter(Company.id == current_user.company_id).first()
+    if company:
+        response.company_name = company.name
+    return response
 
 
 @router.post("/logout", response_model=MessageResponse)

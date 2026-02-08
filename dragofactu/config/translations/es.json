@@ -55,7 +55,12 @@
     "recent_activity": "Actividad Reciente",
     "quick_actions": "Acciones Rápidas",
     "recent_documents": "Documentos Recientes",
-    "error_loading_data": "Error cargando datos"
+    "error_loading_data": "Error cargando datos",
+    "pending_documents_title": "Documentos Pendientes",
+    "reminders_title": "Recordatorios",
+    "no_pending_documents": "No hay documentos pendientes",
+    "no_reminders": "No hay recordatorios",
+    "no_recent_documents": "No hay documentos recientes"
   },
   "buttons": {
     "add": "Añadir",
@@ -155,7 +160,9 @@
     "total_notes": "Total Notas",
     "today_notes": "Notas Hoy",
     "empty_state": "Las notas del diario aparecerán aquí...",
-    "empty_state_hint": "Haz clic en 'Nueva Nota' para añadir apuntes"
+    "empty_state_hint": "Haz clic en 'Nueva Nota' para añadir apuntes",
+    "new_reminder": "Nuevo Recordatorio",
+    "view_reminders": "Ver Recordatorios"
   },
   "messages": {
     "confirm_delete": "¿Está seguro de que desea eliminar este elemento?",

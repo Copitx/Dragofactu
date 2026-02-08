@@ -161,7 +161,8 @@ from PySide6.QtWidgets import (
     QFormLayout, QSpinBox, QMenuBar, QStatusBar,
     QHeaderView, QTextEdit, QDateEdit, QFrame,
     QDoubleSpinBox, QCheckBox, QGroupBox, QGridLayout,
-    QTimeEdit, QInputDialog, QFileDialog, QListWidget, QListWidgetItem
+    QTimeEdit, QInputDialog, QFileDialog, QListWidget, QListWidgetItem,
+    QScrollArea
 )
 from PySide6.QtCore import Qt, QDate, QTime, QTimer, QPropertyAnimation
 from PySide6.QtGui import QFont, QAction, QColor, QPixmap
@@ -669,13 +670,24 @@ class PDFSettingsManager:
     _instance = None
     _settings = None
     _config_path = None
+    _company_id = None
 
     @classmethod
-    def get_instance(cls):
-        """Get singleton instance"""
+    def get_instance(cls, company_id=None):
+        """Get singleton instance. If company_id changes, reinitialize."""
+        if company_id and company_id != cls._company_id:
+            cls._company_id = company_id
+            cls._instance = None  # Force re-creation with new company
         if cls._instance is None:
             cls._instance = PDFSettingsManager()
         return cls._instance
+
+    @classmethod
+    def set_company(cls, company_id):
+        """Set the current company and reload settings."""
+        if company_id != cls._company_id:
+            cls._company_id = company_id
+            cls._instance = None  # Force re-creation
 
     def __init__(self):
         """Initialize settings manager"""
@@ -684,10 +696,13 @@ class PDFSettingsManager:
         self._settings = self._load_settings()
 
     def _get_config_path(self):
-        """Get the path to the config file"""
-        # Try to use user's config directory
+        """Get the path to the config file (per-company if company_id set)."""
         config_dir = os.path.join(os.path.expanduser('~'), '.dragofactu')
         os.makedirs(config_dir, exist_ok=True)
+        if self.__class__._company_id:
+            # Sanitize company_id for filename
+            safe_id = str(self.__class__._company_id).replace('-', '')[:12]
+            return os.path.join(config_dir, f'pdf_settings_{safe_id}.json')
         return os.path.join(config_dir, 'pdf_settings.json')
 
     def _load_settings(self):
@@ -1240,26 +1255,16 @@ class InvoicePDFGenerator:
 class Dashboard(QWidget):
     """Modern Apple-inspired dashboard with clean design"""
 
-    # Design tokens from styles.py
-    COLORS = {
-        'bg_app': '#FAFAFA',
-        'bg_card': '#FFFFFF',
-        'bg_hover': '#F5F5F7',
-        'text_primary': '#1D1D1F',
-        'text_secondary': '#6E6E73',
-        'text_tertiary': '#86868B',
-        'accent': '#007AFF',
-        'accent_hover': '#0056CC',
-        'success': '#34C759',
-        'warning': '#FF9500',
-        'danger': '#FF3B30',
-        'border_light': '#E5E5EA',
-    }
+    @property
+    def COLORS(self):
+        """Always return UIStyles.COLORS so dark mode is reflected."""
+        return UIStyles.COLORS
 
     def __init__(self):
         super().__init__()
         self.metric_labels = {}
         self.metric_titles = {}
+        self.metric_cards = []
         self.translatable_labels = {}
         self.setup_ui()
 
@@ -1444,6 +1449,7 @@ class Dashboard(QWidget):
         # Store references for updates
         self.metric_labels[key] = value_label
         self.metric_titles[key] = (title_label, title_key)
+        self.metric_cards.append((card, title_label, value_label))
 
         return card
 
@@ -1462,7 +1468,7 @@ class Dashboard(QWidget):
         pending_main_layout.setSpacing(8)
 
         # Pending title
-        self.pending_title = QLabel("Documentos Pendientes")
+        self.pending_title = QLabel(translator.t("dashboard.pending_documents_title"))
         self.pending_title.setStyleSheet(f"""
             font-size: 17px;
             font-weight: 600;
@@ -1497,7 +1503,7 @@ class Dashboard(QWidget):
         reminders_main_layout.setSpacing(8)
 
         # Reminders title
-        self.user_reminders_title = QLabel("Recordatorios")
+        self.user_reminders_title = QLabel(translator.t("dashboard.reminders_title"))
         self.user_reminders_title.setStyleSheet(f"""
             font-size: 17px;
             font-weight: 600;
@@ -1543,7 +1549,7 @@ class Dashboard(QWidget):
                 row = self._create_pending_row(item, is_last)
                 self.pending_layout.addWidget(row)
         else:
-            empty_label = QLabel("No hay documentos pendientes")
+            empty_label = QLabel(translator.t("dashboard.no_pending_documents"))
             empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_label.setStyleSheet(f"""
                 font-size: 14px;
@@ -1569,7 +1575,7 @@ class Dashboard(QWidget):
                 row = self._create_user_reminder_row(reminder, is_last)
                 self.user_reminders_layout.addWidget(row)
         else:
-            empty_label = QLabel("No hay recordatorios")
+            empty_label = QLabel(translator.t("dashboard.no_reminders"))
             empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_label.setStyleSheet(f"""
                 font-size: 14px;
@@ -1981,7 +1987,7 @@ class Dashboard(QWidget):
                 self.recent_docs_layout.addWidget(doc_row)
         else:
             # Empty state
-            empty_label = QLabel("No hay documentos recientes")
+            empty_label = QLabel(translator.t("dashboard.no_recent_documents"))
             empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_label.setStyleSheet(f"""
                 font-size: 14px;
@@ -2143,6 +2149,88 @@ class Dashboard(QWidget):
             else:
                 self.subtitle_label.setText(translator.t("app.subtitle"))
 
+    def refresh_theme(self):
+        """Re-apply all theme-dependent styles after dark/light mode change."""
+        C = self.COLORS
+        self.setStyleSheet(f"background-color: {C['bg_app']};")
+
+        # Metric cards
+        card_style = f"""
+            QFrame {{
+                background-color: {C['bg_card']};
+                border: none;
+                border-radius: 12px;
+            }}
+        """
+        for card, title_lbl, value_lbl in self.metric_cards:
+            card.setStyleSheet(card_style)
+            title_lbl.setStyleSheet(f"""
+                font-size: 13px; font-weight: 500;
+                color: {C['text_secondary']};
+                background: transparent; text-transform: uppercase; letter-spacing: 0.5px;
+            """)
+            value_lbl.setStyleSheet(f"""
+                font-size: 32px; font-weight: 600;
+                color: {C['text_primary']};
+                background: transparent;
+            """)
+
+        # Frames (pending, reminders)
+        frame_style = f"""
+            QFrame {{
+                background-color: {C['bg_card']};
+                border: none;
+                border-radius: 12px;
+            }}
+        """
+        if hasattr(self, 'pending_frame'):
+            self.pending_frame.setStyleSheet(frame_style)
+        if hasattr(self, 'user_reminders_frame'):
+            self.user_reminders_frame.setStyleSheet(frame_style)
+        if hasattr(self, 'recent_docs_frame'):
+            self.recent_docs_frame.setStyleSheet(frame_style)
+
+        # Section titles
+        title_style = f"""
+            font-size: 17px; font-weight: 600;
+            color: {C['text_primary']}; background: transparent;
+        """
+        for attr in ('pending_title', 'user_reminders_title', 'quick_actions_title', 'recent_docs_title'):
+            if hasattr(self, attr):
+                getattr(self, attr).setStyleSheet(title_style)
+
+        # Welcome section
+        if hasattr(self, 'welcome_label'):
+            self.welcome_label.setStyleSheet(f"""
+                font-size: 28px; font-weight: 600;
+                color: {C['text_primary']}; background: transparent;
+            """)
+        if hasattr(self, 'subtitle_label'):
+            self.subtitle_label.setStyleSheet(f"""
+                font-size: 15px;
+                color: {C['text_secondary']}; background: transparent;
+            """)
+        if hasattr(self, 'date_label'):
+            self.date_label.setStyleSheet(f"""
+                font-size: 15px; font-weight: 500;
+                color: {C['text_primary']}; background: transparent;
+            """)
+        if hasattr(self, 'time_label'):
+            self.time_label.setStyleSheet(f"""
+                font-size: 24px; font-weight: 600;
+                color: {C['accent']}; background: transparent;
+            """)
+
+        # Re-populate dynamic content so rows pick up new colors
+        if hasattr(self, '_populate_pending_documents'):
+            self._populate_pending_documents()
+        if hasattr(self, '_populate_user_reminders'):
+            self._populate_user_reminders()
+        if hasattr(self, '_populate_recent_documents'):
+            self._populate_recent_documents()
+        if hasattr(self, '_populate_quick_actions'):
+            self._populate_quick_actions()
+
     def retranslate_ui(self):
         """Update all translatable text"""
         # Welcome section
@@ -2156,10 +2244,22 @@ class Dashboard(QWidget):
             label.setText(translator.t(title_key))
 
         # Section titles
+        if hasattr(self, 'pending_title'):
+            self.pending_title.setText(translator.t("dashboard.pending_documents_title"))
+        if hasattr(self, 'user_reminders_title'):
+            self.user_reminders_title.setText(translator.t("dashboard.reminders_title"))
         if hasattr(self, 'quick_actions_title'):
             self.quick_actions_title.setText(translator.t("dashboard.quick_actions"))
         if hasattr(self, 'recent_docs_title'):
             self.recent_docs_title.setText(translator.t("dashboard.recent_documents"))
+
+        # Rebuild dynamic content with new translations
+        if hasattr(self, '_populate_pending_documents'):
+            self._populate_pending_documents()
+        if hasattr(self, '_populate_user_reminders'):
+            self._populate_user_reminders()
+        if hasattr(self, '_populate_recent_documents'):
+            self._populate_recent_documents()
 
         # Rebuild quick actions with new translations
         if hasattr(self, '_populate_quick_actions'):
@@ -3551,23 +3651,6 @@ class DocumentDialog(QDialog):
                     if hasattr(self, 'internal_notes_edit'):
                         document.internal_notes = self.internal_notes_edit.toPlainText().strip() or None
 
-                    # Check if status changed to PAID - deduct stock from products
-                    stock_deducted = []
-                    if new_status == DocumentStatus.PAID and original_status != DocumentStatus.PAID:
-                        # Use the items from the table (not document.lines since we're about to delete them)
-                        for row in range(self.items_table.rowCount()):
-                            if row < len(self.items) and self.items[row].get('product_id'):
-                                product_id = self.items[row]['product_id']
-                                qty_widget = self.items_table.cellWidget(row, 2)
-                                quantity = qty_widget.value() if qty_widget else 1
-
-                                product = db.query(Product).filter(Product.id == product_id).first()
-                                if product:
-                                    old_stock = product.current_stock or 0
-                                    new_stock = max(0, old_stock - quantity)
-                                    product.current_stock = new_stock
-                                    stock_deducted.append(f"{product.name}: -{quantity} (Stock: {old_stock} → {new_stock})")
-
                     # Delete old lines and add new ones
                     db.query(DocumentLine).filter(DocumentLine.document_id == document.id).delete()
 
@@ -3575,13 +3658,7 @@ class DocumentDialog(QDialog):
                     self._save_document_lines(db, document.id)
 
                     db.commit()
-
-                    # Show success message with stock info if deducted
-                    if stock_deducted:
-                        QMessageBox.information(self, "Exito",
-                            f"{self.doc_title} actualizado correctamente\n\nStock descontado:\n" + "\n".join(stock_deducted))
-                    else:
-                        QMessageBox.information(self, "Exito", f"{self.doc_title} actualizado correctamente")
+                    QMessageBox.information(self, "Exito", f"{self.doc_title} actualizado correctamente")
                 else:
                     # Create new document
                     if self.doc_type == "quote":
@@ -3612,8 +3689,28 @@ class DocumentDialog(QDialog):
                     # Save line items
                     self._save_document_lines(db, document.id)
 
+                    # Deduct stock for invoices on creation
+                    stock_deducted = []
+                    if doc_type == DocumentType.INVOICE:
+                        for row in range(self.items_table.rowCount()):
+                            if row < len(self.items) and self.items[row].get('product_id'):
+                                product_id = self.items[row]['product_id']
+                                qty_widget = self.items_table.cellWidget(row, 2)
+                                quantity = qty_widget.value() if qty_widget else 1
+
+                                product = db.query(Product).filter(Product.id == product_id).first()
+                                if product:
+                                    old_stock = product.current_stock or 0
+                                    new_stock = old_stock - quantity
+                                    product.current_stock = new_stock
+                                    stock_deducted.append(f"{product.name}: -{quantity} (Stock: {old_stock} -> {new_stock})")
+
                     db.commit()
-                    QMessageBox.information(self, "Exito", f"{self.doc_title} guardado correctamente\nCodigo: {doc_code}")
+
+                    msg = f"{self.doc_title} guardado correctamente\nCodigo: {doc_code}"
+                    if stock_deducted:
+                        msg += "\n\nStock descontado:\n" + "\n".join(stock_deducted)
+                    QMessageBox.information(self, "Exito", msg)
 
                 self.accept()
 
@@ -6058,12 +6155,12 @@ class DiaryManagementTab(QWidget):
         self.view_calendar_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(self.view_calendar_btn)
 
-        self.new_reminder_btn = QPushButton("Nuevo Recordatorio")
+        self.new_reminder_btn = QPushButton(translator.t("diary.new_reminder"))
         self.new_reminder_btn.clicked.connect(self.add_reminder)
         self.new_reminder_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(self.new_reminder_btn)
 
-        self.view_reminders_btn = QPushButton("Ver Recordatorios")
+        self.view_reminders_btn = QPushButton(translator.t("diary.view_reminders"))
         self.view_reminders_btn.clicked.connect(self.view_reminders)
         self.view_reminders_btn.setStyleSheet(UIStyles.get_secondary_button_style())
         toolbar_layout.addWidget(self.view_reminders_btn)
@@ -7423,12 +7520,14 @@ class MainWindow(QMainWindow):
     def set_current_user(self, user):
         """Set current user"""
         self.current_user = user
-        username = user.username
         full_name = user.full_name
         role = user.role.value if hasattr(user.role, 'value') else str(user.role)
+        company_name = getattr(user, 'company_name', '')
 
         self.user_label.setText(f"{full_name} ({role})")
-        self.statusBar().showMessage("Listo")
+        if company_name:
+            self.setWindowTitle(f"Dragofactu - {company_name}")
+        self.statusBar().showMessage(translator.t("status.ready"))
 
     def _load_theme(self):
         """Load saved theme preference."""
@@ -7505,13 +7604,45 @@ class MainWindow(QMainWindow):
                 tab.refresh_data()
 
     def _apply_theme(self):
-        """Re-apply the current theme stylesheet to the main window."""
+        """Re-apply the current theme stylesheet to all widgets."""
         self.setStyleSheet(self._build_main_stylesheet())
-        # Refresh tab panels
+
+        # Refresh tab panel backgrounds
         for i in range(self.tabs.count()):
             w = self.tabs.widget(i)
             if hasattr(w, 'setStyleSheet'):
                 w.setStyleSheet(UIStyles.get_panel_style())
+
+        # Dashboard has its own refresh_theme method
+        if hasattr(self, 'dashboard') and hasattr(self.dashboard, 'refresh_theme'):
+            self.dashboard.refresh_theme()
+
+        # Re-apply styles to all tables, search inputs, labels, and buttons in tabs
+        tab_widgets = []
+        for attr in ('clients_tab', 'products_tab', 'documents_tab', 'inventory_tab', 'diary_tab', 'workers_tab'):
+            if hasattr(self, attr):
+                tab_widgets.append(getattr(self, attr))
+
+        for tab in tab_widgets:
+            # Tables
+            for table_attr in ('clients_table', 'products_table', 'docs_table', 'inventory_table', 'workers_table'):
+                if hasattr(tab, table_attr):
+                    getattr(tab, table_attr).setStyleSheet(UIStyles.get_table_style())
+            # Search inputs and combos
+            for input_attr in ('search_edit', 'filter_combo', 'sort_combo', 'status_filter_combo', 'dept_filter_combo'):
+                if hasattr(tab, input_attr):
+                    getattr(tab, input_attr).setStyleSheet(UIStyles.get_input_style())
+            # Labels
+            for label_attr in ('search_label', 'filter_label', 'sort_label', 'status_filter_label'):
+                if hasattr(tab, label_attr):
+                    getattr(tab, label_attr).setStyleSheet(UIStyles.get_label_style())
+            # Section titles
+            if hasattr(tab, 'title_label'):
+                tab.title_label.setStyleSheet(f"""
+                    font-size: 28px; font-weight: 600;
+                    color: {UIStyles.COLORS['text_primary']};
+                    background: transparent;
+                """)
 
     def _build_main_stylesheet(self):
         """Build the main window stylesheet from current UIStyles colors."""
@@ -8015,6 +8146,7 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(3, translator.t("tabs.documents"))
         self.tabs.setTabText(4, translator.t("tabs.inventory"))
         self.tabs.setTabText(5, translator.t("tabs.diary"))
+        self.tabs.setTabText(6, translator.t("tabs.workers"))
 
         # Update menus
         self.file_menu.setTitle(translator.t("menu.file"))
@@ -8236,31 +8368,33 @@ class SettingsDialog(QDialog):
         self.load_pdf_settings()
 
     def setup_ui(self):
+        self.setStyleSheet(UIStyles.get_dialog_style())
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(16)
 
         # Create tab widget
         tab_widget = QTabWidget()
-        tab_widget.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #D2D2D7;
+        tab_widget.setStyleSheet(f"""
+            QTabWidget::pane {{
+                border: 1px solid {UIStyles.COLORS['border']};
                 border-radius: 8px;
-                background: white;
-            }
-            QTabBar::tab {
+                background: {UIStyles.COLORS['bg_app']};
+            }}
+            QTabBar::tab {{
                 padding: 8px 16px;
                 margin-right: 4px;
                 border-top-left-radius: 6px;
                 border-top-right-radius: 6px;
-                background: #F5F5F7;
-                border: 1px solid #D2D2D7;
+                background: {UIStyles.COLORS['bg_hover']};
+                border: 1px solid {UIStyles.COLORS['border']};
                 border-bottom: none;
-            }
-            QTabBar::tab:selected {
-                background: white;
-                border-bottom: 1px solid white;
-            }
+                color: {UIStyles.COLORS['text_primary']};
+            }}
+            QTabBar::tab:selected {{
+                background: {UIStyles.COLORS['bg_app']};
+                border-bottom: 1px solid {UIStyles.COLORS['bg_app']};
+            }}
         """)
 
         # Tab 1: PDF Configuration
@@ -8312,12 +8446,13 @@ class SettingsDialog(QDialog):
         self.logo_preview = QLabel()
         self.logo_preview.setFixedSize(150, 80)
         self.logo_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.logo_preview.setStyleSheet("""
-            QLabel {
-                background-color: #F5F5F7;
-                border: 2px dashed #D2D2D7;
+        self.logo_preview.setStyleSheet(f"""
+            QLabel {{
+                background-color: {UIStyles.COLORS['bg_hover']};
+                border: 2px dashed {UIStyles.COLORS['border']};
                 border-radius: 8px;
-            }
+                color: {UIStyles.COLORS['text_secondary']};
+            }}
         """)
         self.logo_preview.setText("Sin logo")
 
@@ -8345,7 +8480,7 @@ class SettingsDialog(QDialog):
         logo_layout.addLayout(logo_buttons)
 
         logo_hint = QLabel("Formatos: PNG, JPG. Recomendado: PNG con fondo transparente.")
-        logo_hint.setStyleSheet("color: #6E6E73; font-size: 11px;")
+        logo_hint.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; font-size: 11px;")
         logo_layout.addWidget(logo_hint)
 
         pdf_layout.addWidget(logo_group)
@@ -8357,24 +8492,13 @@ class SettingsDialog(QDialog):
         footer_layout.setSpacing(10)
 
         footer_hint = QLabel("Este texto aparecera al final de todos los PDFs generados.")
-        footer_hint.setStyleSheet("color: #6E6E73; font-size: 11px;")
+        footer_hint.setStyleSheet(f"color: {UIStyles.COLORS['text_secondary']}; font-size: 11px;")
         footer_layout.addWidget(footer_hint)
 
         self.pdf_footer_text = QTextEdit()
         self.pdf_footer_text.setMaximumHeight(100)
         self.pdf_footer_text.setPlaceholderText("Ej: Este documento es valido como factura segun la normativa fiscal vigente...")
-        self.pdf_footer_text.setStyleSheet("""
-            QTextEdit {
-                border: 1px solid #D2D2D7;
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 12px;
-                background: white;
-            }
-            QTextEdit:focus {
-                border-color: #007AFF;
-            }
-        """)
+        self.pdf_footer_text.setStyleSheet(UIStyles.get_input_style())
         footer_layout.addWidget(self.pdf_footer_text)
 
         pdf_layout.addWidget(footer_group)
@@ -8461,14 +8585,23 @@ class SettingsDialog(QDialog):
         db_form.setSpacing(8)
 
         try:
-            with SessionLocal() as db:
-                client_count = db.query(Client).count()
-                product_count = db.query(Product).count()
-                document_count = db.query(Document).count()
+            app_mode = get_app_mode()
+            if app_mode.is_remote:
+                stats = app_mode.api.get_dashboard_stats()
+                db_form.addRow("Clientes:", QLabel(str(stats.get("clients", "?"))))
+                db_form.addRow("Productos:", QLabel(str(stats.get("products", "?"))))
+                db_form.addRow("Documentos:", QLabel(str(stats.get("documents", "?"))))
+                db_form.addRow("Modo:", QLabel("Servidor Remoto"))
+            else:
+                with SessionLocal() as db:
+                    client_count = db.query(Client).count()
+                    product_count = db.query(Product).count()
+                    document_count = db.query(Document).count()
 
-                db_form.addRow("Clientes:", QLabel(str(client_count)))
-                db_form.addRow("Productos:", QLabel(str(product_count)))
-                db_form.addRow("Documentos:", QLabel(str(document_count)))
+                    db_form.addRow("Clientes:", QLabel(str(client_count)))
+                    db_form.addRow("Productos:", QLabel(str(product_count)))
+                    db_form.addRow("Documentos:", QLabel(str(document_count)))
+                    db_form.addRow("Modo:", QLabel("Local (SQLite)"))
         except Exception as e:
             logger.error(f"Error getting database info for settings: {e}")
             db_form.addRow("Estado:", QLabel("Error de conexion"))
@@ -9092,6 +9225,7 @@ class LoginDialog(QDialog):
                 'full_name': user_info.get('full_name', username),
                 'role': user_info.get('role', 'read_only'),
                 'company_id': user_info.get('company_id', ''),
+                'company_name': user_info.get('company_name', ''),
                 'is_remote': True
             }
             logger.info(f"Remote login successful: {username}")
@@ -9280,11 +9414,22 @@ class RegisterCompanyDialog(QDialog):
         self.server_url = server_url
         self.setWindowTitle("Registrar Nueva Empresa")
         self.setModal(True)
-        self.setMinimumSize(500, 600)
+        self.setMinimumSize(520, 700)
         self.setup_ui()
 
     def setup_ui(self):
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        # Scroll area for form content
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
+        scroll_content = QWidget()
+        layout = QVBoxLayout(scroll_content)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
@@ -9368,8 +9513,14 @@ class RegisterCompanyDialog(QDialog):
         hint.setStyleSheet(f"color: {UIStyles.COLORS['text_tertiary']}; font-size: 11px;")
         layout.addWidget(hint)
 
-        # Buttons
-        btn_layout = QHBoxLayout()
+        layout.addStretch()
+        scroll.setWidget(scroll_content)
+        outer_layout.addWidget(scroll)
+
+        # Buttons (outside scroll area)
+        btn_container = QWidget()
+        btn_layout = QHBoxLayout(btn_container)
+        btn_layout.setContentsMargins(24, 12, 24, 16)
         btn_layout.setSpacing(12)
 
         cancel_btn = QPushButton("Cancelar")
@@ -9382,7 +9533,7 @@ class RegisterCompanyDialog(QDialog):
         register_btn.clicked.connect(self.register)
         btn_layout.addWidget(register_btn)
 
-        layout.addLayout(btn_layout)
+        outer_layout.addWidget(btn_container)
 
     def register(self):
         """Register the company."""
@@ -9471,6 +9622,8 @@ class App(QApplication):
                     'username': user_info.get('username'),
                     'full_name': user_info.get('full_name', user_info.get('username', '')),
                     'role': user_info.get('role', 'read_only'),
+                    'company_id': user_info.get('company_id', ''),
+                    'company_name': user_info.get('company_name', ''),
                     'is_remote': True
                 }
                 logger.info(f"Auto-login successful for user: {user_info.get('username')}")
@@ -9506,8 +9659,13 @@ class App(QApplication):
     
     def show_main_window(self):
         """Show main window"""
+        # Set company context for per-company PDF settings
+        company_id = self.current_user_data.get('company_id', '')
+        if company_id:
+            PDFSettingsManager.set_company(company_id)
+
         self.main_window = MainWindow()
-        
+
         # Create a simple user object with basic attributes
         class SimpleUser:
             def __init__(self, data):
@@ -9515,7 +9673,9 @@ class App(QApplication):
                 self.username = data['username']
                 self.full_name = data['full_name']
                 self.role = data['role']
-        
+                self.company_id = data.get('company_id', '')
+                self.company_name = data.get('company_name', '')
+
         simple_user = SimpleUser(self.current_user_data)
         self.main_window.set_current_user(simple_user)
         self.main_window.show()

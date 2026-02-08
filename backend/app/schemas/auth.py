@@ -57,6 +57,7 @@ class UserResponse(BaseSchema):
     last_name: Optional[str] = None
     role: str
     is_active: bool
+    company_name: Optional[str] = None
 
 
 class LoginResponse(BaseModel):

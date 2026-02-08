@@ -45,14 +45,14 @@ backend/
 
 ## ESTADO ACTUAL DEL PROYECTO
 
-**Versión:** v2.4.0 (2026-02-07)
+**Versión:** v2.4.1 (2026-02-08)
 **URL Producción:** https://dragofactu-production.up.railway.app
 
 | Componente | Estado |
 |------------|--------|
 | Backend API | ✅ EN PRODUCCIÓN (Railway) |
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
-| Tests Backend | ✅ 130 PASSING |
+| Tests Backend | ✅ 131 PASSING |
 | PostgreSQL | ✅ CONFIGURADO (Railway) |
 | PDF en remoto | ✅ COMPLETADO |
 

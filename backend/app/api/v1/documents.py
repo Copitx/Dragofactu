@@ -217,6 +217,18 @@ async def create_document(
 
     db.flush()
     calculate_document_totals(document)
+
+    # Deduct stock for invoices on creation
+    if doc_type == DocumentType.INVOICE:
+        for line_data in data.lines:
+            if line_data.product_id:
+                product = db.query(Product).filter(
+                    Product.id == line_data.product_id,
+                    Product.company_id == current_user.company_id
+                ).first()
+                if product:
+                    product.current_stock = (product.current_stock or 0) - line_data.quantity
+
     db.commit()
     db.refresh(document)
 
@@ -375,19 +387,7 @@ async def change_document_status(
             detail=f"Transicion no permitida de {document.status.value} a {new_status.value}"
         )
 
-    # Special logic for PAID status - deduct stock
-    if new_status == DocumentStatus.PAID and document.type == DocumentType.INVOICE:
-        for line in document.lines:
-            if line.product_id:
-                product = db.query(Product).filter(Product.id == line.product_id).first()
-                if product:
-                    new_stock = product.current_stock - int(line.quantity)
-                    if new_stock < 0:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Stock insuficiente para {product.code}. Stock: {product.current_stock}, Cantidad: {int(line.quantity)}"
-                        )
-                    product.current_stock = new_stock
+    # Stock is now deducted at invoice creation time, not on status change
 
     document.status = new_status
     db.commit()

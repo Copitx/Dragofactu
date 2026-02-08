@@ -252,13 +252,13 @@ class TestDocumentStatusTransitions:
 
 
 class TestDocumentStockDeduction:
-    """Test stock deduction on invoice payment."""
+    """Test stock deduction on invoice creation."""
 
-    def test_stock_deducted_on_invoice_paid(
+    def test_stock_deducted_on_invoice_creation(
         self, client: TestClient, auth_headers: dict,
         db: Session, test_company: Company
     ):
-        """Test that stock is deducted when invoice is marked as paid."""
+        """Test that stock is deducted when invoice is created."""
         # Create client
         client_entity = Client(
             company_id=test_company.id,
@@ -280,7 +280,7 @@ class TestDocumentStockDeduction:
         db.refresh(client_entity)
         db.refresh(product)
 
-        # Create invoice with product line
+        # Create invoice with product line - stock should be deducted immediately
         response = client.post(
             "/api/v1/documents",
             json={
@@ -301,43 +301,16 @@ class TestDocumentStockDeduction:
             headers=auth_headers
         )
         assert response.status_code == 201
-        document_id = response.json()["id"]
 
-        # Move through status workflow: DRAFT -> NOT_SENT -> SENT -> ACCEPTED -> PAID
-        client.post(
-            f"/api/v1/documents/{document_id}/change-status",
-            json={"new_status": "not_sent"},
-            headers=auth_headers
-        )
-        client.post(
-            f"/api/v1/documents/{document_id}/change-status",
-            json={"new_status": "sent"},
-            headers=auth_headers
-        )
-        client.post(
-            f"/api/v1/documents/{document_id}/change-status",
-            json={"new_status": "accepted"},
-            headers=auth_headers
-        )
-
-        # Mark as paid
-        response = client.post(
-            f"/api/v1/documents/{document_id}/change-status",
-            json={"new_status": "paid"},
-            headers=auth_headers
-        )
-
-        assert response.status_code == 200
-
-        # Verify stock was deducted
+        # Verify stock was deducted at creation time
         db.refresh(product)
         assert product.current_stock == 90  # 100 - 10
 
-    def test_stock_deduction_fails_insufficient(
+    def test_stock_allows_negative(
         self, client: TestClient, auth_headers: dict,
         db: Session, test_company: Company
     ):
-        """Test that payment fails if insufficient stock."""
+        """Test that stock can go negative when creating invoice with more than available."""
         # Create client and product with low stock
         client_entity = Client(
             company_id=test_company.id,
@@ -358,7 +331,7 @@ class TestDocumentStockDeduction:
         db.refresh(client_entity)
         db.refresh(product)
 
-        # Create invoice requesting more than available
+        # Create invoice requesting more than available - should succeed with negative stock
         response = client.post(
             "/api/v1/documents",
             json={
@@ -378,34 +351,61 @@ class TestDocumentStockDeduction:
             },
             headers=auth_headers
         )
-        document_id = response.json()["id"]
+        assert response.status_code == 201
 
-        # Move through states: DRAFT -> NOT_SENT -> SENT -> ACCEPTED
-        client.post(
-            f"/api/v1/documents/{document_id}/change-status",
-            json={"new_status": "not_sent"},
-            headers=auth_headers
-        )
-        client.post(
-            f"/api/v1/documents/{document_id}/change-status",
-            json={"new_status": "sent"},
-            headers=auth_headers
-        )
-        client.post(
-            f"/api/v1/documents/{document_id}/change-status",
-            json={"new_status": "accepted"},
-            headers=auth_headers
-        )
+        # Verify stock went negative
+        db.refresh(product)
+        assert product.current_stock == -5  # 5 - 10 = -5
 
-        # Try to mark as paid - should fail due to insufficient stock
+    def test_quote_does_not_deduct_stock(
+        self, client: TestClient, auth_headers: dict,
+        db: Session, test_company: Company
+    ):
+        """Test that creating a quote does NOT deduct stock."""
+        client_entity = Client(
+            company_id=test_company.id,
+            code="QUOTECLI",
+            name="Quote Client"
+        )
+        db.add(client_entity)
+
+        product = Product(
+            company_id=test_company.id,
+            code="QUOTEPROD",
+            name="Quote Product",
+            sale_price=50.00,
+            current_stock=100
+        )
+        db.add(product)
+        db.commit()
+        db.refresh(client_entity)
+        db.refresh(product)
+
+        # Create quote - stock should NOT be deducted
         response = client.post(
-            f"/api/v1/documents/{document_id}/change-status",
-            json={"new_status": "paid"},
+            "/api/v1/documents",
+            json={
+                "type": "quote",
+                "client_id": str(client_entity.id),
+                "issue_date": datetime.now(timezone.utc).isoformat(),
+                "lines": [
+                    {
+                        "line_type": "product",
+                        "product_id": str(product.id),
+                        "description": "Quote Product",
+                        "quantity": 10,
+                        "unit_price": 50.00,
+                        "discount_percent": 0
+                    }
+                ]
+            },
             headers=auth_headers
         )
+        assert response.status_code == 201
 
-        assert response.status_code == 400
-        assert "insuficiente" in response.json()["detail"].lower()
+        # Verify stock was NOT deducted
+        db.refresh(product)
+        assert product.current_stock == 100  # Unchanged
 
 
 class TestDocumentConversion:

@@ -55,7 +55,12 @@
     "recent_activity": "Letzte Aktivität",
     "quick_actions": "Schnellaktionen",
     "recent_documents": "Letzte Dokumente",
-    "error_loading_data": "Fehler beim Laden"
+    "error_loading_data": "Fehler beim Laden",
+    "pending_documents_title": "Ausstehende Dokumente",
+    "reminders_title": "Erinnerungen",
+    "no_pending_documents": "Keine ausstehenden Dokumente",
+    "no_reminders": "Keine Erinnerungen",
+    "no_recent_documents": "Keine letzten Dokumente"
   },
   "buttons": {
     "add": "Hinzufügen",
@@ -155,7 +160,9 @@
     "total_notes": "Gesamte Notizen",
     "today_notes": "Heutige Notizen",
     "empty_state": "Tagebuch-Notizen erscheinen hier...",
-    "empty_state_hint": "Klicken Sie auf 'Neue Notiz' um Einträge hinzuzufügen"
+    "empty_state_hint": "Klicken Sie auf 'Neue Notiz' um Einträge hinzuzufügen",
+    "new_reminder": "Neue Erinnerung",
+    "view_reminders": "Erinnerungen anzeigen"
   },
   "messages": {
     "confirm_delete": "Möchten Sie dieses Element wirklich löschen?",

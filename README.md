@@ -274,7 +274,7 @@ El frontend en desarrollo usa un proxy via `vite.config.ts` que redirige `/api` 
 | 21 | CRUD clientes/productos/proveedores, DataTable reutilizable, validacion Zod | Completada |
 | 22 | Documentos: line editor, status transitions, conversion, PDF download | Completada |
 | 23 | Inventario, trabajadores (cursos), diario (pins), recordatorios (prioridad) | Completada |
-| 24 | Reports, export/import, audit, admin, settings | Pendiente |
+| 24 | Reports (Recharts), export/import CSV, audit log, admin panel, settings | Completada |
 | 25 | PWA, mobile optimization, deploy, testing E2E | Pendiente |
 
 ### v2.5.0 — Produccion y Monitoreo

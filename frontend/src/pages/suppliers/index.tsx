@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Download } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { DataTable, type Column } from "@/components/data-table/data-table";
@@ -24,6 +24,7 @@ import {
 
 import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier } from "@/hooks/use-suppliers";
 import { supplierSchema, type SupplierFormData } from "@/lib/validators";
+import { exportCSV, downloadBlob } from "@/api/export-import";
 import type { Supplier } from "@/types/supplier";
 
 export default function SuppliersPage() {
@@ -119,6 +120,16 @@ export default function SuppliersPage() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const blob = await exportCSV("suppliers");
+      downloadBlob(blob, "suppliers.csv");
+      toast.success(t("export_import.export_success"));
+    } catch {
+      toast.error(t("common.error"));
+    }
+  };
+
   const columns: Column<Supplier>[] = [
     { key: "code", header: t("suppliers.code"), cell: (s) => (
       <span className="font-mono text-xs">{s.code}</span>
@@ -159,7 +170,12 @@ export default function SuppliersPage() {
           searchPlaceholder={t("suppliers.search_placeholder")}
           onAdd={openCreate}
           addLabel={t("suppliers.new")}
-        />
+        >
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-1" />
+            CSV
+          </Button>
+        </DataTableToolbar>
 
         <div className="rounded-md border">
           <DataTable

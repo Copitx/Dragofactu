@@ -37,6 +37,7 @@
     "diary": "Diary",
     "reminders": "Reminders",
     "reports": "Reports",
+    "audit": "Audit",
     "settings": "Settings",
     "admin": "Administration"
   },
@@ -265,10 +266,51 @@
     "about": "About",
     "version": "Version"
   },
+  "audit": {
+    "title": "Audit Log",
+    "action": "Action",
+    "entity_type": "Entity Type",
+    "entity_id": "Entity ID",
+    "details": "Details",
+    "user": "User",
+    "timestamp": "Timestamp",
+    "actions": {
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete"
+    },
+    "filter_all": "All",
+    "filter_action": "Filter action",
+    "filter_entity": "Filter entity"
+  },
+  "export_import": {
+    "export_success": "Export completed",
+    "import_success": "Import completed",
+    "import_title": "Import CSV",
+    "select_file": "Select file",
+    "file_hint": "CSV file with the same columns as the export"
+  },
   "admin": {
     "title": "Administration",
     "system_info": "System Information",
-    "backup_info": "Backup Information"
+    "backup_info": "Backup Information",
+    "app_version": "App Version",
+    "debug_mode": "Debug Mode",
+    "database": "Database",
+    "db_engine": "Engine",
+    "db_version": "DB Version",
+    "db_size": "Size",
+    "connections": "Connections",
+    "record_counts": "Records",
+    "companies": "Companies",
+    "users": "Users",
+    "provider": "Provider",
+    "auto_backups": "Automatic Backups",
+    "maintenance": "Recent Maintenance",
+    "last_vacuum": "Last Vacuum",
+    "last_analyze": "Last Analyze",
+    "yes": "Yes",
+    "no": "No"
   },
   "buttons": {
     "add": "Add",

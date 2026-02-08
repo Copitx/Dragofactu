@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Download, Upload } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { DataTable, type Column } from "@/components/data-table/data-table";
@@ -24,6 +24,7 @@ import {
 
 import { useClients, useCreateClient, useUpdateClient, useDeleteClient } from "@/hooks/use-clients";
 import { clientSchema, type ClientFormData } from "@/lib/validators";
+import { exportCSV, importCSV, downloadBlob } from "@/api/export-import";
 import type { Client } from "@/types/client";
 
 export default function ClientsPage() {
@@ -35,6 +36,8 @@ export default function ClientsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const { data, isLoading } = useClients({
     skip: page * pageSize,
@@ -120,6 +123,31 @@ export default function ClientsPage() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const blob = await exportCSV("clients");
+      downloadBlob(blob, "clients.csv");
+      toast.success(t("export_import.export_success"));
+    } catch {
+      toast.error(t("common.error"));
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const result = await importCSV("clients", file);
+      toast.success(result.message || t("export_import.import_success"));
+      setImportOpen(false);
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const columns: Column<Client>[] = [
     { key: "code", header: t("clients.code"), cell: (c) => (
       <span className="font-mono text-xs">{c.code}</span>
@@ -160,7 +188,16 @@ export default function ClientsPage() {
           searchPlaceholder={t("clients.search_placeholder")}
           onAdd={openCreate}
           addLabel={t("clients.new")}
-        />
+        >
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-1" />
+            CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            {t("buttons.import")}
+          </Button>
+        </DataTableToolbar>
 
         <div className="rounded-md border">
           <DataTable
@@ -255,6 +292,20 @@ export default function ClientsPage() {
         onConfirm={onDelete}
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{t("export_import.import_title")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">{t("export_import.file_hint")}</p>
+            <Input type="file" accept=".csv" onChange={handleImport} disabled={importing} />
+            {importing && <p className="text-sm">{t("buttons.loading")}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

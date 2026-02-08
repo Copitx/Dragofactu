@@ -18,8 +18,11 @@ const InventoryPage = lazy(() => import("@/pages/inventory"));
 const WorkersPage = lazy(() => import("@/pages/workers"));
 const DiaryPage = lazy(() => import("@/pages/diary"));
 const RemindersPage = lazy(() => import("@/pages/reminders"));
+const ReportsPage = lazy(() => import("@/pages/reports"));
+const AuditPage = lazy(() => import("@/pages/audit"));
+const AdminPage = lazy(() => import("@/pages/admin"));
+const SettingsPage = lazy(() => import("@/pages/settings"));
 const NotFoundPage = lazy(() => import("@/pages/not-found"));
-const PlaceholderPage = lazy(() => import("@/pages/placeholder"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,9 +83,10 @@ export default function App() {
               <Route path="/workers" element={<WorkersPage />} />
               <Route path="/diary" element={<DiaryPage />} />
               <Route path="/reminders" element={<RemindersPage />} />
-              <Route path="/reports" element={<PlaceholderPage />} />
-              <Route path="/settings" element={<PlaceholderPage />} />
-              <Route path="/admin" element={<PlaceholderPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/audit" element={<AuditPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/admin" element={<AdminPage />} />
             </Route>
 
             {/* 404 */}

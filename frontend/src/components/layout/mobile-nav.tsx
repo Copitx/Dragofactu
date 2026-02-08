@@ -10,6 +10,7 @@ import {
   BookOpen,
   Bell,
   BarChart3,
+  ClipboardList,
   Settings,
   Shield,
   X,
@@ -30,6 +31,7 @@ const menuItems = [
   { path: "/diary", icon: BookOpen, labelKey: "nav.diary" },
   { path: "/reminders", icon: Bell, labelKey: "nav.reminders" },
   { path: "/reports", icon: BarChart3, labelKey: "nav.reports" },
+  { path: "/audit", icon: ClipboardList, labelKey: "nav.audit" },
   { path: "/settings", icon: Settings, labelKey: "nav.settings" },
 ];
 

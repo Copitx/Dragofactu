@@ -62,7 +62,7 @@ frontend/                      # Web client (React) - EN DESARROLLO
 |------------|--------|
 | Backend API | ✅ EN PRODUCCIÓN (Railway) |
 | Desktop Client | ✅ FUNCIONAL (modo híbrido) |
-| **Frontend Web** | **🟡 EN DESARROLLO (Fase 23 completada)** |
+| **Frontend Web** | **🟡 EN DESARROLLO (Fase 24 completada)** |
 | Tests Backend | ✅ 144 PASSING |
 | PostgreSQL | ✅ CONFIGURADO (Railway) |
 | Monitoring | ✅ Health checks, métricas, Sentry |
@@ -89,8 +89,8 @@ frontend/                      # Web client (React) - EN DESARROLLO
 | **21** | **CRUD Clientes/Productos/Proveedores** | **✅** |
 | 22 | Documentos (line editor, status, PDF) | ✅ |
 | 23 | Inventario, Workers, Diary, Reminders | ✅ |
-| **24** | **Reports, Export/Import, Audit, Admin, Settings** | **⬜ SIGUIENTE** |
-| 25 | PWA + Mobile + Deploy + Testing | ⬜ Pendiente |
+| 24 | Reports, Export/Import, Audit, Admin, Settings | ✅ |
+| **25** | **PWA + Mobile + Deploy + Testing** | **⬜ SIGUIENTE** |
 
 > **Plan detallado de fases 19-25:** ver `PLAN_FRONTEND.md`
 
@@ -274,8 +274,8 @@ SENTRY_DSN=               # Opcional: DSN de Sentry para error tracking
 - [x] Fase 21: CRUD Clientes/Productos/Proveedores (DataTable reutilizable)
 - [x] Fase 22: Documentos (line editor, status transitions, PDF)
 - [x] Fase 23: Inventario, Workers, Diary, Reminders
-- [ ] **Fase 24:** Reports, Export/Import, Audit, Admin, Settings
-- [ ] Fase 25: PWA + Mobile + Deploy + Testing
+- [x] Fase 24: Reports, Export/Import, Audit, Admin, Settings
+- [ ] **Fase 25:** PWA + Mobile + Deploy + Testing
 
 > **Plan detallado frontend:** ver `PLAN_FRONTEND.md`
 > **Historial y referencia:** ver `MEMORIA_LARGO_PLAZO.md`

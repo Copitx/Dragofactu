@@ -37,6 +37,7 @@
     "diary": "Tagebuch",
     "reminders": "Erinnerungen",
     "reports": "Berichte",
+    "audit": "Audit",
     "settings": "Einstellungen",
     "admin": "Verwaltung"
   },
@@ -265,10 +266,51 @@
     "about": "Über",
     "version": "Version"
   },
+  "audit": {
+    "title": "Audit-Protokoll",
+    "action": "Aktion",
+    "entity_type": "Entitätstyp",
+    "entity_id": "Entitäts-ID",
+    "details": "Details",
+    "user": "Benutzer",
+    "timestamp": "Zeitstempel",
+    "actions": {
+      "create": "Erstellen",
+      "update": "Aktualisieren",
+      "delete": "Löschen"
+    },
+    "filter_all": "Alle",
+    "filter_action": "Aktion filtern",
+    "filter_entity": "Entität filtern"
+  },
+  "export_import": {
+    "export_success": "Export abgeschlossen",
+    "import_success": "Import abgeschlossen",
+    "import_title": "CSV importieren",
+    "select_file": "Datei auswählen",
+    "file_hint": "CSV-Datei mit den gleichen Spalten wie der Export"
+  },
   "admin": {
     "title": "Verwaltung",
     "system_info": "Systeminformationen",
-    "backup_info": "Backup-Informationen"
+    "backup_info": "Backup-Informationen",
+    "app_version": "App-Version",
+    "debug_mode": "Debug-Modus",
+    "database": "Datenbank",
+    "db_engine": "Engine",
+    "db_version": "DB-Version",
+    "db_size": "Größe",
+    "connections": "Verbindungen",
+    "record_counts": "Datensätze",
+    "companies": "Unternehmen",
+    "users": "Benutzer",
+    "provider": "Anbieter",
+    "auto_backups": "Automatische Backups",
+    "maintenance": "Letzte Wartung",
+    "last_vacuum": "Letztes Vacuum",
+    "last_analyze": "Letztes Analyze",
+    "yes": "Ja",
+    "no": "Nein"
   },
   "buttons": {
     "add": "Hinzufügen",

@@ -37,6 +37,7 @@
     "diary": "Diario",
     "reminders": "Recordatorios",
     "reports": "Informes",
+    "audit": "Auditoría",
     "settings": "Ajustes",
     "admin": "Administración"
   },
@@ -265,10 +266,51 @@
     "about": "Acerca de",
     "version": "Versión"
   },
+  "audit": {
+    "title": "Registro de Auditoría",
+    "action": "Acción",
+    "entity_type": "Tipo Entidad",
+    "entity_id": "ID Entidad",
+    "details": "Detalles",
+    "user": "Usuario",
+    "timestamp": "Fecha/Hora",
+    "actions": {
+      "create": "Crear",
+      "update": "Actualizar",
+      "delete": "Eliminar"
+    },
+    "filter_all": "Todas",
+    "filter_action": "Filtrar acción",
+    "filter_entity": "Filtrar entidad"
+  },
+  "export_import": {
+    "export_success": "Exportación completada",
+    "import_success": "Importación completada",
+    "import_title": "Importar CSV",
+    "select_file": "Seleccionar archivo",
+    "file_hint": "Archivo CSV con las mismas columnas que la exportación"
+  },
   "admin": {
     "title": "Administración",
     "system_info": "Información del Sistema",
-    "backup_info": "Información de Backup"
+    "backup_info": "Información de Backup",
+    "app_version": "Versión App",
+    "debug_mode": "Modo Debug",
+    "database": "Base de Datos",
+    "db_engine": "Motor",
+    "db_version": "Versión DB",
+    "db_size": "Tamaño",
+    "connections": "Conexiones",
+    "record_counts": "Registros",
+    "companies": "Empresas",
+    "users": "Usuarios",
+    "provider": "Proveedor",
+    "auto_backups": "Backups Automáticos",
+    "maintenance": "Mantenimiento Reciente",
+    "last_vacuum": "Último Vacuum",
+    "last_analyze": "Último Analyze",
+    "yes": "Sí",
+    "no": "No"
   },
   "buttons": {
     "add": "Añadir",

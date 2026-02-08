@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Pencil, Trash2, PackageMinus } from "lucide-react";
+import { Pencil, Trash2, PackageMinus, Download, Upload } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { DataTable, type Column } from "@/components/data-table/data-table";
@@ -32,6 +32,7 @@ import {
 } from "@/hooks/use-products";
 import { productSchema, stockAdjustmentSchema, type ProductFormData, type StockAdjustmentFormData } from "@/lib/validators";
 import { formatCurrency } from "@/lib/utils";
+import { exportCSV, importCSV, downloadBlob } from "@/api/export-import";
 import type { Product } from "@/types/product";
 
 export default function ProductsPage() {
@@ -45,6 +46,8 @@ export default function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const { data, isLoading } = useProducts({
     skip: page * pageSize,
@@ -145,6 +148,31 @@ export default function ProductsPage() {
     }
   });
 
+  const handleExport = async () => {
+    try {
+      const blob = await exportCSV("products");
+      downloadBlob(blob, "products.csv");
+      toast.success(t("export_import.export_success"));
+    } catch {
+      toast.error(t("common.error"));
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const result = await importCSV("products", file);
+      toast.success(result.message || t("export_import.import_success"));
+      setImportOpen(false);
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const columns: Column<Product>[] = [
     { key: "code", header: t("products.code"), cell: (p) => (
       <span className="font-mono text-xs">{p.code}</span>
@@ -199,7 +227,16 @@ export default function ProductsPage() {
           searchPlaceholder={t("products.search_placeholder")}
           onAdd={openCreate}
           addLabel={t("products.new")}
-        />
+        >
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-1" />
+            CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            {t("buttons.import")}
+          </Button>
+        </DataTableToolbar>
 
         <div className="rounded-md border">
           <DataTable
@@ -328,6 +365,20 @@ export default function ProductsPage() {
         onConfirm={onDelete}
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{t("export_import.import_title")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">{t("export_import.file_hint")}</p>
+            <Input type="file" accept=".csv" onChange={handleImport} disabled={importing} />
+            {importing && <p className="text-sm">{t("buttons.loading")}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

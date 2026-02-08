@@ -1,7 +1,7 @@
 # PLAN_FRONTEND.md - Frontend Web Dragofactu (Fases 19-25)
 
 > **Última actualización:** 2026-02-08
-> **Estado general:** Fases 19-23 completadas, Fase 24 siguiente
+> **Estado general:** Fases 19-24 completadas, Fase 25 siguiente
 
 ---
 
@@ -14,8 +14,8 @@
 | 21 | CRUD Clientes/Productos/Proveedores | ✅ Completada | 2026-02-08 |
 | 22 | Documentos (line editor, status, PDF) | ✅ Completada | 2026-02-08 |
 | 23 | Inventario, Workers, Diary, Reminders | ✅ Completada | 2026-02-08 |
-| **24** | **Reports, Export/Import, Audit, Admin, Settings** | **⬜ SIGUIENTE** | - |
-| 25 | PWA + Mobile + Deploy + Testing | ⬜ Pendiente | - |
+| 24 | Reports, Export/Import, Audit, Admin, Settings | ✅ Completada | 2026-02-08 |
+| **25** | **PWA + Mobile + Deploy + Testing** | **⬜ SIGUIENTE** | - |
 
 ---
 
@@ -162,28 +162,21 @@
 
 ---
 
-## FASE 24: Reports, Export/Import, Audit, Admin, Settings
+## FASE 24: Reports, Export/Import, Audit, Admin, Settings ✅ COMPLETADA
 
-### Reports (`src/pages/reports.tsx`)
-- Selector periodo: Mensual / Trimestral / Anual
-- Cards resumen + gráfica barras (Recharts)
-- APIs: `src/api/reports.ts`, `src/hooks/use-reports.ts`
-
-### Export/Import
-- Botones "Exportar CSV" en clientes, productos, proveedores
-- Dialog importar: upload CSV + preview + confirmar
-- API: `src/api/export-import.ts`
-
-### Audit Log (`src/pages/audit.tsx` o dentro de admin)
-- Tabla con filtros: acción, tipo entidad. Solo lectura.
-- API: `src/api/audit.ts`
-
-### Admin (`src/pages/admin.tsx`) - solo rol ADMIN
-- System Info, Backup Info, Record counts
-- API: `src/api/admin.ts`
-
-### Settings (`src/pages/settings.tsx`)
-- Theme toggle, Language selector, info versión, cerrar sesión
+### Archivos creados
+- `src/types/report.ts`, `audit.ts`, `admin.ts` - Interfaces TypeScript
+- `src/api/reports.ts`, `audit.ts`, `admin.ts`, `export-import.ts` - Funciones API
+- `src/hooks/use-reports.ts`, `use-audit.ts`, `use-admin.ts` - TanStack Query hooks
+- `src/pages/reports.tsx` - Selector periodo (mensual/trimestral/anual), 3-4 metric cards, Recharts bar chart
+- `src/pages/audit.tsx` - Tabla read-only con filtros acción + tipo entidad, paginación
+- `src/pages/admin.tsx` - System info (version, DB, record counts), Backup info (admin only)
+- `src/pages/settings.tsx` - Theme toggle, language selector, info versión, user info, logout
+- `src/i18n/*.json` - Claves añadidas: audit.*, export_import.*, admin.* expandido, nav.audit
+- Sidebar + mobile-nav: añadido enlace /audit
+- Clients/Products pages: botones Export CSV + Import CSV con dialog
+- Suppliers page: botón Export CSV
+- App.tsx: /reports, /audit, /admin, /settings enrutan a páginas reales
 
 ---
 

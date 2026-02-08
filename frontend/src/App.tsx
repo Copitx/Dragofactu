@@ -14,6 +14,10 @@ const SuppliersPage = lazy(() => import("@/pages/suppliers"));
 const DocumentsPage = lazy(() => import("@/pages/documents"));
 const DocumentNewPage = lazy(() => import("@/pages/documents/new"));
 const DocumentDetailPage = lazy(() => import("@/pages/documents/detail"));
+const InventoryPage = lazy(() => import("@/pages/inventory"));
+const WorkersPage = lazy(() => import("@/pages/workers"));
+const DiaryPage = lazy(() => import("@/pages/diary"));
+const RemindersPage = lazy(() => import("@/pages/reminders"));
 const NotFoundPage = lazy(() => import("@/pages/not-found"));
 const PlaceholderPage = lazy(() => import("@/pages/placeholder"));
 
@@ -72,10 +76,10 @@ export default function App() {
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/documents/new" element={<DocumentNewPage />} />
               <Route path="/documents/:id" element={<DocumentDetailPage />} />
-              <Route path="/inventory" element={<PlaceholderPage />} />
-              <Route path="/workers" element={<PlaceholderPage />} />
-              <Route path="/diary" element={<PlaceholderPage />} />
-              <Route path="/reminders" element={<PlaceholderPage />} />
+              <Route path="/inventory" element={<InventoryPage />} />
+              <Route path="/workers" element={<WorkersPage />} />
+              <Route path="/diary" element={<DiaryPage />} />
+              <Route path="/reminders" element={<RemindersPage />} />
               <Route path="/reports" element={<PlaceholderPage />} />
               <Route path="/settings" element={<PlaceholderPage />} />
               <Route path="/admin" element={<PlaceholderPage />} />

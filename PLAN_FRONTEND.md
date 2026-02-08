@@ -1,7 +1,7 @@
 # PLAN_FRONTEND.md - Frontend Web Dragofactu (Fases 19-25)
 
 > **Última actualización:** 2026-02-08
-> **Estado general:** Fases 19-22 completadas, Fase 23 siguiente
+> **Estado general:** Fases 19-23 completadas, Fase 24 siguiente
 
 ---
 
@@ -13,8 +13,8 @@
 | 20 | Layout + Dashboard | ✅ Completada | 2026-02-08 |
 | 21 | CRUD Clientes/Productos/Proveedores | ✅ Completada | 2026-02-08 |
 | 22 | Documentos (line editor, status, PDF) | ✅ Completada | 2026-02-08 |
-| **23** | **Inventario, Workers, Diary, Reminders** | **⬜ SIGUIENTE** | - |
-| 24 | Reports, Export/Import, Audit, Admin, Settings | ⬜ Pendiente | - |
+| 23 | Inventario, Workers, Diary, Reminders | ✅ Completada | 2026-02-08 |
+| **24** | **Reports, Export/Import, Audit, Admin, Settings** | **⬜ SIGUIENTE** | - |
 | 25 | PWA + Mobile + Deploy + Testing | ⬜ Pendiente | - |
 
 ---
@@ -146,35 +146,19 @@
 
 ---
 
-## FASE 23: Inventario, Workers, Diary, Reminders
+## FASE 23: Inventario, Workers, Diary, Reminders ✅ COMPLETADA
 
-### Objetivo
-Completar secciones restantes reutilizando patrones de Fase 21.
-
-### Inventario (`src/pages/inventory.tsx`)
-- Vista de productos centrada en stock
-- 3 cards: Total Productos, Stock Bajo, Valor Total
-- Tabla stock-focused + botón "Ajustar Stock"
-- Filtro: Todos / En Stock / Stock Bajo / Sin Stock
-
-### Workers (`src/pages/workers/index.tsx`, `[id].tsx`)
-- CRUD tabla + filtro departamento
-- Sub-recurso cursos en ficha del trabajador
-
-### Diary (`src/pages/diary.tsx`)
-- Lista de notas con pin toggle
-- Filtro por fecha, editor título + contenido
-
-### Reminders (`src/pages/reminders.tsx`)
-- Lista con filtro prioridad y pendientes/completados
-- Botón "Completar" rápido
-- Badge color por prioridad
-- Indicador "Vencido" si due_date < hoy
-
-### APIs necesarias
-- `src/api/workers.ts`, `diary.ts`, `reminders.ts`
-- `src/hooks/use-workers.ts`, `use-diary.ts`, `use-reminders.ts`
-- `src/types/worker.ts`, `diary.ts`, `reminder.ts`
+### Archivos creados
+- `src/types/worker.ts`, `diary.ts`, `reminder.ts` - Interfaces TypeScript
+- `src/api/workers.ts`, `diary.ts`, `reminders.ts` - Funciones API completas
+- `src/hooks/use-workers.ts`, `use-diary.ts`, `use-reminders.ts` - TanStack Query hooks
+- `src/lib/validators.ts` - Añadidos: workerSchema, courseSchema, diarySchema, reminderSchema
+- `src/pages/inventory.tsx` - Vista stock: 3 metric cards, filtro (All/In Stock/Low/No Stock), ajuste stock
+- `src/pages/workers/index.tsx` - CRUD tabla + filtro departamento + detalle con cursos sub-recurso
+- `src/pages/diary.tsx` - Lista con pin toggle, create/edit dialog con título + contenido + tags
+- `src/pages/reminders.tsx` - Lista con filtro prioridad, pending/completed toggle, botón completar, overdue badge
+- `src/i18n/es.json`, `en.json`, `de.json` - Claves añadidas para workers, diary, reminders CRUD
+- App.tsx: /inventory, /workers, /diary, /reminders enrutan a páginas reales
 
 ---
 

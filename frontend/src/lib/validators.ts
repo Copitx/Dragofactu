@@ -55,3 +55,47 @@ export const stockAdjustmentSchema = z.object({
 });
 
 export type StockAdjustmentFormData = z.infer<typeof stockAdjustmentSchema>;
+
+export const workerSchema = z.object({
+  code: z.string().min(1, "required").max(20),
+  first_name: z.string().min(1, "required").max(100),
+  last_name: z.string().min(1, "required").max(100),
+  phone: z.string().max(50).optional().or(z.literal("")),
+  email: z.string().email().optional().or(z.literal("")),
+  address: z.string().max(500).optional().or(z.literal("")),
+  position: z.string().max(100).optional().or(z.literal("")),
+  department: z.string().max(100).optional().or(z.literal("")),
+  hire_date: z.string().optional().or(z.literal("")),
+  salary: z.coerce.number().min(0).optional(),
+});
+
+export type WorkerFormData = z.infer<typeof workerSchema>;
+
+export const courseSchema = z.object({
+  name: z.string().min(1, "required").max(200),
+  description: z.string().max(2000).optional().or(z.literal("")),
+  provider: z.string().max(200).optional().or(z.literal("")),
+  issue_date: z.string().optional().or(z.literal("")),
+  expiration_date: z.string().optional().or(z.literal("")),
+});
+
+export type CourseFormData = z.infer<typeof courseSchema>;
+
+export const diarySchema = z.object({
+  title: z.string().min(1, "required").max(200),
+  content: z.string().min(1, "required").max(10000),
+  entry_date: z.string().min(1, "required"),
+  tags: z.string().max(500).optional().or(z.literal("")),
+  is_pinned: z.boolean().optional(),
+});
+
+export type DiaryFormData = z.infer<typeof diarySchema>;
+
+export const reminderSchema = z.object({
+  title: z.string().min(1, "required").max(200),
+  description: z.string().max(2000).optional().or(z.literal("")),
+  due_date: z.string().optional().or(z.literal("")),
+  priority: z.string().default("normal"),
+});
+
+export type ReminderFormData = z.infer<typeof reminderSchema>;

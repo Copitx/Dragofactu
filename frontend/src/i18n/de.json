@@ -192,7 +192,19 @@
     "courses": "Kurse",
     "search_placeholder": "Mitarbeiter suchen...",
     "new": "Neuer Mitarbeiter",
-    "edit": "Mitarbeiter bearbeiten"
+    "edit": "Mitarbeiter bearbeiten",
+    "delete_confirm": "Möchten Sie diesen Mitarbeiter wirklich löschen?",
+    "created": "Mitarbeiter erfolgreich erstellt",
+    "updated": "Mitarbeiter erfolgreich aktualisiert",
+    "deleted": "Mitarbeiter erfolgreich gelöscht",
+    "first_name": "Vorname",
+    "last_name": "Nachname",
+    "salary": "Gehalt",
+    "address": "Adresse",
+    "course_name": "Kursname",
+    "course_provider": "Anbieter",
+    "course_added": "Kurs erfolgreich hinzugefügt",
+    "course_deleted": "Kurs erfolgreich gelöscht"
   },
   "diary": {
     "title": "Tagebuch",
@@ -201,7 +213,11 @@
     "pinned": "Angeheftet",
     "new": "Neuer Eintrag",
     "edit": "Eintrag bearbeiten",
-    "search_placeholder": "Tagebuch durchsuchen..."
+    "search_placeholder": "Tagebuch durchsuchen...",
+    "delete_confirm": "Möchten Sie diesen Eintrag wirklich löschen?",
+    "created": "Eintrag erfolgreich erstellt",
+    "updated": "Eintrag erfolgreich aktualisiert",
+    "deleted": "Eintrag erfolgreich gelöscht"
   },
   "reminders": {
     "title": "Erinnerungen",
@@ -219,7 +235,12 @@
     "overdue": "Überfällig",
     "complete": "Abschließen",
     "filter_pending": "Ausstehend",
-    "filter_completed": "Abgeschlossen"
+    "filter_completed": "Abgeschlossen",
+    "delete_confirm": "Möchten Sie diese Erinnerung wirklich löschen?",
+    "created": "Erinnerung erfolgreich erstellt",
+    "updated": "Erinnerung erfolgreich aktualisiert",
+    "deleted": "Erinnerung erfolgreich gelöscht",
+    "completed_msg": "Erinnerung abgeschlossen"
   },
   "reports": {
     "title": "Berichte",

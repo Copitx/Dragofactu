@@ -192,7 +192,19 @@
     "courses": "Courses",
     "search_placeholder": "Search workers...",
     "new": "New Worker",
-    "edit": "Edit Worker"
+    "edit": "Edit Worker",
+    "delete_confirm": "Are you sure you want to delete this worker?",
+    "created": "Worker created successfully",
+    "updated": "Worker updated successfully",
+    "deleted": "Worker deleted successfully",
+    "first_name": "First Name",
+    "last_name": "Last Name",
+    "salary": "Salary",
+    "address": "Address",
+    "course_name": "Course Name",
+    "course_provider": "Provider",
+    "course_added": "Course added successfully",
+    "course_deleted": "Course deleted successfully"
   },
   "diary": {
     "title": "Diary",
@@ -201,7 +213,11 @@
     "pinned": "Pinned",
     "new": "New Entry",
     "edit": "Edit Entry",
-    "search_placeholder": "Search diary..."
+    "search_placeholder": "Search diary...",
+    "delete_confirm": "Are you sure you want to delete this entry?",
+    "created": "Entry created successfully",
+    "updated": "Entry updated successfully",
+    "deleted": "Entry deleted successfully"
   },
   "reminders": {
     "title": "Reminders",
@@ -219,7 +235,12 @@
     "overdue": "Overdue",
     "complete": "Complete",
     "filter_pending": "Pending",
-    "filter_completed": "Completed"
+    "filter_completed": "Completed",
+    "delete_confirm": "Are you sure you want to delete this reminder?",
+    "created": "Reminder created successfully",
+    "updated": "Reminder updated successfully",
+    "deleted": "Reminder deleted successfully",
+    "completed_msg": "Reminder completed"
   },
   "reports": {
     "title": "Reports",

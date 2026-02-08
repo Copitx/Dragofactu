@@ -192,7 +192,19 @@
     "courses": "Cursos",
     "search_placeholder": "Buscar trabajadores...",
     "new": "Nuevo Trabajador",
-    "edit": "Editar Trabajador"
+    "edit": "Editar Trabajador",
+    "delete_confirm": "¿Estás seguro de que deseas eliminar este trabajador?",
+    "created": "Trabajador creado correctamente",
+    "updated": "Trabajador actualizado correctamente",
+    "deleted": "Trabajador eliminado correctamente",
+    "first_name": "Nombre",
+    "last_name": "Apellidos",
+    "salary": "Salario",
+    "address": "Dirección",
+    "course_name": "Nombre del curso",
+    "course_provider": "Proveedor",
+    "course_added": "Curso añadido correctamente",
+    "course_deleted": "Curso eliminado correctamente"
   },
   "diary": {
     "title": "Diario",
@@ -201,7 +213,11 @@
     "pinned": "Fijada",
     "new": "Nueva Entrada",
     "edit": "Editar Entrada",
-    "search_placeholder": "Buscar en diario..."
+    "search_placeholder": "Buscar en diario...",
+    "delete_confirm": "¿Estás seguro de que deseas eliminar esta entrada?",
+    "created": "Entrada creada correctamente",
+    "updated": "Entrada actualizada correctamente",
+    "deleted": "Entrada eliminada correctamente"
   },
   "reminders": {
     "title": "Recordatorios",
@@ -219,7 +235,12 @@
     "overdue": "Vencido",
     "complete": "Completar",
     "filter_pending": "Pendientes",
-    "filter_completed": "Completados"
+    "filter_completed": "Completados",
+    "delete_confirm": "¿Estás seguro de que deseas eliminar este recordatorio?",
+    "created": "Recordatorio creado correctamente",
+    "updated": "Recordatorio actualizado correctamente",
+    "deleted": "Recordatorio eliminado correctamente",
+    "completed_msg": "Recordatorio completado"
   },
   "reports": {
     "title": "Informes",

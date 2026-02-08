@@ -32,6 +32,18 @@ Dragofactu es un **ERP completo** para gestion empresarial, disponible como apli
 ```
 
 ---
+## 📸 Screenshots v2
+
+| Tool | Preview |
+| :--- | :--- |
+| **Dashboard** | ![Dashboard](Screenshots/V2%20DASH.png) |
+| **Stats Tool** | ![Stats Tool](Screenshots/GRAF.png) |
+| **Diary** | ![Diary](Screenshots/DIARIOV2.png) |
+| **Factura** | ![Factura](Screenshots/FAC.png) |
+| **Providers** | ![Providers](Screenshots/V2%20PROV.png) |
+| **Settings** | ![Settings](Screenshots/SET.png) |
+| **PDF Tool** | ![PDF Tool](Screenshots/PDF.png) |
+
 
 ## Funcionalidades
 

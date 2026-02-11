@@ -36,6 +36,8 @@ class Company(Base):
 
     # Configuration
     logo_path = Column(String(500))  # URL or path to logo
+    logo_base64 = Column(Text)  # Base64-encoded logo image
+    pdf_footer_text = Column(Text)  # Custom footer text for PDF documents
     default_language = Column(String(5), default='es')
     default_currency = Column(String(3), default='EUR')
     tax_rate = Column(Float, default=21.0)  # Default IVA

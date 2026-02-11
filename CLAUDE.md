@@ -205,8 +205,12 @@ GET/POST /api/v1/products      # CRUD productos
 GET/POST /api/v1/documents     # CRUD documentos
 
 POST /api/v1/documents/{id}/change-status
+POST /api/v1/documents/{id}/send-email  # Enviar doc por email (SMTP)
+GET  /api/v1/documents/email/status     # Check SMTP config
 POST /api/v1/products/{id}/adjust-stock
 GET  /api/v1/dashboard/stats
+
+GET/PUT /api/v1/company/settings  # Config empresa + PDF
 
 GET  /api/v1/export/clients      # Export CSV
 GET  /api/v1/export/products     # Export CSV

@@ -49,7 +49,17 @@
     "pending_documents": "Offene Dokumente",
     "low_stock": "Niedriger Bestand",
     "unpaid_invoices": "Unbezahlte Rechnungen",
-    "welcome": "Willkommen"
+    "welcome": "Willkommen",
+    "month_total": "Diesen Monat fakturiert",
+    "pending_total": "Ausstehende Einzüge",
+    "pending_reminders": "Offene Erinnerungen",
+    "recent_pending_title": "Offene Dokumente",
+    "no_pending_docs": "Keine offenen Dokumente",
+    "quick_actions": "Schnellaktionen",
+    "new_invoice": "Neue Rechnung",
+    "new_quote": "Neues Angebot",
+    "new_client": "Neuer Kunde",
+    "financial_summary": "Finanzübersicht"
   },
   "clients": {
     "title": "Kunden",
@@ -156,7 +166,12 @@
       "convert_invoice": "In Rechnung umwandeln",
       "convert_delivery": "In Lieferschein umwandeln",
       "download_pdf": "PDF herunterladen",
-      "preview_pdf": "PDF Vorschau"
+      "preview_pdf": "PDF Vorschau",
+      "send_email": "Per E-Mail senden",
+      "email_sent": "E-Mail erfolgreich gesendet",
+      "email_not_configured": "E-Mail nicht konfiguriert. SMTP auf dem Server einrichten.",
+      "email_recipient": "Empfänger-E-Mail",
+      "email_confirm": "Dokument per E-Mail senden an:"
     },
     "lines": {
       "product": "Produkt",
@@ -218,7 +233,9 @@
     "delete_confirm": "Möchten Sie diesen Eintrag wirklich löschen?",
     "created": "Eintrag erfolgreich erstellt",
     "updated": "Eintrag erfolgreich aktualisiert",
-    "deleted": "Eintrag erfolgreich gelöscht"
+    "deleted": "Eintrag erfolgreich gelöscht",
+    "clear_filter": "Filter löschen",
+    "entries_for": "Einträge für"
   },
   "reminders": {
     "title": "Erinnerungen",
@@ -264,7 +281,19 @@
     "theme_system": "System",
     "language": "Sprache",
     "about": "Über",
-    "version": "Version"
+    "version": "Version",
+    "company_pdf": "PDF- / Firmeneinstellungen",
+    "company_name": "Firmenname",
+    "legal_name": "Rechtsname",
+    "tax_id": "Steuernummer",
+    "company_address": "Adresse",
+    "company_city": "Stadt",
+    "company_postal_code": "Postleitzahl",
+    "company_phone": "Telefon",
+    "company_email": "E-Mail",
+    "pdf_footer": "PDF-Fußzeilentext",
+    "company_saved": "Firmeneinstellungen gespeichert",
+    "company_error": "Fehler beim Speichern"
   },
   "audit": {
     "title": "Audit-Protokoll",

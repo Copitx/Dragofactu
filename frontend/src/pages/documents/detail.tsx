@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Trash2,
   Pencil,
+  Mail,
 } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
@@ -35,6 +36,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Spinner } from "@/components/common/loading";
 
 import {
@@ -46,7 +54,7 @@ import {
 } from "@/hooks/use-documents";
 import { useClients } from "@/hooks/use-clients";
 import { useProducts } from "@/hooks/use-products";
-import { downloadDocumentPdf } from "@/api/documents";
+import { downloadDocumentPdf, getEmailStatus, sendDocumentEmail } from "@/api/documents";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   DOC_TYPES,
@@ -89,9 +97,38 @@ export default function DocumentDetailPage() {
   const [editInternalNotes, setEditInternalNotes] = useState("");
   const [editLines, setEditLines] = useState<LineRow[]>([]);
   const [downloading, setDownloading] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailConfigured, setEmailConfigured] = useState<boolean | null>(null);
 
   const clients = clientsData?.items || [];
   const products = productsData?.items || [];
+
+  useEffect(() => {
+    getEmailStatus().then((s) => setEmailConfigured(s.configured)).catch(() => setEmailConfigured(false));
+  }, []);
+
+  const openEmailDialog = () => {
+    // Pre-fill recipient with client email
+    const client = clients.find((c) => c.id === doc?.client_id);
+    setEmailTo(client?.email || "");
+    setEmailOpen(true);
+  };
+
+  const onSendEmail = async () => {
+    if (!doc || !emailTo) return;
+    setSendingEmail(true);
+    try {
+      await sendDocumentEmail(doc.id, emailTo);
+      toast.success(t("documents.actions.email_sent"));
+      setEmailOpen(false);
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setSendingEmail(false);
+    }
+  };
 
   const isDraft = doc?.status === DOC_STATUSES.DRAFT;
   const isQuote = doc?.type === DOC_TYPES.QUOTE;
@@ -329,6 +366,17 @@ export default function DocumentDetailPage() {
             {downloading ? t("buttons.loading") : t("documents.actions.download_pdf")}
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openEmailDialog}
+            disabled={emailConfigured === false}
+            title={emailConfigured === false ? t("documents.actions.email_not_configured") : ""}
+          >
+            <Mail className="h-4 w-4 mr-1" />
+            {t("documents.actions.send_email")}
+          </Button>
+
           {isDraft && (
             <Button
               variant="destructive"
@@ -479,6 +527,38 @@ export default function DocumentDetailPage() {
         onConfirm={onDelete}
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Email Dialog */}
+      <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{t("documents.actions.send_email")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {t("documents.actions.email_confirm")}
+            </p>
+            <div className="space-y-2">
+              <Label>{t("documents.actions.email_recipient")}</Label>
+              <Input
+                type="email"
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+                placeholder="email@example.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailOpen(false)}>
+              {t("buttons.cancel")}
+            </Button>
+            <Button onClick={onSendEmail} disabled={sendingEmail || !emailTo}>
+              <Mail className="h-4 w-4 mr-1" />
+              {sendingEmail ? t("buttons.loading") : t("documents.actions.send_email")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

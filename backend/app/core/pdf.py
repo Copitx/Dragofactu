@@ -15,7 +15,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.platypus.tableofcontents import TableOfContents
 from sqlalchemy.orm import Session
 
-from app.models import Document, DocumentLine, Client
+from app.models import Document, DocumentLine, Client, Company
 
 
 class InvoicePDFGenerator:
@@ -56,7 +56,7 @@ class InvoicePDFGenerator:
             textColor=HexColor('#1D1D1F')
         ))
 
-    def generate_pdf(self, document: Document, buffer: BytesIO) -> None:
+    def generate_pdf(self, document: Document, buffer: BytesIO, company: Optional["Company"] = None) -> None:
         """Generate PDF document into provided buffer."""
         # Create PDF document
         doc = SimpleDocTemplate(
@@ -70,6 +70,36 @@ class InvoicePDFGenerator:
 
         # Build story (content elements)
         story = []
+
+        # Company header (if company data available)
+        if company:
+            company_lines = []
+            if company.name:
+                company_lines.append(f"<b>{company.name}</b>")
+            if company.legal_name and company.legal_name != company.name:
+                company_lines.append(company.legal_name)
+            parts = []
+            if company.address:
+                parts.append(company.address)
+            if company.postal_code:
+                parts.append(company.postal_code)
+            if company.city:
+                parts.append(company.city)
+            if parts:
+                company_lines.append(", ".join(parts))
+            contact_parts = []
+            if company.phone:
+                contact_parts.append(f"Tel: {company.phone}")
+            if company.email:
+                contact_parts.append(company.email)
+            if company.tax_id:
+                contact_parts.append(f"CIF: {company.tax_id}")
+            if contact_parts:
+                company_lines.append(" | ".join(contact_parts))
+
+            for line in company_lines:
+                story.append(Paragraph(line, self.styles['HeaderInfo']))
+            story.append(Spacer(1, 20))
 
         # Document title and type
         doc_type_map = {
@@ -220,14 +250,20 @@ class InvoicePDFGenerator:
             story.append(Paragraph('<b>Notas:</b>', self.styles['SectionTitle']))
             story.append(Paragraph(document.notes, self.styles['Normal']))
         
-        # Payment terms
-        payment_terms = "Forma de pago: Transferencia bancaria\n\n" \
-                       "El pago debe realizarse en un plazo de 30 dias desde la fecha de emision.\n\n" \
-                       "Le agradecemos su confianza y quedamos a su disposicion para cualquier consulta."
-        
+        # Payment terms / footer
+        footer_text = None
+        if company and company.pdf_footer_text:
+            footer_text = company.pdf_footer_text
+        else:
+            footer_text = (
+                "Forma de pago: Transferencia bancaria\n\n"
+                "El pago debe realizarse en un plazo de 30 dias desde la fecha de emision.\n\n"
+                "Le agradecemos su confianza y quedamos a su disposicion para cualquier consulta."
+            )
+
         story.append(Spacer(1, 30))
         story.append(Paragraph('<b>Condiciones de pago:</b>', self.styles['SectionTitle']))
-        story.append(Paragraph(payment_terms, self.styles['Normal']))
+        story.append(Paragraph(footer_text, self.styles['Normal']))
 
         # Build PDF
         doc.build(story)

@@ -1,9 +1,14 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Sun, Moon, Monitor, Globe, Info, LogOut } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { Sun, Moon, Monitor, Globe, Info, LogOut, Building } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -14,6 +19,7 @@ import {
 
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-company";
 
 const THEMES = [
   { value: "light", icon: Sun },
@@ -36,11 +42,53 @@ export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
+  const { data: company } = useCompanySettings();
+  const updateCompany = useUpdateCompanySettings();
+
+  const companyForm = useForm({
+    defaultValues: {
+      name: "",
+      legal_name: "",
+      tax_id: "",
+      address: "",
+      city: "",
+      postal_code: "",
+      phone: "",
+      email: "",
+      pdf_footer_text: "",
+    },
+  });
+
+  useEffect(() => {
+    if (company) {
+      companyForm.reset({
+        name: company.name || "",
+        legal_name: company.legal_name || "",
+        tax_id: company.tax_id || "",
+        address: company.address || "",
+        city: company.city || "",
+        postal_code: company.postal_code || "",
+        phone: company.phone || "",
+        email: company.email || "",
+        pdf_footer_text: company.pdf_footer_text || "",
+      });
+    }
+  }, [company, companyForm]);
+
   const handleLocaleChange = (value: string) => {
     const loc = value as "es" | "en" | "de";
     setLocale(loc);
     i18n.changeLanguage(loc);
   };
+
+  const onSaveCompany = companyForm.handleSubmit(async (values) => {
+    try {
+      await updateCompany.mutateAsync(values);
+      toast.success(t("settings.company_saved"));
+    } catch {
+      toast.error(t("settings.company_error"));
+    }
+  });
 
   return (
     <>
@@ -86,6 +134,57 @@ export default function SettingsPage() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Company / PDF Settings */}
+        <div className="rounded-lg border bg-card p-6 space-y-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Building className="h-4 w-4" />
+            {t("settings.company_pdf")}
+          </h3>
+          <form onSubmit={onSaveCompany} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t("settings.company_name")}</Label>
+                <Input {...companyForm.register("name")} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.legal_name")}</Label>
+                <Input {...companyForm.register("legal_name")} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.tax_id")}</Label>
+                <Input {...companyForm.register("tax_id")} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.company_phone")}</Label>
+                <Input {...companyForm.register("phone")} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.company_email")}</Label>
+                <Input type="email" {...companyForm.register("email")} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.company_postal_code")}</Label>
+                <Input {...companyForm.register("postal_code")} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.company_address")}</Label>
+                <Input {...companyForm.register("address")} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.company_city")}</Label>
+                <Input {...companyForm.register("city")} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("settings.pdf_footer")}</Label>
+              <Textarea {...companyForm.register("pdf_footer_text")} rows={4} />
+            </div>
+            <Button type="submit" disabled={updateCompany.isPending}>
+              {updateCompany.isPending ? t("buttons.loading") : t("buttons.save")}
+            </Button>
+          </form>
         </div>
 
         {/* About */}

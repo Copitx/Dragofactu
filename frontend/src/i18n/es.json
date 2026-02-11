@@ -49,7 +49,17 @@
     "pending_documents": "Docs. Pendientes",
     "low_stock": "Stock Bajo",
     "unpaid_invoices": "Facturas Impagadas",
-    "welcome": "Bienvenido"
+    "welcome": "Bienvenido",
+    "month_total": "Facturado Este Mes",
+    "pending_total": "Pendiente de Cobro",
+    "pending_reminders": "Recordatorios Pendientes",
+    "recent_pending_title": "Documentos Pendientes",
+    "no_pending_docs": "No hay documentos pendientes",
+    "quick_actions": "Acciones Rápidas",
+    "new_invoice": "Nueva Factura",
+    "new_quote": "Nuevo Presupuesto",
+    "new_client": "Nuevo Cliente",
+    "financial_summary": "Resumen Financiero"
   },
   "clients": {
     "title": "Clientes",
@@ -156,7 +166,12 @@
       "convert_invoice": "Convertir a Factura",
       "convert_delivery": "Convertir a Albarán",
       "download_pdf": "Descargar PDF",
-      "preview_pdf": "Vista Previa PDF"
+      "preview_pdf": "Vista Previa PDF",
+      "send_email": "Enviar por Email",
+      "email_sent": "Email enviado correctamente",
+      "email_not_configured": "Email no configurado. Configure SMTP en el servidor.",
+      "email_recipient": "Email destinatario",
+      "email_confirm": "Enviar documento por email a:"
     },
     "lines": {
       "product": "Producto",
@@ -218,7 +233,9 @@
     "delete_confirm": "¿Estás seguro de que deseas eliminar esta entrada?",
     "created": "Entrada creada correctamente",
     "updated": "Entrada actualizada correctamente",
-    "deleted": "Entrada eliminada correctamente"
+    "deleted": "Entrada eliminada correctamente",
+    "clear_filter": "Limpiar filtro",
+    "entries_for": "Entradas del"
   },
   "reminders": {
     "title": "Recordatorios",
@@ -264,7 +281,19 @@
     "theme_system": "Sistema",
     "language": "Idioma",
     "about": "Acerca de",
-    "version": "Versión"
+    "version": "Versión",
+    "company_pdf": "Configuración PDF / Empresa",
+    "company_name": "Nombre Empresa",
+    "legal_name": "Razón Social",
+    "tax_id": "CIF/NIF",
+    "company_address": "Dirección",
+    "company_city": "Ciudad",
+    "company_postal_code": "Código Postal",
+    "company_phone": "Teléfono",
+    "company_email": "Email",
+    "pdf_footer": "Texto Pie de Página PDF",
+    "company_saved": "Configuración de empresa guardada",
+    "company_error": "Error al guardar configuración"
   },
   "audit": {
     "title": "Registro de Auditoría",

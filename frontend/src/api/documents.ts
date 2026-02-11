@@ -67,3 +67,20 @@ export async function downloadDocumentPdf(id: string, code: string): Promise<voi
   link.remove();
   window.URL.revokeObjectURL(url);
 }
+
+export async function getEmailStatus(): Promise<{ configured: boolean }> {
+  const response = await api.get<{ configured: boolean }>("/documents/email/status");
+  return response.data;
+}
+
+export async function sendDocumentEmail(
+  id: string,
+  recipientEmail: string
+): Promise<MessageResponse> {
+  const response = await api.post<MessageResponse>(
+    `/documents/${id}/send-email`,
+    null,
+    { params: { recipient_email: recipientEmail } }
+  );
+  return response.data;
+}

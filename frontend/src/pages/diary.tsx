@@ -1,15 +1,17 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Pencil, Trash2, Pin, PinOff } from "lucide-react";
+import { format } from "date-fns";
+import { Pencil, Trash2, Pin, PinOff, X } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { DataTable, type Column } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/toolbar";
 import { DataTablePagination } from "@/components/data-table/pagination";
 import { ConfirmDialog } from "@/components/forms/confirm-dialog";
+import { MonthCalendar } from "@/components/common/month-calendar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,11 +45,39 @@ export default function DiaryPage() {
   const [editing, setEditing] = useState<DiaryEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Calendar state
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  // Build query params with optional date filter
+  const dateFrom = selectedDate ? format(selectedDate, "yyyy-MM-dd") : undefined;
+  const dateTo = selectedDate ? format(selectedDate, "yyyy-MM-dd") : undefined;
+
   const { data, isLoading } = useDiary({
     skip: page * pageSize,
     limit: pageSize,
     pinned_only: pinnedOnly || undefined,
+    date_from: dateFrom,
+    date_to: dateTo,
   });
+
+  // Fetch a broader set for calendar highlighting (current month, no pagination)
+  const { data: monthData } = useDiary({
+    skip: 0,
+    limit: 200,
+    date_from: format(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1), "yyyy-MM-dd"),
+    date_to: format(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0), "yyyy-MM-dd"),
+  });
+
+  const highlightedDates = useMemo(() => {
+    const dates = new Set<string>();
+    if (monthData?.items) {
+      for (const entry of monthData.items) {
+        dates.add(entry.entry_date.slice(0, 10));
+      }
+    }
+    return dates;
+  }, [monthData]);
 
   const createMutation = useCreateDiaryEntry();
   const updateMutation = useUpdateDiaryEntry();
@@ -121,6 +151,16 @@ export default function DiaryPage() {
     }
   };
 
+  const handleSelectDate = useCallback((date: Date) => {
+    setSelectedDate((prev) => {
+      if (prev && format(prev, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")) {
+        return null; // deselect on second click
+      }
+      return date;
+    });
+    setPage(0);
+  }, []);
+
   const columns: Column<DiaryEntry>[] = [
     {
       key: "pin",
@@ -164,6 +204,35 @@ export default function DiaryPage() {
     <>
       <Header title={t("diary.title")} />
       <div className="p-4 md:p-6 space-y-4">
+        {/* Calendar */}
+        <div className="max-w-xs">
+          <MonthCalendar
+            currentMonth={currentMonth}
+            onMonthChange={setCurrentMonth}
+            selectedDate={selectedDate}
+            onSelectDate={handleSelectDate}
+            highlightedDates={highlightedDates}
+          />
+        </div>
+
+        {/* Active date filter indicator */}
+        {selectedDate && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">
+              {t("diary.entries_for")} {format(selectedDate, "dd/MM/yyyy")}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2"
+              onClick={() => { setSelectedDate(null); setPage(0); }}
+            >
+              <X className="h-3 w-3 mr-1" />
+              {t("diary.clear_filter")}
+            </Button>
+          </div>
+        )}
+
         <DataTableToolbar
           searchValue=""
           onSearchChange={() => {}}

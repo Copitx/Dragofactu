@@ -49,7 +49,17 @@
     "pending_documents": "Pending Docs",
     "low_stock": "Low Stock",
     "unpaid_invoices": "Unpaid Invoices",
-    "welcome": "Welcome"
+    "welcome": "Welcome",
+    "month_total": "Invoiced This Month",
+    "pending_total": "Pending Collection",
+    "pending_reminders": "Pending Reminders",
+    "recent_pending_title": "Pending Documents",
+    "no_pending_docs": "No pending documents",
+    "quick_actions": "Quick Actions",
+    "new_invoice": "New Invoice",
+    "new_quote": "New Quote",
+    "new_client": "New Client",
+    "financial_summary": "Financial Summary"
   },
   "clients": {
     "title": "Clients",
@@ -156,7 +166,12 @@
       "convert_invoice": "Convert to Invoice",
       "convert_delivery": "Convert to Delivery Note",
       "download_pdf": "Download PDF",
-      "preview_pdf": "Preview PDF"
+      "preview_pdf": "Preview PDF",
+      "send_email": "Send by Email",
+      "email_sent": "Email sent successfully",
+      "email_not_configured": "Email not configured. Set up SMTP on the server.",
+      "email_recipient": "Recipient email",
+      "email_confirm": "Send document by email to:"
     },
     "lines": {
       "product": "Product",
@@ -218,7 +233,9 @@
     "delete_confirm": "Are you sure you want to delete this entry?",
     "created": "Entry created successfully",
     "updated": "Entry updated successfully",
-    "deleted": "Entry deleted successfully"
+    "deleted": "Entry deleted successfully",
+    "clear_filter": "Clear filter",
+    "entries_for": "Entries for"
   },
   "reminders": {
     "title": "Reminders",
@@ -264,7 +281,19 @@
     "theme_system": "System",
     "language": "Language",
     "about": "About",
-    "version": "Version"
+    "version": "Version",
+    "company_pdf": "PDF / Company Settings",
+    "company_name": "Company Name",
+    "legal_name": "Legal Name",
+    "tax_id": "Tax ID",
+    "company_address": "Address",
+    "company_city": "City",
+    "company_postal_code": "Postal Code",
+    "company_phone": "Phone",
+    "company_email": "Email",
+    "pdf_footer": "PDF Footer Text",
+    "company_saved": "Company settings saved",
+    "company_error": "Error saving settings"
   },
   "audit": {
     "title": "Audit Log",

@@ -24,6 +24,8 @@ class CompanyBase(BaseModel):
     default_language: Optional[str] = Field("es", max_length=5)
     default_currency: Optional[str] = Field("EUR", max_length=3)
     tax_rate: Optional[float] = Field(21.0, ge=0, le=100)
+    pdf_footer_text: Optional[str] = None
+    logo_base64: Optional[str] = None
 
 
 class CompanyUpdate(CompanyBase):
@@ -47,6 +49,8 @@ class CompanyResponse(BaseSchema, TimestampMixin):
     email: Optional[str] = None
     website: Optional[str] = None
     logo_path: Optional[str] = None
+    logo_base64: Optional[str] = None
+    pdf_footer_text: Optional[str] = None
     default_language: str
     default_currency: str
     tax_rate: float

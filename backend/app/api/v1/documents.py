@@ -235,6 +235,15 @@ async def create_document(
     return DocumentResponse.model_validate(document)
 
 
+@router.get("/email/status")
+async def get_email_status(
+    current_user: User = Depends(require_permission("documents.read")),
+):
+    """Check if email sending is configured."""
+    from app.core.email import is_smtp_configured
+    return {"configured": is_smtp_configured()}
+
+
 @router.get("/{document_id}", response_model=DocumentResponse)
 async def get_document(
     document_id: UUID,
@@ -538,15 +547,19 @@ async def generate_document_pdf(
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
     from app.core.pdf import InvoicePDFGenerator
+    from app.models import Company
     from fastapi.responses import Response
     import io
+
+    # Fetch company data for PDF header/footer
+    company = db.query(Company).filter(Company.id == current_user.company_id).first()
 
     # Generate PDF in memory
     generator = InvoicePDFGenerator()
     pdf_buffer = io.BytesIO()
-    
+
     # Generate PDF content
-    generator.generate_pdf(document, pdf_buffer)
+    generator.generate_pdf(document, pdf_buffer, company=company)
     pdf_buffer.seek(0)
 
     # Return PDF as response
@@ -558,3 +571,77 @@ async def generate_document_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"inline; filename={filename}"}
     )
+
+
+@router.post("/{document_id}/send-email")
+async def send_document_email(
+    document_id: UUID,
+    recipient_email: str = Query(..., description="Email address to send to"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("documents.read")),
+):
+    """Send a document as PDF via email."""
+    from app.core.email import is_smtp_configured, send_document_email as send_email, build_document_email_html
+    from app.core.pdf import InvoicePDFGenerator
+    from app.models import Company, AuditLog
+    import io
+
+    if not is_smtp_configured():
+        raise HTTPException(
+            status_code=400,
+            detail="Email not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD environment variables."
+        )
+
+    # Fetch document
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.company_id == current_user.company_id
+    ).options(
+        joinedload(Document.client),
+        joinedload(Document.lines).joinedload(DocumentLine.product)
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    # Get company for PDF and email
+    company = db.query(Company).filter(Company.id == current_user.company_id).first()
+    company_name = company.name if company else "Dragofactu"
+
+    # Generate PDF
+    generator = InvoicePDFGenerator()
+    pdf_buffer = io.BytesIO()
+    generator.generate_pdf(document, pdf_buffer, company=company)
+    pdf_buffer.seek(0)
+    pdf_bytes = pdf_buffer.getvalue()
+
+    # Build email
+    doc_type = document.type.value if document.type else "document"
+    html_body = build_document_email_html(company_name, doc_type, document.code)
+    subject = f"{company_name} - {document.code}"
+
+    # Send
+    try:
+        send_email(
+            recipient_email=recipient_email,
+            subject=subject,
+            body_html=html_body,
+            pdf_bytes=pdf_bytes,
+            pdf_filename=f"{document.code}.pdf",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
+
+    # Audit log
+    audit = AuditLog(
+        company_id=current_user.company_id,
+        user_id=current_user.id,
+        action="email_sent",
+        entity_type="document",
+        entity_id=str(document_id),
+        details=f"Email sent to {recipient_email}",
+    )
+    db.add(audit)
+    db.commit()
+
+    return {"message": f"Email sent to {recipient_email}", "success": True}

@@ -328,6 +328,7 @@ class UIStyles:
             QTableWidget::item {{
                 padding: 8px 12px;
                 border-bottom: 1px solid {cls.COLORS['border_light']};
+                color: {cls.COLORS['text_primary']};
             }}
             QTableWidget::item:hover {{
                 background-color: {cls.COLORS['bg_hover']};
@@ -421,6 +422,17 @@ class UIStyles:
             QDialog {{
                 background-color: {cls.COLORS['bg_app']};
             }}
+            QDialog QLabel {{
+                color: {cls.COLORS['text_primary']};
+                background: transparent;
+            }}
+            QDialog QCheckBox {{
+                color: {cls.COLORS['text_primary']};
+                background: transparent;
+            }}
+            QDialog QGroupBox {{
+                color: {cls.COLORS['text_primary']};
+            }}
             QDialogButtonBox QPushButton {{
                 background-color: {cls.COLORS['accent']};
                 color: {cls.COLORS['text_inverse']};
@@ -445,6 +457,42 @@ class UIStyles:
             QDialogButtonBox QPushButton[text="Cancelar"]:hover,
             QDialogButtonBox QPushButton[text="No"]:hover {{
                 background-color: {cls.COLORS['bg_hover']};
+            }}
+        """
+
+    @classmethod
+    def get_action_button_style(cls):
+        """Style for compact action buttons in tables (PDF, edit, etc.)"""
+        return f"""
+            QPushButton {{
+                background-color: {cls.COLORS['accent']};
+                color: {cls.COLORS['text_inverse']};
+                border: none;
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-weight: 600;
+                font-size: 11px;
+            }}
+            QPushButton:hover {{
+                background-color: {cls.COLORS['accent_hover']};
+            }}
+        """
+
+    @classmethod
+    def get_danger_action_button_style(cls):
+        """Style for compact danger action buttons in tables (delete, etc.)"""
+        return f"""
+            QPushButton {{
+                background-color: {cls.COLORS['danger']};
+                color: {cls.COLORS['text_inverse']};
+                border: none;
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-weight: 600;
+                font-size: 11px;
+            }}
+            QPushButton:hover {{
+                background-color: {cls.COLORS['danger_hover']};
             }}
         """
 
@@ -2465,6 +2513,7 @@ class ClientDialog(QDialog):
         self.setModal(True)
         # Increased height to ensure buttons are visible
         self.resize(500, 650)
+        self.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
         self.setup_ui()
         if self.is_edit_mode:
             self.load_client_data()
@@ -2476,7 +2525,7 @@ class ClientDialog(QDialog):
         self.code_edit.setPlaceholderText("C-001")
         if self.is_edit_mode:
             self.code_edit.setReadOnly(True)
-            self.code_edit.setStyleSheet("background-color: #f0f0f0;")
+            self.code_edit.setStyleSheet(f"background-color: {UIStyles.COLORS['bg_hover']};")
         layout.addRow("Código:", self.code_edit)
 
         self.name_edit = QLineEdit()
@@ -2631,6 +2680,7 @@ class ProductDialog(QDialog):
         self.setModal(True)
         # Increased size to prevent cut-off elements
         self.resize(550, 700)
+        self.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
         self.setup_ui()
         if self.is_edit_mode:
             self.load_product_data()
@@ -2642,7 +2692,7 @@ class ProductDialog(QDialog):
         self.code_edit.setPlaceholderText("P-001")
         if self.is_edit_mode:
             self.code_edit.setReadOnly(True)
-            self.code_edit.setStyleSheet("background-color: #f0f0f0;")
+            self.code_edit.setStyleSheet(f"background-color: {UIStyles.COLORS['bg_hover']};")
         layout.addRow("Código:", self.code_edit)
 
         self.name_edit = QLineEdit()
@@ -4707,14 +4757,23 @@ class DocumentManagementTab(QWidget):
         pdf_btn.setToolTip("Generar PDF")
         pdf_btn.setMinimumWidth(40)
         pdf_btn.setMaximumHeight(26)
+        pdf_btn.setStyleSheet(UIStyles.get_action_button_style())
         pdf_btn.clicked.connect(lambda checked, did=doc_id: self.generate_pdf_by_id(did))
         actions_layout.addWidget(pdf_btn)
+
+        email_btn = QPushButton("@")
+        email_btn.setToolTip("Enviar por Email")
+        email_btn.setMinimumWidth(30)
+        email_btn.setMaximumHeight(26)
+        email_btn.setStyleSheet(UIStyles.get_action_button_style())
+        email_btn.clicked.connect(lambda checked, did=doc_id: self.send_document_email(did))
+        actions_layout.addWidget(email_btn)
 
         del_btn = QPushButton("X")
         del_btn.setToolTip("Eliminar")
         del_btn.setMinimumWidth(30)
         del_btn.setMaximumHeight(26)
-        del_btn.setStyleSheet("color: red; font-weight: bold;")
+        del_btn.setStyleSheet(UIStyles.get_danger_action_button_style())
         del_btn.clicked.connect(lambda checked, did=doc_id: self.delete_document_by_id(did))
         actions_layout.addWidget(del_btn)
 
@@ -4807,6 +4866,7 @@ class DocumentManagementTab(QWidget):
         pdf_btn.setToolTip("Generar PDF")
         pdf_btn.setMinimumWidth(40)
         pdf_btn.setMaximumHeight(26)
+        pdf_btn.setStyleSheet(UIStyles.get_action_button_style())
         pdf_btn.clicked.connect(lambda checked, d=doc: self.generate_pdf(d))
         actions_layout.addWidget(pdf_btn)
 
@@ -4814,7 +4874,7 @@ class DocumentManagementTab(QWidget):
         del_btn.setToolTip("Eliminar")
         del_btn.setMinimumWidth(30)
         del_btn.setMaximumHeight(26)
-        del_btn.setStyleSheet("color: red; font-weight: bold;")
+        del_btn.setStyleSheet(UIStyles.get_danger_action_button_style())
         del_btn.clicked.connect(lambda checked, d=doc: self.delete_document(d))
         actions_layout.addWidget(del_btn)
 
@@ -4873,6 +4933,39 @@ class DocumentManagementTab(QWidget):
                         self.generate_pdf(doc)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error generando PDF: {str(e)}")
+
+    def send_document_email(self, doc_id):
+        """Send document by email (remote mode only)."""
+        app_mode = get_app_mode()
+        if not app_mode.is_remote:
+            QMessageBox.warning(self, "Info", "Envío de email solo disponible en modo remoto.")
+            return
+
+        # Ask for recipient email
+        from PySide6.QtWidgets import QInputDialog
+        email, ok = QInputDialog.getText(
+            self, "Enviar por Email",
+            "Email del destinatario:",
+            QLineEdit.EchoMode.Normal, ""
+        )
+        if not ok or not email:
+            return
+
+        try:
+            response = app_mode.api._request(
+                "POST",
+                f"/documents/{doc_id}/send-email",
+                params={"recipient_email": email}
+            )
+            QMessageBox.information(self, "Enviado", f"Email enviado a {email}")
+        except Exception as e:
+            error_msg = str(e)
+            if "not configured" in error_msg.lower():
+                QMessageBox.warning(self, "Email no configurado",
+                    "El servidor no tiene configurado SMTP.\n"
+                    "Configure las variables SMTP_HOST, SMTP_USER y SMTP_PASSWORD.")
+            else:
+                QMessageBox.critical(self, "Error", f"Error enviando email: {error_msg}")
 
     def delete_document_by_id(self, doc_id):
         """Delete document by ID (supports remote mode)."""
@@ -5487,12 +5580,14 @@ class InventoryManagementTab(QWidget):
             adjust_btn = QPushButton("📊")
             adjust_btn.setToolTip("Ajustar Stock")
             adjust_btn.setMaximumSize(30, 25)
+            adjust_btn.setStyleSheet(UIStyles.get_action_button_style())
             adjust_btn.clicked.connect(lambda checked, p=product: self.adjust_product_stock(p))
             actions_layout.addWidget(adjust_btn)
 
             edit_btn = QPushButton("✏️")
             edit_btn.setToolTip("Editar Producto")
             edit_btn.setMaximumSize(30, 25)
+            edit_btn.setStyleSheet(UIStyles.get_action_button_style())
             edit_btn.clicked.connect(lambda checked, p=product: self.edit_product(p))
             actions_layout.addWidget(edit_btn)
 
@@ -5562,12 +5657,14 @@ class InventoryManagementTab(QWidget):
                 adjust_btn = QPushButton("📊")
                 adjust_btn.setToolTip("Ajustar Stock")
                 adjust_btn.setMaximumSize(30, 25)
+                adjust_btn.setStyleSheet(UIStyles.get_action_button_style())
                 adjust_btn.clicked.connect(lambda checked, p=product: self.adjust_product_stock(p))
                 actions_layout.addWidget(adjust_btn)
 
                 edit_btn = QPushButton("✏️")
                 edit_btn.setToolTip("Editar Producto")
                 edit_btn.setMaximumSize(30, 25)
+                edit_btn.setStyleSheet(UIStyles.get_action_button_style())
                 edit_btn.clicked.connect(lambda checked, p=product: self.edit_product(p))
                 actions_layout.addWidget(edit_btn)
 
@@ -6823,6 +6920,7 @@ class DiaryEntryDialog(QDialog):
         self.setWindowTitle("📝 Nueva Nota del Diario")
         self.setModal(True)
         self.resize(600, 500)
+        self.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
         self.setup_ui()
     
     def setup_ui(self):
@@ -7263,7 +7361,7 @@ class WorkerDialog(QDialog):
         self.setWindowTitle("Editar Trabajador" if self.is_edit_mode else "Nuevo Trabajador")
         self.setModal(True)
         self.resize(550, 500)
-        self.setStyleSheet(UIStyles.get_dialog_style())
+        self.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
         self.setup_ui()
         if self.is_edit_mode:
             self.load_worker_data()
@@ -7713,6 +7811,24 @@ class MainWindow(QMainWindow):
             }}
             QTabBar::tab:hover:!selected {{
                 color: {UIStyles.COLORS['text_primary']};
+            }}
+            QMessageBox {{
+                background-color: {UIStyles.COLORS['bg_card']};
+            }}
+            QMessageBox QLabel {{
+                color: {UIStyles.COLORS['text_primary']};
+            }}
+            QMessageBox QPushButton {{
+                background-color: {UIStyles.COLORS['accent']};
+                color: {UIStyles.COLORS['text_inverse']};
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: 500;
+                min-width: 70px;
+            }}
+            QMessageBox QPushButton:hover {{
+                background-color: {UIStyles.COLORS['accent_hover']};
             }}
         """
 
@@ -8368,7 +8484,7 @@ class SettingsDialog(QDialog):
         self.load_pdf_settings()
 
     def setup_ui(self):
-        self.setStyleSheet(UIStyles.get_dialog_style())
+        self.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(16)
@@ -9268,6 +9384,7 @@ class ServerConfigDialog(QDialog):
         self.setWindowTitle("Configurar Servidor")
         self.setModal(True)
         self.setFixedSize(450, 350)
+        self.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
         self.setup_ui()
 
     def setup_ui(self):
@@ -9415,6 +9532,7 @@ class RegisterCompanyDialog(QDialog):
         self.setWindowTitle("Registrar Nueva Empresa")
         self.setModal(True)
         self.setMinimumSize(520, 700)
+        self.setStyleSheet(UIStyles.get_dialog_style() + UIStyles.get_input_style())
         self.setup_ui()
 
     def setup_ui(self):

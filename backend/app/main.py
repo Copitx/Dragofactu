@@ -229,6 +229,39 @@ def _init_sentry():
         logger.warning(f"Failed to initialize Sentry: {e}")
 
 
+def _run_migrations():
+    """
+    Run safe ALTER TABLE migrations for columns added after initial deployment.
+    Each migration checks if the column exists before adding it, so this is
+    idempotent and safe to run on every startup.
+    """
+    migrations = [
+        ("companies", "logo_base64", "TEXT"),
+        ("companies", "pdf_footer_text", "TEXT"),
+    ]
+    with engine.connect() as conn:
+        for table, column, col_type in migrations:
+            try:
+                # Check if column exists (works for both PostgreSQL and SQLite)
+                result = conn.execute(text(
+                    f"SELECT column_name FROM information_schema.columns "
+                    f"WHERE table_name = :table AND column_name = :column"
+                ), {"table": table, "column": column})
+                if result.first() is None:
+                    conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}'))
+                    conn.commit()
+                    logger.info(f"Migration: added column {table}.{column}")
+            except Exception:
+                # SQLite doesn't support information_schema; try adding directly
+                try:
+                    conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}'))
+                    conn.commit()
+                    logger.info(f"Migration: added column {table}.{column}")
+                except Exception:
+                    # Column likely already exists
+                    pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
@@ -243,6 +276,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to create tables: {e}")
         raise
+
+    # Run column migrations for existing tables
+    try:
+        _run_migrations()
+    except Exception as e:
+        logger.warning(f"Migration warning (non-fatal): {e}")
+
     logger.info("Application ready to receive requests.")
     yield
     # Shutdown

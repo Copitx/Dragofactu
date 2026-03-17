@@ -148,7 +148,7 @@ Dragofactu/
 │   │   └── main.py                  # FastAPI entry point
 │   └── tests/                       # 144 tests pytest
 │
-├── frontend/                        # React Web Client (En desarrollo)
+├── frontend/                        # React Web Client (Completado v3.0.0)
 │   ├── src/
 │   │   ├── api/                     # Axios clients por entidad
 │   │   ├── components/              # shadcn/ui + layout + data-table
@@ -258,6 +258,22 @@ python -m pytest tests/ -v
  test_diary.py ........... 10    test_security.py ......  6
  test_reminders.py ....... 12
 ```
+
+Frontend E2E baseline (Playwright):
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+---
+
+## Guía para Agentes IA
+
+- Operativa unificada: `AGENTS.md`
+- Contexto esencial: `CLAUDE.md`
+- Historial completo: `MEMORIA_LARGO_PLAZO.md`
+- Plan frontend por fases: `PLAN_FRONTEND.md`
 
 ---
 

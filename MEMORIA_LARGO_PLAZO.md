@@ -4,7 +4,7 @@
 > Para el contexto operativo esencial, ver `CLAUDE.md`.
 > Para el plan del frontend web, ver `PLAN_FRONTEND.md`.
 >
-> Última actualización: 2026-02-08
+> Última actualización: 2026-03-17
 
 ---
 
@@ -46,10 +46,41 @@
 | v2.5.0 | 2026-02-07 | Fase 18: Producción y monitoreo (health checks, Sentry, métricas, rate limiting) |
 | v3.0.0-dev | 2026-02-08 | Frontend web: Fases 19-20 (scaffolding + auth + layout + dashboard) |
 | v3.0.0 | 2026-02-08 | Frontend web COMPLETO: Fases 21-25 (CRUD, docs, inventario, reports, PWA+deploy) |
+| v3.0.1 | 2026-03-17 | Consolidación documental + higiene repositorio + baseline E2E Playwright + AGENTS.md |
 
 ---
 
 ## Sesiones de Desarrollo por Fecha
+
+### Sesión 2026-03-17: Consolidación Documental + Higiene de Repositorio + E2E Base
+**AI Agent:** GitHub Copilot (GPT-5.3-Codex)
+
+#### Resumen
+Se ejecutó una consolidación técnica orientada a reducir riesgos operativos sin tocar la lógica de negocio principal.
+
+#### Cambios clave
+- **Documento operativo unificado para agentes**: creación de `AGENTS.md` con orden de lectura, reglas de trabajo y Definition of Done mínima.
+- **Sincronización documental**: actualización de `CLAUDE.md` y `README.md` para eliminar divergencias de estado (frontend completado, fases 19-25 completadas).
+- **Higiene del repositorio**:
+    - Endurecimiento de `.gitignore` para entorno/secretos/artefactos generados.
+    - Limpieza del índice git de artefactos versionados (`.pyc`, `.DS_Store`, `frontend/tsconfig.tsbuildinfo`, `.env` rastreado).
+- **Testing frontend (brecha mitigada)**:
+    - Alta de baseline E2E con Playwright: `frontend/playwright.config.ts`, `frontend/tests/smoke.spec.ts`.
+    - Workflow CI dedicado: `.github/workflows/frontend-e2e.yml`.
+
+#### Riesgos mitigados (seguimiento del informe)
+1. Divergencia documental entre archivos de referencia.
+2. Artefactos de runtime versionados en git.
+3. Falta de baseline E2E en frontend.
+4. Falta de guía operativa única para agentes IA.
+
+#### Checklist de ejecución (completado)
+- [x] Crear guía única de agentes (`AGENTS.md`)
+- [x] Sincronizar estado de documentación (`CLAUDE.md`, `MEMORIA_LARGO_PLAZO.md`, `README.md`)
+- [x] Endurecer seguridad/higiene en `.gitignore`
+- [x] Limpiar índice git de artefactos y `.env` versionado
+- [x] Añadir baseline E2E frontend + CI
+- [x] Mantener cambios no disruptivos al funcionamiento de negocio
 
 ### Sesión 2026-02-08: Frontend Web - Fases 19-20
 **AI Agent:** Claude Opus 4.6
@@ -1455,11 +1486,11 @@ async def lifespan(app: FastAPI):
 |------|-------------|--------|
 | 19 | Scaffolding + Auth + Routing | ✅ |
 | 20 | Layout + Dashboard | ✅ |
-| 21 | CRUD Clientes/Productos/Proveedores | ⬜ Siguiente |
-| 22 | Documentos | ⬜ |
-| 23 | Inventario, Workers, Diary, Reminders | ⬜ |
-| 24 | Reports, Export/Import, Audit, Admin | ⬜ |
-| 25 | PWA + Deploy + Testing | ⬜ |
+| 21 | CRUD Clientes/Productos/Proveedores | ✅ |
+| 22 | Documentos | ✅ |
+| 23 | Inventario, Workers, Diary, Reminders | ✅ |
+| 24 | Reports, Export/Import, Audit, Admin | ✅ |
+| 25 | PWA + Deploy + Testing | ✅ |
 
 ---
 

@@ -31,7 +31,7 @@ backend/                       # API REST (FastAPI) - EN PRODUCCIÓN
 ├── app/models/*.py            # SQLAlchemy models
 └── app/schemas/*.py           # Pydantic schemas
 
-frontend/                      # Web client (React) - EN DESARROLLO
+frontend/                      # Web client (React) - COMPLETADO (v3.0.0)
 ├── package.json               # Dependencias npm
 ├── vite.config.ts             # Proxy API en dev
 ├── tailwind.config.ts         # Paleta Dragofactu
@@ -55,7 +55,7 @@ frontend/                      # Web client (React) - EN DESARROLLO
 
 ## ESTADO ACTUAL DEL PROYECTO
 
-**Versión:** v2.5.0 (backend) / v3.0.0-dev (frontend web)
+**Versión:** v2.5.0 (backend) / v3.0.0 (frontend web)
 **URL Producción Backend:** https://dragofactu-production.up.railway.app
 
 | Componente | Estado |
@@ -81,7 +81,7 @@ frontend/                      # Web client (React) - EN DESARROLLO
 | 17 | UI/UX desktop (dark mode, shortcuts, toasts) | ✅ |
 | 18 | Producción y monitoreo | ✅ |
 
-### Fases Frontend Web (19-25) - EN DESARROLLO
+### Fases Frontend Web (19-25) - COMPLETADAS
 | Fase | Descripción | Estado |
 |------|-------------|--------|
 | 19 | Scaffolding + Auth + Routing | ✅ |
@@ -93,6 +93,7 @@ frontend/                      # Web client (React) - EN DESARROLLO
 | **25** | **PWA + Mobile + Deploy + Testing** | **✅** |
 
 > **Plan detallado de fases 19-25:** ver `PLAN_FRONTEND.md`
+> **Reglas operativas unificadas para agentes:** ver `AGENTS.md`
 
 ---
 
@@ -259,6 +260,8 @@ GET  /metrics                    # Métricas de requests
 5. **Frontend: respetar patrones existentes** - shadcn/ui, TanStack Query, Zustand, i18n
 6. **Commits pequeños** - Un commit por feature/fix
 7. **Actualizar documentación** - Al terminar cada fase, actualizar CLAUDE.md, MEMORIA_LARGO_PLAZO.md y PLAN_FRONTEND.md
+8. **Usar guía unificada** - Antes de actuar, leer AGENTS.md + CLAUDE.md + MEMORIA_LARGO_PLAZO.md
+9. **Higiene del repo obligatoria** - No versionar `.env`, secretos, `.pyc`, `.DS_Store`, `tsbuildinfo` ni artefactos generados
 
 ### Variables de Entorno (.env)
 ```bash
@@ -284,3 +287,14 @@ SENTRY_DSN=               # Opcional: DSN de Sentry para error tracking
 
 > **Plan detallado frontend:** ver `PLAN_FRONTEND.md`
 > **Historial y referencia:** ver `MEMORIA_LARGO_PLAZO.md`
+
+---
+
+## CONTROL DE RIESGOS (2026-03-17)
+
+- **Divergencia documental:** mitigada con sincronización de estado en CLAUDE.md, MEMORIA_LARGO_PLAZO.md y README.md.
+- **Artefactos versionados:** mitigada con endurecimiento de `.gitignore` y limpieza del índice git.
+- **Complejidad legacy/modular:** se mantiene `dragofactu_complete.py` por compatibilidad; el desarrollo nuevo debe priorizar `dragofactu/` modular.
+- **Brecha de testing frontend:** mitigada con baseline E2E Playwright (`frontend/playwright.config.ts`, `frontend/tests/smoke.spec.ts`, workflow CI dedicado).
+- **Conflictos de sincronización offline:** mitigada con operation queue + sync manual + indicadores `_from_cache`; mantener monitoreo y evitar cambios de escritura concurrentes en local/remoto para la misma entidad.
+- **Alineación contratos entre clientes (desktop/web) y API:** mitigada con backend como contrato fuente + validaciones CI (pytest backend, type-check/build frontend, smoke E2E).

@@ -71,6 +71,7 @@ temp/
 
 # Local-only documentation (keep on disk, out of git/GitHub)
 *.md
+!README.md
 
 # Build/tooling cache
 frontend/tsconfig.tsbuildinfo

@@ -22,6 +22,26 @@ export interface CompanySettings {
   tax_rate: number;
 }
 
+export interface CompanyEmailSettings {
+  configured: boolean;
+  smtp_host?: string;
+  smtp_port: number;
+  smtp_user?: string;
+  smtp_use_tls: boolean;
+  smtp_from_email?: string;
+  smtp_from_name?: string;
+}
+
+export interface CompanyEmailSettingsUpdate {
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_user?: string;
+  smtp_password?: string;
+  smtp_use_tls?: boolean;
+  smtp_from_email?: string;
+  smtp_from_name?: string;
+}
+
 export type CompanySettingsUpdate = Partial<Omit<CompanySettings, "id" | "code">>;
 
 export async function getCompanySettings(): Promise<CompanySettings> {
@@ -31,5 +51,22 @@ export async function getCompanySettings(): Promise<CompanySettings> {
 
 export async function updateCompanySettings(data: CompanySettingsUpdate): Promise<CompanySettings> {
   const response = await api.put<CompanySettings>("/company/settings", data);
+  return response.data;
+}
+
+export async function getCompanyEmailSettings(): Promise<CompanyEmailSettings> {
+  const response = await api.get<CompanyEmailSettings>("/company/email/settings");
+  return response.data;
+}
+
+export async function updateCompanyEmailSettings(
+  data: CompanyEmailSettingsUpdate,
+): Promise<CompanyEmailSettings> {
+  const response = await api.put<CompanyEmailSettings>("/company/email/settings", data);
+  return response.data;
+}
+
+export async function testCompanyEmailSettings(): Promise<{ success: boolean; message: string }> {
+  const response = await api.post<{ success: boolean; message: string }>("/company/email/test");
   return response.data;
 }

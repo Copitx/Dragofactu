@@ -12,7 +12,13 @@ from app.schemas.auth import (
 )
 
 # Company
-from app.schemas.company import CompanyBase, CompanyUpdate, CompanyResponse
+from app.schemas.company import (
+    CompanyBase,
+    CompanyUpdate,
+    CompanyResponse,
+    CompanyEmailSettingsUpdate,
+    CompanyEmailSettingsResponse,
+)
 
 # Client
 from app.schemas.client import (
@@ -71,6 +77,7 @@ __all__ = [
     'RegisterCompanyRequest', 'UserResponse', 'LogoutRequest',
     # Company
     'CompanyBase', 'CompanyUpdate', 'CompanyResponse',
+    'CompanyEmailSettingsUpdate', 'CompanyEmailSettingsResponse',
     # Client
     'ClientBase', 'ClientCreate', 'ClientUpdate', 'ClientResponse', 'ClientList',
     # Supplier

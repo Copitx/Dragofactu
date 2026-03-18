@@ -33,6 +33,28 @@ class CompanyUpdate(CompanyBase):
     name: Optional[str] = Field(None, min_length=2, max_length=200)
 
 
+class CompanyEmailSettingsUpdate(BaseModel):
+    """Per-company SMTP settings update."""
+    smtp_host: Optional[str] = Field(None, max_length=200)
+    smtp_port: Optional[int] = Field(587, ge=1, le=65535)
+    smtp_user: Optional[str] = Field(None, max_length=200)
+    smtp_password: Optional[str] = Field(None, max_length=500)
+    smtp_use_tls: Optional[bool] = True
+    smtp_from_email: Optional[str] = Field(None, max_length=200)
+    smtp_from_name: Optional[str] = Field(None, max_length=200)
+
+
+class CompanyEmailSettingsResponse(BaseModel):
+    """Per-company SMTP settings (safe response, no password)."""
+    configured: bool
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_use_tls: bool = True
+    smtp_from_email: Optional[str] = None
+    smtp_from_name: Optional[str] = None
+
+
 class CompanyResponse(BaseSchema, TimestampMixin):
     """Company response with all details."""
     id: UUID

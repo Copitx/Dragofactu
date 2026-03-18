@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { Sun, Moon, Monitor, Globe, Info, LogOut, Building } from "lucide-react";
+import { Sun, Moon, Monitor, Globe, Info, LogOut, Building, Mail } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,13 @@ import {
 
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
-import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-company";
+import {
+  useCompanySettings,
+  useUpdateCompanySettings,
+  useCompanyEmailSettings,
+  useUpdateCompanyEmailSettings,
+  useTestCompanyEmailSettings,
+} from "@/hooks/use-company";
 
 const THEMES = [
   { value: "light", icon: Sun },
@@ -44,6 +50,9 @@ export default function SettingsPage() {
 
   const { data: company } = useCompanySettings();
   const updateCompany = useUpdateCompanySettings();
+  const { data: emailSettings } = useCompanyEmailSettings();
+  const updateEmailSettings = useUpdateCompanyEmailSettings();
+  const testEmailSettings = useTestCompanyEmailSettings();
 
   const companyForm = useForm({
     defaultValues: {
@@ -56,6 +65,18 @@ export default function SettingsPage() {
       phone: "",
       email: "",
       pdf_footer_text: "",
+    },
+  });
+
+  const emailForm = useForm({
+    defaultValues: {
+      smtp_host: "",
+      smtp_port: 587,
+      smtp_user: "",
+      smtp_password: "",
+      smtp_use_tls: "true",
+      smtp_from_email: "",
+      smtp_from_name: "",
     },
   });
 
@@ -75,6 +96,20 @@ export default function SettingsPage() {
     }
   }, [company, companyForm]);
 
+  useEffect(() => {
+    if (emailSettings) {
+      emailForm.reset({
+        smtp_host: emailSettings.smtp_host || "",
+        smtp_port: emailSettings.smtp_port || 587,
+        smtp_user: emailSettings.smtp_user || "",
+        smtp_password: "",
+        smtp_use_tls: emailSettings.smtp_use_tls ? "true" : "false",
+        smtp_from_email: emailSettings.smtp_from_email || "",
+        smtp_from_name: emailSettings.smtp_from_name || "",
+      });
+    }
+  }, [emailSettings, emailForm]);
+
   const handleLocaleChange = (value: string) => {
     const loc = value as "es" | "en" | "de";
     setLocale(loc);
@@ -89,6 +124,33 @@ export default function SettingsPage() {
       toast.error(t("settings.company_error"));
     }
   });
+
+  const onSaveEmail = emailForm.handleSubmit(async (values) => {
+    try {
+      await updateEmailSettings.mutateAsync({
+        smtp_host: values.smtp_host,
+        smtp_port: Number(values.smtp_port),
+        smtp_user: values.smtp_user,
+        smtp_password: values.smtp_password || undefined,
+        smtp_use_tls: values.smtp_use_tls === "true",
+        smtp_from_email: values.smtp_from_email,
+        smtp_from_name: values.smtp_from_name,
+      });
+      emailForm.setValue("smtp_password", "");
+      toast.success(t("settings.email_saved"));
+    } catch {
+      toast.error(t("settings.email_error"));
+    }
+  });
+
+  const onTestEmail = async () => {
+    try {
+      const result = await testEmailSettings.mutateAsync();
+      toast.success(result.message || t("settings.email_test_ok"));
+    } catch {
+      toast.error(t("settings.email_test_error"));
+    }
+  };
 
   return (
     <>
@@ -184,6 +246,76 @@ export default function SettingsPage() {
             <Button type="submit" disabled={updateCompany.isPending}>
               {updateCompany.isPending ? t("buttons.loading") : t("buttons.save")}
             </Button>
+          </form>
+        </div>
+
+        {/* Email Settings */}
+        <div className="rounded-lg border bg-card p-6 space-y-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            {t("settings.email_title")}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {emailSettings?.configured
+              ? t("settings.email_configured")
+              : t("settings.email_not_configured")}
+          </p>
+          <form onSubmit={onSaveEmail} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t("settings.smtp_host")}</Label>
+                <Input {...emailForm.register("smtp_host")} placeholder="smtp.gmail.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.smtp_port")}</Label>
+                <Input type="number" {...emailForm.register("smtp_port")} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.smtp_user")}</Label>
+                <Input {...emailForm.register("smtp_user")} placeholder="empresa@email.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.smtp_password")}</Label>
+                <Input
+                  type="password"
+                  {...emailForm.register("smtp_password")}
+                  placeholder={t("settings.smtp_password_hint")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.smtp_from_email")}</Label>
+                <Input {...emailForm.register("smtp_from_email")} placeholder="facturacion@empresa.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.smtp_from_name")}</Label>
+                <Input {...emailForm.register("smtp_from_name")} placeholder="Mi Empresa" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("settings.smtp_tls")}</Label>
+              <Select value={emailForm.watch("smtp_use_tls")} onValueChange={(v) => emailForm.setValue("smtp_use_tls", v)}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">{t("settings.yes")}</SelectItem>
+                  <SelectItem value="false">{t("settings.no")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={updateEmailSettings.isPending}>
+                {updateEmailSettings.isPending ? t("buttons.loading") : t("settings.email_save")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onTestEmail}
+                disabled={testEmailSettings.isPending}
+              >
+                {testEmailSettings.isPending ? t("buttons.loading") : t("settings.email_test")}
+              </Button>
+            </div>
           </form>
         </div>
 

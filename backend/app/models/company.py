@@ -42,6 +42,15 @@ class Company(Base):
     default_currency = Column(String(3), default='EUR')
     tax_rate = Column(Float, default=21.0)  # Default IVA
 
+    # Per-company SMTP settings
+    smtp_host = Column(String(200))
+    smtp_port = Column(Integer, default=587)
+    smtp_user = Column(String(200))
+    smtp_password_encrypted = Column(Text)
+    smtp_use_tls = Column(Boolean, default=True)
+    smtp_from_email = Column(String(200))
+    smtp_from_name = Column(String(200))
+
     # Subscription/Plan (for future use)
     plan_type = Column(String(20), default='free')  # free, basic, pro
     max_users = Column(Integer, default=5)
@@ -62,6 +71,10 @@ class Company(Base):
     workers = relationship("Worker", back_populates="company")
     diary_entries = relationship("DiaryEntry", back_populates="company")
     reminders = relationship("Reminder", back_populates="company")
+
+    @property
+    def smtp_configured(self) -> bool:
+        return bool(self.smtp_host and self.smtp_user and self.smtp_password_encrypted)
 
     def __repr__(self):
         return f"<Company {self.code}: {self.name}>"

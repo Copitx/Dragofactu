@@ -237,11 +237,15 @@ async def create_document(
 
 @router.get("/email/status")
 async def get_email_status(
+    db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("documents.read")),
 ):
     """Check if email sending is configured."""
     from app.core.email import is_smtp_configured
-    return {"configured": is_smtp_configured()}
+    from app.models import Company
+
+    company = db.query(Company).filter(Company.id == current_user.company_id).first()
+    return {"configured": is_smtp_configured(company=company)}
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -581,15 +585,23 @@ async def send_document_email(
     current_user: User = Depends(require_permission("documents.read")),
 ):
     """Send a document as PDF via email."""
-    from app.core.email import is_smtp_configured, send_document_email as send_email, build_document_email_html
+    from app.core.email import (
+        is_smtp_configured,
+        get_company_smtp_config,
+        send_document_email as send_email,
+        build_document_email_html,
+    )
     from app.core.pdf import InvoicePDFGenerator
     from app.models import Company, AuditLog
     import io
 
-    if not is_smtp_configured():
+    company = db.query(Company).filter(Company.id == current_user.company_id).first()
+    company_smtp = get_company_smtp_config(company)
+
+    if not is_smtp_configured(company=company):
         raise HTTPException(
             status_code=400,
-            detail="Email not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD environment variables."
+            detail="Email not configured. Configure SMTP in company settings."
         )
 
     # Fetch document
@@ -604,8 +616,7 @@ async def send_document_email(
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
-    # Get company for PDF and email
-    company = db.query(Company).filter(Company.id == current_user.company_id).first()
+    # Company already loaded above for PDF and email config
     company_name = company.name if company else "Dragofactu"
 
     # Generate PDF
@@ -628,6 +639,7 @@ async def send_document_email(
             body_html=html_body,
             pdf_bytes=pdf_bytes,
             pdf_filename=f"{document.code}.pdf",
+            smtp_config=company_smtp,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")

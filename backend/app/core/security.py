@@ -5,9 +5,34 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from jose import jwt, JWTError
 import bcrypt
+import base64
+import hashlib
+from cryptography.fernet import Fernet, InvalidToken
 from app.config import get_settings
 
 settings = get_settings()
+
+
+def _fernet_for_app_secret() -> Fernet:
+    """Build a stable Fernet instance derived from SECRET_KEY."""
+    digest = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
+    fernet_key = base64.urlsafe_b64encode(digest)
+    return Fernet(fernet_key)
+
+
+def encrypt_secret_value(value: str) -> str:
+    """Encrypt a sensitive string for persistence."""
+    token = _fernet_for_app_secret().encrypt(value.encode("utf-8"))
+    return token.decode("utf-8")
+
+
+def decrypt_secret_value(value: str) -> Optional[str]:
+    """Decrypt a sensitive string from persistence."""
+    try:
+        plain = _fernet_for_app_secret().decrypt(value.encode("utf-8"))
+        return plain.decode("utf-8")
+    except (InvalidToken, ValueError, TypeError):
+        return None
 
 
 def hash_password(password: str) -> str:

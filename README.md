@@ -270,10 +270,28 @@ npm run test:e2e
 
 ## Guía para Agentes IA
 
-- Operativa unificada: `AGENTS.md`
-- Contexto esencial: `CLAUDE.md`
-- Historial completo: `MEMORIA_LARGO_PLAZO.md`
-- Plan frontend por fases: `PLAN_FRONTEND.md`
+- Política actual del repositorio: solo este `README.md` se publica en GitHub como documentación.
+- La documentación operativa avanzada para agentes (AGENTS/CLAUDE/MEMORIA/PLAN) se mantiene **local en este dispositivo** y fuera del remoto por higiene del repositorio.
+- Si trabajas en este mismo equipo, esos archivos siguen disponibles en disco local.
+
+---
+
+## Checklist de Rotación de Secretos
+
+Tras haber dejado archivos de entorno fuera del repositorio, se recomienda rotar secretos para cerrar riesgo histórico:
+
+1. JWT/`SECRET_KEY` del backend.
+2. Credenciales de base de datos (`DATABASE_URL`, usuario, contraseña).
+3. SMTP (`SMTP_USER`, `SMTP_PASSWORD`).
+4. Tokens de servicios externos (si aplica).
+5. Revocar cualquier token expuesto previamente y emitir uno nuevo.
+
+Validación mínima después de rotar:
+
+```bash
+cd backend && python -m pytest tests/ -v
+cd frontend && npm run type-check && npm run build && npm run test:e2e
+```
 
 ---
 

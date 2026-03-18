@@ -170,6 +170,8 @@
       "send_email": "Send by Email",
       "email_sent": "Email sent successfully",
       "email_not_configured": "Email not configured. Set up SMTP on the server.",
+      "email_configure_hint": "Set up your company sending email in Settings to send documents by email.",
+      "configure_email": "Configure email",
       "email_recipient": "Recipient email",
       "email_confirm": "Send document by email to:"
     },

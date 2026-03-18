@@ -170,6 +170,8 @@
       "send_email": "Per E-Mail senden",
       "email_sent": "E-Mail erfolgreich gesendet",
       "email_not_configured": "E-Mail nicht konfiguriert. SMTP auf dem Server einrichten.",
+      "email_configure_hint": "Richten Sie die Versand-E-Mail Ihres Unternehmens in den Einstellungen ein, um Dokumente per E-Mail zu senden.",
+      "configure_email": "E-Mail konfigurieren",
       "email_recipient": "Empfänger-E-Mail",
       "email_confirm": "Dokument per E-Mail senden an:"
     },

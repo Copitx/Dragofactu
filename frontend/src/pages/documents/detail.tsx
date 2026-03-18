@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
 import {
   ArrowLeft,
   Download,
@@ -100,16 +101,43 @@ export default function DocumentDetailPage() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [checkingEmailStatus, setCheckingEmailStatus] = useState(true);
   const [emailConfigured, setEmailConfigured] = useState<boolean | null>(null);
 
   const clients = clientsData?.items || [];
   const products = productsData?.items || [];
 
+  const loadEmailStatus = async () => {
+    setCheckingEmailStatus(true);
+    try {
+      const status = await getEmailStatus();
+      setEmailConfigured(status.configured);
+    } catch {
+      setEmailConfigured(false);
+    } finally {
+      setCheckingEmailStatus(false);
+    }
+  };
+
   useEffect(() => {
-    getEmailStatus().then((s) => setEmailConfigured(s.configured)).catch(() => setEmailConfigured(false));
+    void loadEmailStatus();
   }, []);
 
+  const getApiErrorMessage = (error: unknown) => {
+    if (error instanceof AxiosError) {
+      return error.response?.data?.detail || t("common.error");
+    }
+    return t("common.error");
+  };
+
   const openEmailDialog = () => {
+    if (emailConfigured === false) {
+      toast.error(t("documents.actions.email_not_configured"), {
+        description: t("documents.actions.email_configure_hint"),
+      });
+      return;
+    }
+
     // Pre-fill recipient with client email
     const client = clients.find((c) => c.id === doc?.client_id);
     setEmailTo(client?.email || "");
@@ -123,8 +151,8 @@ export default function DocumentDetailPage() {
       await sendDocumentEmail(doc.id, emailTo);
       toast.success(t("documents.actions.email_sent"));
       setEmailOpen(false);
-    } catch {
-      toast.error(t("common.error"));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
     } finally {
       setSendingEmail(false);
     }
@@ -370,7 +398,7 @@ export default function DocumentDetailPage() {
             variant="outline"
             size="sm"
             onClick={openEmailDialog}
-            disabled={emailConfigured === false}
+            disabled={checkingEmailStatus}
             title={emailConfigured === false ? t("documents.actions.email_not_configured") : ""}
           >
             <Mail className="h-4 w-4 mr-1" />
@@ -388,6 +416,20 @@ export default function DocumentDetailPage() {
             </Button>
           )}
         </div>
+
+        {emailConfigured === false && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-medium">{t("documents.actions.email_not_configured")}</p>
+                <p className="text-sm opacity-90">{t("documents.actions.email_configure_hint")}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
+                {t("documents.actions.configure_email")}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Document info card */}
         <div className="rounded-lg border p-4 md:p-6 space-y-4">

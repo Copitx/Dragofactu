@@ -170,6 +170,8 @@
       "send_email": "Enviar por Email",
       "email_sent": "Email enviado correctamente",
       "email_not_configured": "Email no configurado. Configure SMTP en el servidor.",
+      "email_configure_hint": "Configura el correo de envío de tu empresa en Ajustes para poder enviar documentos por email.",
+      "configure_email": "Configurar correo",
       "email_recipient": "Email destinatario",
       "email_confirm": "Enviar documento por email a:"
     },

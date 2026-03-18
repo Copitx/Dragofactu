@@ -164,6 +164,11 @@ class TestReportEndpoints:
         response = client.get("/api/v1/reports/quarterly?year=2026&quarter=5", headers=auth_headers)
         assert response.status_code == 422
 
+    def test_reports_forbidden_for_warehouse(self, client: TestClient, auth_headers_warehouse):
+        """Warehouse role cannot read financial reports."""
+        response = client.get("/api/v1/reports/monthly?year=2026&month=1", headers=auth_headers_warehouse)
+        assert response.status_code == 403
+
 
 class TestReportMultiTenancy:
     """Test report multi-tenancy isolation."""

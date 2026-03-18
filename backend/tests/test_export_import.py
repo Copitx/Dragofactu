@@ -116,6 +116,30 @@ class TestExportEndpoints:
         assert len(rows) == 2
         assert rows[1][0] == "OWN001"
 
+    def test_export_clients_forbidden_for_warehouse(self, client: TestClient, auth_headers_warehouse):
+        """Warehouse role cannot export clients CSV."""
+        response = client.get("/api/v1/export/clients", headers=auth_headers_warehouse)
+        assert response.status_code == 403
+
+    def test_export_clients_sanitizes_formula_cells(self, client: TestClient, auth_headers, db, test_company):
+        """CSV export neutralizes spreadsheet formulas."""
+        c = Client(
+            company_id=test_company.id,
+            code="CLI900",
+            name="=2+2",
+            notes="@SUM(A1:A2)",
+        )
+        db.add(c)
+        db.commit()
+
+        response = client.get("/api/v1/export/clients", headers=auth_headers)
+        assert response.status_code == 200
+
+        reader = csv.reader(io.StringIO(response.text))
+        rows = list(reader)
+        assert rows[1][1] == "'=2+2"
+        assert rows[1][11] == "'@SUM(A1:A2)"
+
 
 class TestImportEndpoints:
     """Test CSV import functionality."""
@@ -204,3 +228,28 @@ class TestImportEndpoints:
         data = response.json()
         assert "Importados: 1" in data["message"]
         assert "Errores: 1" in data["message"]
+
+    def test_import_clients_forbidden_for_warehouse(self, client: TestClient, auth_headers_warehouse):
+        """Warehouse role cannot import clients CSV."""
+        csv_content = "code,name\nIMP003,Forbidden Import"
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/clients",
+            headers=auth_headers_warehouse,
+            files={"file": ("clients.csv", file, "text/csv")}
+        )
+        assert response.status_code == 403
+
+    def test_import_clients_rejects_non_utf8(self, client: TestClient, auth_headers):
+        """CSV import rejects files not encoded as UTF-8."""
+        csv_content_latin1 = "code,name\nLAT001,Señor".encode("latin-1")
+        file = io.BytesIO(csv_content_latin1)
+
+        response = client.post(
+            "/api/v1/export/import/clients",
+            headers=auth_headers,
+            files={"file": ("clients.csv", file, "text/csv")}
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"] == "El archivo CSV debe estar codificado en UTF-8"

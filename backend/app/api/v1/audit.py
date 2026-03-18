@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func as sa_func
 
 from app.api.deps import get_db, get_current_user
+from app.api.deps import require_permission
 from app.models import User
 from app.models.audit_log import AuditLog
 from app.schemas.audit_log import AuditLogResponse, AuditLogList
@@ -51,7 +52,7 @@ async def list_audit_logs(
     action: Optional[str] = Query(None, description="Filtrar por accion (create, update, delete)"),
     entity_type: Optional[str] = Query(None, description="Filtrar por tipo de entidad"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("audit.read"))
 ):
     """List audit log entries for the company."""
     query = db.query(AuditLog).filter(

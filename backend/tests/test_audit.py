@@ -87,6 +87,11 @@ class TestAuditLogEndpoints:
         response = client.get("/api/v1/audit")
         assert response.status_code == 401
 
+    def test_list_audit_forbidden_for_warehouse(self, client: TestClient, auth_headers_warehouse):
+        """Warehouse role cannot read audit logs."""
+        response = client.get("/api/v1/audit", headers=auth_headers_warehouse)
+        assert response.status_code == 403
+
 
 class TestAuditMultiTenancy:
     """Test audit log multi-tenancy isolation."""

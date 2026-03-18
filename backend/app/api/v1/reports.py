@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sa_func, extract
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, require_permission
 from app.models import Document, DocumentType, DocumentStatus, User
 from app.schemas.report import PeriodReport, DocumentTypeSummary, AnnualReport
 
@@ -79,7 +79,7 @@ async def monthly_report(
     year: int = Query(..., ge=2020, le=2100),
     month: int = Query(..., ge=1, le=12),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("reports.read"))
 ):
     """Get financial report for a specific month."""
     start = datetime(year, month, 1, tzinfo=timezone.utc)
@@ -96,7 +96,7 @@ async def quarterly_report(
     year: int = Query(..., ge=2020, le=2100),
     quarter: int = Query(..., ge=1, le=4),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("reports.read"))
 ):
     """Get financial report for a specific quarter (Q1=Jan-Mar, Q2=Apr-Jun, etc.)."""
     start_month = (quarter - 1) * 3 + 1
@@ -115,7 +115,7 @@ async def quarterly_report(
 async def annual_report(
     year: int = Query(..., ge=2020, le=2100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("reports.read"))
 ):
     """Get annual report with monthly breakdown."""
     months = []

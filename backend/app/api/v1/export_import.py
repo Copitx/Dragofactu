@@ -7,17 +7,57 @@ import csv
 import io
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, require_permission
 from app.models import Client, Product, Supplier, User
 from app.schemas.base import MessageResponse
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/export", tags=["Export/Import"])
+
+ALLOWED_CSV_CONTENT_TYPES = {
+    "text/csv",
+    "application/csv",
+    "application/vnd.ms-excel",
+}
+MAX_IMPORT_FILE_SIZE_BYTES = 2 * 1024 * 1024
+MAX_IMPORT_ROWS = 10000
+
+
+def _sanitize_csv_cell(value: Optional[object]) -> str:
+    """Prevent CSV formula injection by prefixing risky cell values."""
+    if value is None:
+        return ""
+    text = str(value)
+    if text.startswith(("=", "+", "-", "@")):
+        return f"'{text}"
+    return text
+
+
+def _validate_csv_upload(file: UploadFile, content: bytes):
+    """Validate basic CSV upload constraints before parsing."""
+    filename = (file.filename or "").lower()
+    if not filename.endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo debe ser CSV"
+        )
+
+    if file.content_type and file.content_type not in ALLOWED_CSV_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tipo de archivo no permitido"
+        )
+
+    if len(content) > MAX_IMPORT_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Archivo demasiado grande"
+        )
 
 
 def _stream_csv(rows: list, headers: list, filename: str) -> StreamingResponse:
@@ -38,7 +78,7 @@ def _stream_csv(rows: list, headers: list, filename: str) -> StreamingResponse:
 @router.get("/clients")
 async def export_clients(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("export.read"))
 ):
     """Export all active clients to CSV."""
     clients = db.query(Client).filter(
@@ -52,10 +92,10 @@ async def export_clients(
     rows = []
     for c in clients:
         rows.append([
-            c.code, c.name, c.tax_id or "", c.address or "",
-            c.city or "", c.postal_code or "", c.province or "",
-            c.country or "", c.phone or "", c.email or "",
-            c.website or "", c.notes or ""
+            _sanitize_csv_cell(c.code), _sanitize_csv_cell(c.name), _sanitize_csv_cell(c.tax_id or ""), _sanitize_csv_cell(c.address or ""),
+            _sanitize_csv_cell(c.city or ""), _sanitize_csv_cell(c.postal_code or ""), _sanitize_csv_cell(c.province or ""),
+            _sanitize_csv_cell(c.country or ""), _sanitize_csv_cell(c.phone or ""), _sanitize_csv_cell(c.email or ""),
+            _sanitize_csv_cell(c.website or ""), _sanitize_csv_cell(c.notes or "")
         ])
 
     logger.info(f"Exported {len(rows)} clients for company {current_user.company_id}")
@@ -65,7 +105,7 @@ async def export_clients(
 @router.get("/products")
 async def export_products(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("export.read"))
 ):
     """Export all active products to CSV."""
     products = db.query(Product).filter(
@@ -79,9 +119,9 @@ async def export_products(
     rows = []
     for p in products:
         rows.append([
-            p.code, p.name, p.description or "", p.category or "",
-            p.purchase_price, p.sale_price, p.current_stock,
-            p.minimum_stock, p.stock_unit or ""
+            _sanitize_csv_cell(p.code), _sanitize_csv_cell(p.name), _sanitize_csv_cell(p.description or ""), _sanitize_csv_cell(p.category or ""),
+            _sanitize_csv_cell(p.purchase_price), _sanitize_csv_cell(p.sale_price), _sanitize_csv_cell(p.current_stock),
+            _sanitize_csv_cell(p.minimum_stock), _sanitize_csv_cell(p.stock_unit or "")
         ])
 
     logger.info(f"Exported {len(rows)} products for company {current_user.company_id}")
@@ -91,7 +131,7 @@ async def export_products(
 @router.get("/suppliers")
 async def export_suppliers(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("export.read"))
 ):
     """Export all active suppliers to CSV."""
     suppliers = db.query(Supplier).filter(
@@ -105,10 +145,10 @@ async def export_suppliers(
     rows = []
     for s in suppliers:
         rows.append([
-            s.code, s.name, s.tax_id or "", s.address or "",
-            s.city or "", s.postal_code or "", s.province or "",
-            s.country or "", s.phone or "", s.email or "",
-            s.website or "", s.notes or ""
+            _sanitize_csv_cell(s.code), _sanitize_csv_cell(s.name), _sanitize_csv_cell(s.tax_id or ""), _sanitize_csv_cell(s.address or ""),
+            _sanitize_csv_cell(s.city or ""), _sanitize_csv_cell(s.postal_code or ""), _sanitize_csv_cell(s.province or ""),
+            _sanitize_csv_cell(s.country or ""), _sanitize_csv_cell(s.phone or ""), _sanitize_csv_cell(s.email or ""),
+            _sanitize_csv_cell(s.website or ""), _sanitize_csv_cell(s.notes or "")
         ])
 
     logger.info(f"Exported {len(rows)} suppliers for company {current_user.company_id}")
@@ -119,7 +159,7 @@ async def export_suppliers(
 async def import_clients(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("export.write"))
 ):
     """
     Import clients from CSV file.
@@ -127,17 +167,15 @@ async def import_clients(
     province, country, phone, email, website, notes
     Skips rows with duplicate codes.
     """
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo debe ser CSV"
-        )
-
     content = await file.read()
+    _validate_csv_upload(file, content)
     try:
         text = content.decode("utf-8")
     except UnicodeDecodeError:
-        text = content.decode("latin-1")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo CSV debe estar codificado en UTF-8"
+        )
 
     reader = csv.DictReader(io.StringIO(text))
 
@@ -146,6 +184,10 @@ async def import_clients(
     errors = []
 
     for i, row in enumerate(reader, start=2):
+        if i - 1 > MAX_IMPORT_ROWS:
+            errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
+            break
+
         code = row.get("code", "").strip()
         name = row.get("name", "").strip()
 
@@ -193,7 +235,7 @@ async def import_clients(
 async def import_products(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("export.write"))
 ):
     """
     Import products from CSV file.
@@ -201,17 +243,15 @@ async def import_products(
     sale_price, current_stock, minimum_stock, stock_unit
     Skips rows with duplicate codes.
     """
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo debe ser CSV"
-        )
-
     content = await file.read()
+    _validate_csv_upload(file, content)
     try:
         text = content.decode("utf-8")
     except UnicodeDecodeError:
-        text = content.decode("latin-1")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo CSV debe estar codificado en UTF-8"
+        )
 
     reader = csv.DictReader(io.StringIO(text))
 
@@ -220,6 +260,10 @@ async def import_products(
     errors = []
 
     for i, row in enumerate(reader, start=2):
+        if i - 1 > MAX_IMPORT_ROWS:
+            errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
+            break
+
         code = row.get("code", "").strip()
         name = row.get("name", "").strip()
 

@@ -66,14 +66,16 @@ class User(Base):
             UserRole.ADMIN: ['*'],  # All permissions
             UserRole.MANAGEMENT: [
                 'clients.*', 'products.*', 'documents.*',
-                'inventory.*', 'workers.*', 'diary.*', 'reminders.*'
+                'inventory.*', 'workers.*', 'diary.*', 'reminders.*',
+                'reports.read', 'audit.read', 'export.read', 'export.write'
             ],
             UserRole.WAREHOUSE: [
                 'products.read', 'inventory.*', 'documents.read'
             ],
             UserRole.READ_ONLY: [
                 'clients.read', 'products.read', 'documents.read',
-                'inventory.read', 'workers.read', 'diary.read'
+                'inventory.read', 'workers.read', 'diary.read',
+                'reports.read', 'export.read'
             ]
         }
 

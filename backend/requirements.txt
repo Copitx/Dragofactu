@@ -11,6 +11,7 @@ alembic>=1.13.0
 
 # Security
 python-jose[cryptography]>=3.3.0
+cryptography>=46.0.5
 bcrypt>=4.1.0
 
 # Validation
@@ -19,8 +20,9 @@ pydantic-settings>=2.1.0
 email-validator>=2.1.0
 
 # Utilities
-python-multipart>=0.0.6
+python-multipart>=0.0.20
 python-dotenv>=1.0.0
+pyasn1>=0.6.3
 
 # PDF generation (same as desktop)
 reportlab>=4.0.0

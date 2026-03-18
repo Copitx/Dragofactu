@@ -8,7 +8,7 @@ from app.schemas.base import BaseSchema, TimestampMixin, PaginatedResponse, Mess
 from app.schemas.auth import (
     LoginRequest, LoginResponse, TokenResponse,
     RefreshRequest, RefreshResponse,
-    RegisterCompanyRequest, UserResponse
+    RegisterCompanyRequest, UserResponse, LogoutRequest
 )
 
 # Company
@@ -68,7 +68,7 @@ __all__ = [
     # Auth
     'LoginRequest', 'LoginResponse', 'TokenResponse',
     'RefreshRequest', 'RefreshResponse',
-    'RegisterCompanyRequest', 'UserResponse',
+    'RegisterCompanyRequest', 'UserResponse', 'LogoutRequest',
     # Company
     'CompanyBase', 'CompanyUpdate', 'CompanyResponse',
     # Client

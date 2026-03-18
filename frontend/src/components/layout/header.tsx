@@ -22,11 +22,11 @@ interface HeaderProps {
 export function Header({ title }: HeaderProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user, refreshToken, logout } = useAuthStore();
 
   const handleLogout = async () => {
     try {
-      await logoutApi();
+      await logoutApi(refreshToken);
     } catch {
       // Clear local state even if API fails
     }

@@ -7,13 +7,22 @@ to cached data when the server is unreachable.
 import os
 import json
 import logging
+import stat
 import requests
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+try:
+    import keyring  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    keyring = None
+
 logger = logging.getLogger('dragofactu.api_client')
+
+_KEYRING_SERVICE = "dragofactu.desktop"
+_KEYRING_ACCOUNT = "api_tokens"
 
 
 @dataclass
@@ -188,10 +197,9 @@ class APIClient:
             raise APIError("Error de conexion", 0, f"No se puede conectar a {self.base_url}")
 
     def _save_tokens(self):
-        """Save tokens to file."""
+        """Save tokens securely (keyring preferred, file fallback)."""
         if not self._token_data:
             return
-        self._token_file.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "access_token": self._token_data.access_token,
             "refresh_token": self._token_data.refresh_token,
@@ -200,20 +208,58 @@ class APIClient:
             "username": self._token_data.username,
             "role": self._token_data.role
         }
-        self._token_file.write_text(json.dumps(data))
+        serialized = json.dumps(data)
+
+        if keyring:
+            try:
+                keyring.set_password(_KEYRING_SERVICE, _KEYRING_ACCOUNT, serialized)
+                # Cleanup legacy plaintext token file when keyring is available.
+                if self._token_file.exists():
+                    self._token_file.unlink()
+                return
+            except Exception as e:
+                logger.warning(f"Keyring unavailable, using file fallback: {e}")
+
+        self._save_tokens_to_file(serialized)
+
+    def _save_tokens_to_file(self, serialized: str):
+        """Fallback token storage with restrictive permissions."""
+        self._token_file.parent.mkdir(parents=True, exist_ok=True)
+        self._token_file.write_text(serialized)
+        try:
+            os.chmod(self._token_file, stat.S_IRUSR | stat.S_IWUSR)
+        except Exception as e:
+            logger.warning(f"Could not set secure permissions on token file: {e}")
 
     def _load_tokens(self):
-        """Load tokens from file."""
+        """Load tokens from keyring first, then file fallback."""
+        if keyring:
+            try:
+                serialized = keyring.get_password(_KEYRING_SERVICE, _KEYRING_ACCOUNT)
+                if serialized:
+                    data = json.loads(serialized)
+                    self._token_data = TokenData(**data)
+                    return
+            except Exception as e:
+                logger.debug(f"Keyring read failed, trying file fallback: {e}")
+
         if self._token_file.exists():
             try:
                 data = json.loads(self._token_file.read_text())
                 self._token_data = TokenData(**data)
+                # Best-effort migration to keyring once loaded from file.
+                self._save_tokens()
             except:
                 self._token_data = None
 
     def _clear_tokens(self):
         """Clear saved tokens."""
         self._token_data = None
+        if keyring:
+            try:
+                keyring.delete_password(_KEYRING_SERVICE, _KEYRING_ACCOUNT)
+            except Exception:
+                pass
         if self._token_file.exists():
             self._token_file.unlink()
 
@@ -275,7 +321,10 @@ class APIClient:
     def logout(self):
         """Logout and clear tokens."""
         try:
-            self._request("POST", "/auth/logout")
+            payload = {}
+            if self._token_data and self._token_data.refresh_token:
+                payload["refresh_token"] = self._token_data.refresh_token
+            self._request("POST", "/auth/logout", json=payload)
         except:
             pass
         self._clear_tokens()

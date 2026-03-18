@@ -123,6 +123,30 @@ class TestAuthEndpoints:
         assert response.status_code == 200
         assert "sesion" in response.json()["message"].lower() or "cerrada" in response.json()["message"].lower()
 
+    def test_logout_revokes_refresh_token(self, client: TestClient, test_user: User):
+        """Logout revokes refresh token when client sends it in logout payload."""
+        login_response = client.post("/api/v1/auth/login", json={
+            "username": "testadmin",
+            "password": "testpass123"
+        })
+        assert login_response.status_code == 200
+
+        data = login_response.json()
+        access_token = data["access_token"]
+        refresh_token = data["refresh_token"]
+
+        logout_response = client.post(
+            "/api/v1/auth/logout",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"refresh_token": refresh_token}
+        )
+        assert logout_response.status_code == 200
+
+        refresh_response = client.post("/api/v1/auth/refresh", json={
+            "refresh_token": refresh_token
+        })
+        assert refresh_response.status_code == 401
+
 
 class TestPasswordSecurity:
     """Test password security features."""
@@ -136,6 +160,9 @@ class TestPasswordSecurity:
 
     def test_password_verification_works(self, client: TestClient, test_user: User):
         """Test that correct password works."""
+        from app.core.security_utils import login_rate_limiter
+        login_rate_limiter.requests.clear()
+
         response = client.post("/api/v1/auth/login", json={
             "username": "testadmin",
             "password": "testpass123"

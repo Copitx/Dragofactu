@@ -41,9 +41,8 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "dragofactu-auth",
       partialize: (state) => ({
-        accessToken: state.accessToken,
+        // Keep access token in-memory only; persist refresh token minimally.
         refreshToken: state.refreshToken,
-        user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
     }

@@ -9,9 +9,9 @@ services:
     image: postgres:15-alpine
     container_name: dragofactu-db
     environment:
-      POSTGRES_USER: dragofactu
-      POSTGRES_PASSWORD: dragofactu
-      POSTGRES_DB: dragofactu
+      POSTGRES_USER: ${POSTGRES_USER:-dragofactu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dragofactu_dev_only_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-dragofactu}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -29,9 +29,9 @@ services:
       dockerfile: Dockerfile
     container_name: dragofactu-api
     environment:
-      - DATABASE_URL=postgresql://dragofactu:dragofactu@db:5432/dragofactu
-      - SECRET_KEY=dev-secret-key-change-in-production
-      - DEBUG=true
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-dragofactu}:${POSTGRES_PASSWORD:-dragofactu_dev_only_change_me}@db:5432/${POSTGRES_DB:-dragofactu}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - DEBUG=${DEBUG:-true}
     ports:
       - "8000:8000"
     depends_on:

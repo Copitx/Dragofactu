@@ -2,6 +2,7 @@
 Authentication endpoints: login, register, refresh, logout.
 """
 from datetime import datetime, timezone
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -21,7 +22,7 @@ from app.models import User, Company, UserRole
 from app.schemas import (
     LoginRequest, LoginResponse, TokenResponse,
     RefreshRequest, RefreshResponse,
-    RegisterCompanyRequest, UserResponse, MessageResponse
+    RegisterCompanyRequest, UserResponse, MessageResponse, LogoutRequest
 )
 
 router = APIRouter(prefix="/auth", tags=["Autenticacion"])
@@ -85,6 +86,12 @@ async def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
     """
     Obtener nuevo access token usando refresh token.
     """
+    if token_blacklist.is_blacklisted(request.refresh_token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token invalidado"
+        )
+
     user_id = verify_refresh_token(request.refresh_token)
 
     if not user_id:
@@ -220,6 +227,7 @@ async def get_current_user_info(
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout(
+    request: Optional[LogoutRequest] = None,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user: User = Depends(get_current_user)
 ):
@@ -229,6 +237,10 @@ async def logout(
     if credentials:
         # Add token to blacklist so it can't be reused
         token_blacklist.add(credentials.credentials)
+
+    # Best-effort refresh token revocation (optional to preserve backwards compatibility)
+    if request and request.refresh_token:
+        token_blacklist.add(request.refresh_token, ttl_seconds=7 * 24 * 3600)
 
     return MessageResponse(
         message="Sesion cerrada correctamente",

@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 
+const apiTarget = process.env.VITE_API_URL || "http://localhost:8000";
+
 export default defineConfig({
   plugins: [
     react(),
@@ -39,20 +41,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\/api\//,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 5 * 60,
-              },
-              networkTimeoutSeconds: 10,
-            },
-          },
-        ],
+        // Do not cache API responses to avoid persisting sensitive business data on shared devices.
+        runtimeCaching: [],
       },
     }),
   ],
@@ -65,14 +55,14 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "https://dragofactu-production.up.railway.app",
+        target: apiTarget,
         changeOrigin: true,
-        secure: true,
+        secure: apiTarget.startsWith("https://"),
       },
       "/health": {
-        target: "https://dragofactu-production.up.railway.app",
+        target: apiTarget,
         changeOrigin: true,
-        secure: true,
+        secure: apiTarget.startsWith("https://"),
       },
     },
   },

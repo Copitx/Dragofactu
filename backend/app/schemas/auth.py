@@ -31,6 +31,11 @@ class RefreshResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class LogoutRequest(BaseModel):
+    """Optional logout payload to revoke refresh token as well."""
+    refresh_token: Optional[str] = None
+
+
 class RegisterCompanyRequest(BaseModel):
     """Registration request for new company + admin user."""
     # Company data

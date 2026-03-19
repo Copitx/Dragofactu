@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
 
+    # Managed email channel over HTTPS (works when SMTP ports are blocked)
+    BREVO_API_KEY: str = ""
+    BREVO_SENDER_EMAIL: str = ""
+    BREVO_SENDER_NAME: str = "Dragofactu"
+
     @field_validator('SECRET_KEY')
     @classmethod
     def validate_secret_key(cls, v):

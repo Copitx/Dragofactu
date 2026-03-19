@@ -29,6 +29,7 @@ reportlab>=4.0.0
 
 # Monitoring
 sentry-sdk[fastapi]>=2.0.0
+requests>=2.32.3
 
 # Email (optional)
 # aiosmtplib>=3.0.0

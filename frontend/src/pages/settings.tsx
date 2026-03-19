@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
 import { Sun, Moon, Monitor, Globe, Info, LogOut, Building, Mail } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
@@ -147,8 +148,12 @@ export default function SettingsPage() {
     try {
       const result = await testEmailSettings.mutateAsync();
       toast.success(result.message || t("settings.email_test_ok"));
-    } catch {
-      toast.error(t("settings.email_test_error"));
+    } catch (error) {
+      const detail =
+        error instanceof AxiosError
+          ? error.response?.data?.detail
+          : null;
+      toast.error(detail || t("settings.email_test_error"));
     }
   };
 

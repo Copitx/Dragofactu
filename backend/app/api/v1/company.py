@@ -3,6 +3,7 @@ Company settings endpoints.
 GET/PUT for current user's company configuration.
 """
 import smtplib
+import socket
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -139,6 +140,11 @@ async def test_company_email_settings(
             if company.smtp_use_tls:
                 server.starttls()
             server.login(company.smtp_user, smtp_password)
+    except (socket.timeout, TimeoutError):
+        raise HTTPException(
+            status_code=400,
+            detail="Timeout conectando al servidor SMTP. Es posible que el hosting bloquee puertos SMTP salientes.",
+        )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"No se pudo conectar con SMTP: {str(exc)}")
 

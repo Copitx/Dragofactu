@@ -2,6 +2,7 @@
 Documents CRUD endpoints with business logic.
 Handles quotes, delivery notes, and invoices.
 """
+import logging
 from typing import Optional, List
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -20,6 +21,7 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/documents", tags=["Documentos"])
+logger = logging.getLogger(__name__)
 
 
 # Code prefixes by document type
@@ -644,16 +646,20 @@ async def send_document_email(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
 
-    # Audit log
-    audit = AuditLog(
-        company_id=current_user.company_id,
-        user_id=current_user.id,
-        action="email_sent",
-        entity_type="document",
-        entity_id=str(document_id),
-        details=f"Email sent to {recipient_email}",
-    )
-    db.add(audit)
-    db.commit()
+    # Audit log should not fail the main operation once email is delivered.
+    try:
+        audit = AuditLog(
+            company_id=current_user.company_id,
+            user_id=current_user.id,
+            action="email_sent",
+            entity_type="document",
+            entity_id=document_id.hex,
+            details=f"Email sent to {recipient_email}",
+        )
+        db.add(audit)
+        db.commit()
+    except Exception as audit_error:
+        db.rollback()
+        logger.warning("Email delivered but audit log failed for document %s: %s", document_id, audit_error)
 
     return {"message": f"Email sent to {recipient_email}", "success": True}

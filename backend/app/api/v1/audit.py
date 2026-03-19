@@ -33,12 +33,17 @@ def log_action(
     Helper to create an audit log entry.
     Call this from other endpoints after successful operations.
     """
+    normalized_entity_id = None
+    if entity_id is not None:
+        raw_entity_id = str(entity_id)
+        normalized_entity_id = raw_entity_id.replace("-", "")
+
     entry = AuditLog(
         company_id=company_id,
         user_id=user_id,
         action=action,
         entity_type=entity_type,
-        entity_id=str(entity_id) if entity_id else None,
+        entity_id=normalized_entity_id,
         details=json.dumps(details) if details else None,
     )
     db.add(entry)

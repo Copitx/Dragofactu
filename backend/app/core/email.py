@@ -4,10 +4,12 @@ Uses smtplib (built-in Python, no extra dependencies).
 """
 import smtplib
 import logging
+import base64
 from typing import Optional, Dict, Any
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
+import requests
 
 from app.config import get_settings
 from app.core.security import decrypt_secret_value
@@ -36,14 +38,70 @@ def get_company_smtp_config(company: Optional[Any]) -> Optional[Dict[str, Any]]:
     }
 
 
+def get_managed_email_config() -> Optional[Dict[str, str]]:
+    """Build managed HTTPS email channel config (Brevo)."""
+    settings = get_settings()
+    if not (settings.BREVO_API_KEY and settings.BREVO_SENDER_EMAIL):
+        return None
+    return {
+        "api_key": settings.BREVO_API_KEY,
+        "sender_email": settings.BREVO_SENDER_EMAIL,
+        "sender_name": settings.BREVO_SENDER_NAME or "Dragofactu",
+    }
+
+
 def is_smtp_configured(company: Optional[Any] = None) -> bool:
-    """Check if SMTP settings are configured."""
+    """Check if any email channel is configured (company SMTP, global SMTP, or managed API)."""
     company_config = get_company_smtp_config(company)
     if company_config:
         return True
 
+    if get_managed_email_config():
+        return True
+
     settings = get_settings()
     return bool(settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD)
+
+
+def _send_via_brevo_api(
+    recipient_email: str,
+    subject: str,
+    body_html: str,
+    pdf_bytes: bytes,
+    pdf_filename: str,
+    managed_config: Dict[str, str],
+) -> None:
+    """Send email via Brevo transactional API over HTTPS."""
+    payload = {
+        "sender": {
+            "name": managed_config["sender_name"],
+            "email": managed_config["sender_email"],
+        },
+        "to": [{"email": recipient_email}],
+        "subject": subject,
+        "htmlContent": body_html,
+        "attachment": [
+            {
+                "name": pdf_filename,
+                "content": base64.b64encode(pdf_bytes).decode("ascii"),
+            }
+        ],
+    }
+
+    response = requests.post(
+        "https://api.brevo.com/v3/smtp/email",
+        headers={
+            "accept": "application/json",
+            "api-key": managed_config["api_key"],
+            "content-type": "application/json",
+        },
+        json=payload,
+        timeout=20,
+    )
+
+    if response.status_code >= 400:
+        detail = response.text[:300]
+        raise RuntimeError(f"Brevo API error ({response.status_code}): {detail}")
 
 
 def send_document_email(
@@ -62,6 +120,7 @@ def send_document_email(
         smtplib.SMTPException: On SMTP errors.
     """
     settings = get_settings()
+    managed_config = get_managed_email_config()
 
     effective_config = smtp_config or {
         "host": settings.SMTP_HOST,
@@ -73,8 +132,9 @@ def send_document_email(
         "from_name": None,
     }
 
-    if not (effective_config.get("host") and effective_config.get("user") and effective_config.get("password")):
-        raise ValueError("SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD environment variables.")
+    smtp_ready = bool(effective_config.get("host") and effective_config.get("user") and effective_config.get("password"))
+    if not smtp_ready and not managed_config:
+        raise ValueError("Email not configured. Configure company SMTP or managed email channel.")
 
     msg = MIMEMultipart()
     from_email = effective_config.get("from_email") or effective_config.get("user")
@@ -91,14 +151,33 @@ def send_document_email(
     pdf_part.add_header("Content-Disposition", "attachment", filename=pdf_filename)
     msg.attach(pdf_part)
 
-    # Send via SMTP
-    with smtplib.SMTP(effective_config["host"], effective_config["port"]) as server:
-        if effective_config.get("use_tls", True):
-            server.starttls()
-        server.login(effective_config["user"], effective_config["password"])
-        server.send_message(msg)
+    if smtp_ready:
+        try:
+            with smtplib.SMTP(effective_config["host"], effective_config["port"], timeout=20) as server:
+                if effective_config.get("use_tls", True):
+                    server.starttls()
+                server.login(effective_config["user"], effective_config["password"])
+                server.send_message(msg)
+            logger.info(f"Email sent to {recipient_email} with attachment {pdf_filename} via SMTP")
+            return
+        except Exception as smtp_error:
+            if not managed_config:
+                raise smtp_error
+            logger.warning("SMTP failed, falling back to managed email API: %s", smtp_error)
 
-    logger.info(f"Email sent to {recipient_email} with attachment {pdf_filename}")
+    if managed_config:
+        _send_via_brevo_api(
+            recipient_email=recipient_email,
+            subject=subject,
+            body_html=body_html,
+            pdf_bytes=pdf_bytes,
+            pdf_filename=pdf_filename,
+            managed_config=managed_config,
+        )
+        logger.info(f"Email sent to {recipient_email} with attachment {pdf_filename} via managed API")
+        return
+
+    raise RuntimeError("No email delivery channel available")
 
 
 def build_document_email_html(

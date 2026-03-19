@@ -16,6 +16,7 @@ from app.schemas.company import (
     CompanyEmailSettingsResponse,
 )
 from app.core.security import encrypt_secret_value, decrypt_secret_value
+from app.core.email import get_managed_email_config
 
 router = APIRouter(prefix="/company", tags=["Company"])
 
@@ -128,7 +129,14 @@ async def test_company_email_settings(
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
+    managed = get_managed_email_config()
+
     if not company.smtp_configured:
+        if managed:
+            return {
+                "success": True,
+                "message": "Canal de correo gestionado activo (API HTTPS). No hace falta configurar SMTP por usuario.",
+            }
         raise HTTPException(status_code=400, detail="Correo no configurado para la empresa")
 
     smtp_password = decrypt_secret_value(company.smtp_password_encrypted or "")
@@ -141,6 +149,11 @@ async def test_company_email_settings(
                 server.starttls()
             server.login(company.smtp_user, smtp_password)
     except (socket.timeout, TimeoutError):
+        if managed:
+            return {
+                "success": True,
+                "message": "SMTP bloqueado por hosting. Se usara canal gestionado (API HTTPS).",
+            }
         raise HTTPException(
             status_code=400,
             detail="Timeout conectando al servidor SMTP. Es posible que el hosting bloquee puertos SMTP salientes.",

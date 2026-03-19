@@ -78,6 +78,8 @@ export default function SettingsPage() {
       smtp_use_tls: "true",
       smtp_from_email: "",
       smtp_from_name: "",
+      email_subject_template: "",
+      email_body_template: "",
     },
   });
 
@@ -107,6 +109,8 @@ export default function SettingsPage() {
         smtp_use_tls: emailSettings.smtp_use_tls ? "true" : "false",
         smtp_from_email: emailSettings.smtp_from_email || "",
         smtp_from_name: emailSettings.smtp_from_name || "",
+        email_subject_template: emailSettings.email_subject_template || "",
+        email_body_template: emailSettings.email_body_template || "",
       });
     }
   }, [emailSettings, emailForm]);
@@ -136,6 +140,8 @@ export default function SettingsPage() {
         smtp_use_tls: values.smtp_use_tls === "true",
         smtp_from_email: values.smtp_from_email,
         smtp_from_name: values.smtp_from_name,
+        email_subject_template: values.email_subject_template,
+        email_body_template: values.email_body_template,
       });
       emailForm.setValue("smtp_password", "");
       toast.success(t("settings.email_saved"));
@@ -307,6 +313,23 @@ export default function SettingsPage() {
                   <SelectItem value="false">{t("settings.no")}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("settings.email_subject_template")}</Label>
+              <Input
+                {...emailForm.register("email_subject_template")}
+                placeholder="{company_name} - {doc_code}"
+              />
+              <p className="text-xs text-muted-foreground">{t("settings.email_template_help")}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("settings.email_body_template")}</Label>
+              <Textarea
+                {...emailForm.register("email_body_template")}
+                rows={6}
+                placeholder={t("settings.email_body_template_placeholder")}
+              />
+              <p className="text-xs text-muted-foreground">{t("settings.email_template_help")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={updateEmailSettings.isPending}>

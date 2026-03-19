@@ -50,6 +50,8 @@ class Company(Base):
     smtp_use_tls = Column(Boolean, default=True)
     smtp_from_email = Column(String(200))
     smtp_from_name = Column(String(200))
+    email_subject_template = Column(String(300))
+    email_body_template = Column(Text)
 
     # Subscription/Plan (for future use)
     plan_type = Column(String(20), default='free')  # free, basic, pro

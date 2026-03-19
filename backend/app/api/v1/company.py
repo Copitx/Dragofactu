@@ -30,6 +30,8 @@ def _build_company_email_response(company: Company) -> CompanyEmailSettingsRespo
         smtp_use_tls=bool(company.smtp_use_tls),
         smtp_from_email=company.smtp_from_email,
         smtp_from_name=company.smtp_from_name,
+        email_subject_template=company.email_subject_template,
+        email_body_template=company.email_body_template,
     )
 
 
@@ -102,6 +104,11 @@ async def update_company_email_settings(
         company.smtp_from_email = (update_data.get("smtp_from_email") or "").strip() or None
     if "smtp_from_name" in update_data:
         company.smtp_from_name = (update_data.get("smtp_from_name") or "").strip() or None
+    if "email_subject_template" in update_data:
+        company.email_subject_template = (update_data.get("email_subject_template") or "").strip() or None
+    if "email_body_template" in update_data:
+        body_template = update_data.get("email_body_template")
+        company.email_body_template = body_template.strip() if isinstance(body_template, str) and body_template.strip() else None
 
     # Password behavior:
     # - omitted: keep existing

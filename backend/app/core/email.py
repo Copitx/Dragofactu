@@ -5,6 +5,7 @@ Uses smtplib (built-in Python, no extra dependencies).
 import smtplib
 import logging
 import base64
+import html
 from typing import Optional, Dict, Any
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -15,6 +16,24 @@ from app.config import get_settings
 from app.core.security import decrypt_secret_value
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_EMAIL_SUBJECT_TEMPLATE = "{company_name} - {doc_code}"
+DEFAULT_EMAIL_BODY_TEMPLATE = (
+    "Estimado cliente,\n\n"
+    "Adjuntamos el documento {doc_type_label} {doc_code}.\n\n"
+    "No dude en contactarnos si tiene alguna pregunta."
+)
+
+
+class _SafeTemplateDict(dict):
+    """Keep unknown placeholders untouched instead of raising KeyError."""
+
+    def __missing__(self, key: str) -> str:  # pragma: no cover - defensive fallback
+        return "{" + key + "}"
+
+
+def _render_email_template(template: str, context: Dict[str, str]) -> str:
+    return template.format_map(_SafeTemplateDict(context))
 
 
 def get_company_smtp_config(company: Optional[Any]) -> Optional[Dict[str, Any]]:
@@ -180,12 +199,14 @@ def send_document_email(
     raise RuntimeError("No email delivery channel available")
 
 
-def build_document_email_html(
+def build_document_email_content(
     company_name: str,
     doc_type: str,
     doc_code: str,
-) -> str:
-    """Build a simple HTML email body for a document."""
+    subject_template: Optional[str] = None,
+    body_template: Optional[str] = None,
+) -> tuple[str, str]:
+    """Build subject and HTML body for a document email."""
     doc_type_labels = {
         "quote": "Presupuesto",
         "delivery_note": "Albarán",
@@ -193,17 +214,57 @@ def build_document_email_html(
     }
     doc_label = doc_type_labels.get(doc_type, "Documento")
 
-    return f"""
+    context = {
+        "company_name": company_name,
+        "doc_type": doc_type,
+        "doc_type_label": doc_label,
+        "doc_code": doc_code,
+    }
+
+    rendered_subject = _render_email_template(
+        (subject_template or DEFAULT_EMAIL_SUBJECT_TEMPLATE),
+        context,
+    ).strip()
+    if not rendered_subject:
+        rendered_subject = _render_email_template(DEFAULT_EMAIL_SUBJECT_TEMPLATE, context)
+
+    rendered_body = _render_email_template(
+        (body_template or DEFAULT_EMAIL_BODY_TEMPLATE),
+        context,
+    ).strip()
+    if not rendered_body:
+        rendered_body = _render_email_template(DEFAULT_EMAIL_BODY_TEMPLATE, context)
+
+    escaped_body_html = html.escape(rendered_body).replace("\n", "<br>")
+    escaped_company_name = html.escape(company_name)
+
+    html_content = f"""
     <html>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1D1D1F; padding: 20px;">
-        <h2 style="color: #007AFF;">{company_name}</h2>
-        <p>Estimado cliente,</p>
-        <p>Adjuntamos el documento <strong>{doc_label} {doc_code}</strong>.</p>
-        <p>No dude en contactarnos si tiene alguna pregunta.</p>
+        <h2 style="color: #007AFF;">{escaped_company_name}</h2>
+        <p>{escaped_body_html}</p>
         <br>
         <p style="color: #6E6E73; font-size: 12px;">
-            Este es un mensaje automático enviado desde {company_name}.
+            Este es un mensaje automático enviado desde {escaped_company_name}.
         </p>
     </body>
     </html>
     """
+
+    return rendered_subject, html_content
+
+
+def build_document_email_html(
+    company_name: str,
+    doc_type: str,
+    doc_code: str,
+    body_template: Optional[str] = None,
+) -> str:
+    """Backward-compatible wrapper returning only HTML body."""
+    _, html_content = build_document_email_content(
+        company_name=company_name,
+        doc_type=doc_type,
+        doc_code=doc_code,
+        body_template=body_template,
+    )
+    return html_content

@@ -42,6 +42,8 @@ class CompanyEmailSettingsUpdate(BaseModel):
     smtp_use_tls: Optional[bool] = True
     smtp_from_email: Optional[str] = Field(None, max_length=200)
     smtp_from_name: Optional[str] = Field(None, max_length=200)
+    email_subject_template: Optional[str] = Field(None, max_length=300)
+    email_body_template: Optional[str] = Field(None, max_length=5000)
 
 
 class CompanyEmailSettingsResponse(BaseModel):
@@ -53,6 +55,8 @@ class CompanyEmailSettingsResponse(BaseModel):
     smtp_use_tls: bool = True
     smtp_from_email: Optional[str] = None
     smtp_from_name: Optional[str] = None
+    email_subject_template: Optional[str] = None
+    email_body_template: Optional[str] = None
 
 
 class CompanyResponse(BaseSchema, TimestampMixin):

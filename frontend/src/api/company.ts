@@ -30,6 +30,8 @@ export interface CompanyEmailSettings {
   smtp_use_tls: boolean;
   smtp_from_email?: string;
   smtp_from_name?: string;
+  email_subject_template?: string;
+  email_body_template?: string;
 }
 
 export interface CompanyEmailSettingsUpdate {
@@ -40,6 +42,8 @@ export interface CompanyEmailSettingsUpdate {
   smtp_use_tls?: boolean;
   smtp_from_email?: string;
   smtp_from_name?: string;
+  email_subject_template?: string;
+  email_body_template?: string;
 }
 
 export type CompanySettingsUpdate = Partial<Omit<CompanySettings, "id" | "code">>;

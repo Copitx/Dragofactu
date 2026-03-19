@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Company
 from app.core.security import encrypt_secret_value
+from app.core.email import build_document_email_content
 
 
 class TestCompanyEmailSettings:
@@ -38,6 +39,8 @@ class TestCompanyEmailSettings:
             "smtp_use_tls": True,
             "smtp_from_email": "billing@test.com",
             "smtp_from_name": "Test Billing",
+            "email_subject_template": "{company_name} :: {doc_code}",
+            "email_body_template": "Hola, adjuntamos {doc_type_label} {doc_code}",
         }
 
         response = client.put("/api/v1/company/email/settings", json=payload, headers=auth_headers)
@@ -47,11 +50,27 @@ class TestCompanyEmailSettings:
         assert data["smtp_host"] == "smtp.test.com"
         assert data["smtp_user"] == "billing@test.com"
         assert data["smtp_from_name"] == "Test Billing"
+        assert data["email_subject_template"] == "{company_name} :: {doc_code}"
+        assert data["email_body_template"] == "Hola, adjuntamos {doc_type_label} {doc_code}"
 
         company = db.query(Company).filter(Company.id == test_user.company_id).first()
         assert company is not None
         assert company.smtp_password_encrypted is not None
         assert company.smtp_password_encrypted != "super-secret"
+        assert company.email_subject_template == "{company_name} :: {doc_code}"
+        assert company.email_body_template == "Hola, adjuntamos {doc_type_label} {doc_code}"
+
+    def test_build_document_email_content_uses_templates(self):
+        subject, body_html = build_document_email_content(
+            company_name="Copitx",
+            doc_type="invoice",
+            doc_code="FAC-2026-00001",
+            subject_template="[{company_name}] {doc_type_label} {doc_code}",
+            body_template="Buenas,\nAdjunto {doc_type_label} {doc_code}.",
+        )
+
+        assert subject == "[Copitx] Factura FAC-2026-00001"
+        assert "Adjunto Factura FAC-2026-00001" in body_html
 
     def test_update_email_settings_forbidden_for_warehouse(
         self,

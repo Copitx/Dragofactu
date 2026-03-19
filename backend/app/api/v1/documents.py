@@ -591,7 +591,7 @@ async def send_document_email(
         is_smtp_configured,
         get_company_smtp_config,
         send_document_email as send_email,
-        build_document_email_html,
+        build_document_email_content,
     )
     from app.core.pdf import InvoicePDFGenerator
     from app.models import Company, AuditLog
@@ -630,8 +630,13 @@ async def send_document_email(
 
     # Build email
     doc_type = document.type.value if document.type else "document"
-    html_body = build_document_email_html(company_name, doc_type, document.code)
-    subject = f"{company_name} - {document.code}"
+    subject, html_body = build_document_email_content(
+        company_name=company_name,
+        doc_type=doc_type,
+        doc_code=document.code,
+        subject_template=getattr(company, "email_subject_template", None),
+        body_template=getattr(company, "email_body_template", None),
+    )
 
     # Send
     try:

@@ -9,6 +9,7 @@ import time
 import uuid
 import logging
 import json
+from typing import Optional
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import FastAPI, Request
@@ -408,6 +409,19 @@ except Exception as e:
 # ============================================================================
 
 _static_dir = Path(__file__).resolve().parent.parent / "static"
+_static_root_resolved = _static_dir.resolve()
+
+
+def _resolve_safe_static_path(full_path: str) -> Optional[Path]:
+    """Resolve a user path safely inside static root, blocking traversal."""
+    # Force relative semantics so '/root/...' cannot escape _static_dir.
+    relative_path = full_path.lstrip("/")
+    candidate = (_static_dir / relative_path).resolve(strict=False)
+    try:
+        candidate.relative_to(_static_root_resolved)
+    except ValueError:
+        return None
+    return candidate
 
 if _static_dir.is_dir():
     logger.info(f"Serving frontend static files from {_static_dir}")
@@ -421,9 +435,17 @@ if _static_dir.is_dir():
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
         """Serve the SPA frontend. API routes are handled above by priority."""
-        file_path = _static_dir / full_path
-        if file_path.is_file():
-            return FileResponse(str(file_path))
+        file_path = _resolve_safe_static_path(full_path)
+        if file_path is None:
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+        try:
+            if file_path.is_file():
+                return FileResponse(str(file_path))
+        except (PermissionError, OSError):
+            logger.warning("Blocked inaccessible static path: %s", full_path)
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+
         return FileResponse(str(_static_dir / "index.html"))
 else:
     logger.info("No static directory found, frontend not served.")

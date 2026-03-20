@@ -239,6 +239,8 @@ def _run_migrations():
     migrations = [
         ("companies", "logo_base64", "TEXT"),
         ("companies", "pdf_footer_text", "TEXT"),
+        ("companies", "email_subject_template", "VARCHAR(300)"),
+        ("companies", "email_body_template", "TEXT"),
     ]
     with engine.connect() as conn:
         for table, column, col_type in migrations:

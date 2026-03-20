@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { AxiosError } from "axios";
 import { Sun, Moon, Monitor, Globe, Info, LogOut, Building, Mail } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
@@ -25,7 +24,6 @@ import {
   useUpdateCompanySettings,
   useCompanyEmailSettings,
   useUpdateCompanyEmailSettings,
-  useTestCompanyEmailSettings,
 } from "@/hooks/use-company";
 
 const THEMES = [
@@ -53,7 +51,6 @@ export default function SettingsPage() {
   const updateCompany = useUpdateCompanySettings();
   const { data: emailSettings } = useCompanyEmailSettings();
   const updateEmailSettings = useUpdateCompanyEmailSettings();
-  const testEmailSettings = useTestCompanyEmailSettings();
 
   const companyForm = useForm({
     defaultValues: {
@@ -71,13 +68,6 @@ export default function SettingsPage() {
 
   const emailForm = useForm({
     defaultValues: {
-      smtp_host: "",
-      smtp_port: 587,
-      smtp_user: "",
-      smtp_password: "",
-      smtp_use_tls: "true",
-      smtp_from_email: "",
-      smtp_from_name: "",
       email_subject_template: "",
       email_body_template: "",
     },
@@ -102,13 +92,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if (emailSettings) {
       emailForm.reset({
-        smtp_host: emailSettings.smtp_host || "",
-        smtp_port: emailSettings.smtp_port || 587,
-        smtp_user: emailSettings.smtp_user || "",
-        smtp_password: "",
-        smtp_use_tls: emailSettings.smtp_use_tls ? "true" : "false",
-        smtp_from_email: emailSettings.smtp_from_email || "",
-        smtp_from_name: emailSettings.smtp_from_name || "",
         email_subject_template: emailSettings.email_subject_template || "",
         email_body_template: emailSettings.email_body_template || "",
       });
@@ -133,35 +116,14 @@ export default function SettingsPage() {
   const onSaveEmail = emailForm.handleSubmit(async (values) => {
     try {
       await updateEmailSettings.mutateAsync({
-        smtp_host: values.smtp_host,
-        smtp_port: Number(values.smtp_port),
-        smtp_user: values.smtp_user,
-        smtp_password: values.smtp_password || undefined,
-        smtp_use_tls: values.smtp_use_tls === "true",
-        smtp_from_email: values.smtp_from_email,
-        smtp_from_name: values.smtp_from_name,
         email_subject_template: values.email_subject_template,
         email_body_template: values.email_body_template,
       });
-      emailForm.setValue("smtp_password", "");
       toast.success(t("settings.email_saved"));
     } catch {
       toast.error(t("settings.email_error"));
     }
   });
-
-  const onTestEmail = async () => {
-    try {
-      const result = await testEmailSettings.mutateAsync();
-      toast.success(result.message || t("settings.email_test_ok"));
-    } catch (error) {
-      const detail =
-        error instanceof AxiosError
-          ? error.response?.data?.detail
-          : null;
-      toast.error(detail || t("settings.email_test_error"));
-    }
-  };
 
   return (
     <>
@@ -267,60 +229,16 @@ export default function SettingsPage() {
             {t("settings.email_title")}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {emailSettings?.configured
-              ? t("settings.email_configured")
-              : t("settings.email_not_configured")}
+            {t("settings.email_template_intro")}
           </p>
           <form onSubmit={onSaveEmail} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t("settings.smtp_host")}</Label>
-                <Input {...emailForm.register("smtp_host")} placeholder="smtp.gmail.com" />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("settings.smtp_port")}</Label>
-                <Input type="number" {...emailForm.register("smtp_port")} />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("settings.smtp_user")}</Label>
-                <Input {...emailForm.register("smtp_user")} placeholder="empresa@email.com" />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("settings.smtp_password")}</Label>
-                <Input
-                  type="password"
-                  {...emailForm.register("smtp_password")}
-                  placeholder={t("settings.smtp_password_hint")}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("settings.smtp_from_email")}</Label>
-                <Input {...emailForm.register("smtp_from_email")} placeholder="facturacion@empresa.com" />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("settings.smtp_from_name")}</Label>
-                <Input {...emailForm.register("smtp_from_name")} placeholder="Mi Empresa" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>{t("settings.smtp_tls")}</Label>
-              <Select value={emailForm.watch("smtp_use_tls")} onValueChange={(v) => emailForm.setValue("smtp_use_tls", v)}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">{t("settings.yes")}</SelectItem>
-                  <SelectItem value="false">{t("settings.no")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-2">
               <Label>{t("settings.email_subject_template")}</Label>
               <Input
                 {...emailForm.register("email_subject_template")}
-                placeholder="{company_name} - {doc_code}"
+                placeholder={t("settings.email_subject_template_placeholder")}
               />
-              <p className="text-xs text-muted-foreground">{t("settings.email_template_help")}</p>
+              <p className="text-xs text-muted-foreground">{t("settings.email_template_simple_help")}</p>
             </div>
             <div className="space-y-2">
               <Label>{t("settings.email_body_template")}</Label>
@@ -329,19 +247,11 @@ export default function SettingsPage() {
                 rows={6}
                 placeholder={t("settings.email_body_template_placeholder")}
               />
-              <p className="text-xs text-muted-foreground">{t("settings.email_template_help")}</p>
+              <p className="text-xs text-muted-foreground">{t("settings.email_template_simple_help")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={updateEmailSettings.isPending}>
                 {updateEmailSettings.isPending ? t("buttons.loading") : t("settings.email_save")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onTestEmail}
-                disabled={testEmailSettings.isPending}
-              >
-                {testEmailSettings.isPending ? t("buttons.loading") : t("settings.email_test")}
               </Button>
             </div>
           </form>

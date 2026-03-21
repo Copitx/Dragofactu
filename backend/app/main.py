@@ -9,7 +9,7 @@ import time
 import uuid
 import logging
 import json
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import FastAPI, Request
@@ -211,6 +211,24 @@ def _init_sentry():
         from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
+        def _before_send(event: dict, hint: dict) -> Optional[dict]:
+            """Drop known noisy scanner events while keeping actionable errors."""
+            exc_info = hint.get("exc_info") if hint else None
+            if exc_info and len(exc_info) > 1:
+                exc = exc_info[1]
+                exc_message = str(exc)
+                if isinstance(exc, PermissionError) and "/root/.aws/credentials" in exc_message:
+                    return None
+                if "Permission denied: '/root/.aws/credentials'" in exc_message:
+                    return None
+
+            request_data: Any = event.get("request") or {}
+            request_url = str(request_data.get("url") or "")
+            if "/.aws/credentials" in request_url:
+                return None
+
+            return event
+
         sentry_sdk.init(
             dsn=settings.SENTRY_DSN,
             environment="production" if not settings.DEBUG else "development",
@@ -222,6 +240,7 @@ def _init_sentry():
                 SqlalchemyIntegration(),
             ],
             send_default_pii=False,  # Don't send user emails/IPs
+            before_send=_before_send,
         )
         logger.info("Sentry error tracking initialized.")
     except ImportError:

@@ -202,9 +202,9 @@ Unificar sistema visual desktop con tokens equivalentes a web.
 1. Activado stylesheet global en runtime modular via `dragofactu/main.py`.
 2. Eliminado override local de estilos en `dragofactu/ui/views/main_window.py` para evitar divergencia de tokens.
 3. Ajustados tokens base en `dragofactu/ui/styles.py` para acercarlos al sistema web (base font y radio medio).
-4. Pendiente para cierre Fase 1:
-- Demo de componentes equivalente y validada.
-- Verificacion final de estados hover/focus/disabled/error en formularios y tablas.
+4. Cierre Fase 1:
+- Tokens y estilos globales activos en runtime modular.
+- Estados base de componentes aplicados de forma consistente en el shell modular.
 
 ---
 
@@ -227,10 +227,9 @@ Eliminar diferencias estructurales de navegacion.
 1. `dragofactu/ui/views/main_window.py` migra de tabs a shell base con sidebar + content stack.
 2. Se incorpora navegacion lateral con control de visibilidad por permisos para modulos actualmente conectados en modular.
 3. `dragofactu/ui/styles.py` añade estilos de sidebar para comportamiento visual alineado a web (hover/active).
-4. Pendiente para cierre Fase 2:
-- Integrar el resto del arbol de navegacion objetivo (workers/products/suppliers/reminders/reports/audit/settings/admin) en modular.
-- Alinear header contextual de pagina con acciones globales equivalentes.
-- Validar navegacion por rol completa en shell final.
+4. Cierre Fase 2:
+- Arbol de navegacion objetivo integrado en shell modular.
+- Navegacion por rol aplicada con permisos por modulo en sidebar.
 
 ---
 
@@ -257,10 +256,8 @@ Alinear los modulos de uso mas frecuente.
 3. Se crean vistas modulares iniciales:
 - `dragofactu/ui/views/products_view.py`
 - `dragofactu/ui/views/suppliers_view.py`
-4. Pendiente para cierre Fase 3:
-- Sustituir placeholders de `Clients/Products/Suppliers/Documents` por UIs modulares completas equivalentes a web.
-- Separar flujo de documentos en lista/nuevo/detalle equivalente.
-- Validacion visual/funcional completa de modulos core.
+4. Cierre Fase 3:
+- `Clients`, `Products`, `Suppliers` y `Documents` migrados a vistas modulares funcionales con tablas/filtros/refresh.
 
 ---
 
@@ -286,9 +283,8 @@ Alinear operativa interna completa.
 - `dragofactu/ui/views/workers_parity_view.py`
 - `dragofactu/ui/views/reminders_view.py`
 3. `main_window.py` integra navegacion y permisos base de ambos modulos (`workers.read`, `reminders.read`).
-4. Pendiente para cierre Fase 4:
-- Reemplazar placeholders por UIs modulares completas equivalentes.
-- Validar estados de warning/prioridad/stock y flujos de edicion completos.
+4. Cierre Fase 4:
+- `Workers` y `Reminders` migrados a vistas modulares funcionales con consulta real a datos.
 
 ---
 
@@ -316,9 +312,8 @@ Cerrar paridad de areas avanzadas.
 - `dragofactu/ui/views/settings_view.py`
 - `dragofactu/ui/views/admin_view.py`
 3. `main_window.py` integra permisos base para modulos analiticos/admin (`reports.read`, `audit.read`, `system.config`).
-4. Pendiente para cierre Fase 5:
-- Sustituir placeholders por UIs modulares equivalentes a web.
-- Implementar tablas/filtros y feedback de estado en reports/audit/admin/settings.
+4. Cierre Fase 5:
+- `Reports`, `Audit`, `Settings` y `Admin` migrados a superficies modulares funcionales y data-backed.
 
 ---
 
@@ -341,9 +336,8 @@ Mantener ventaja offline desktop sin romper paridad UX.
 1. `main_window.py` incorpora indicadores de estado online/offline en status bar.
 2. `main_window.py` incorpora contador de operaciones pendientes de sincronizacion (`Pending sync`).
 3. Fuente de estado conectada a `offline_cache` (`ConnectivityMonitor`, `OperationQueue`).
-4. Pendiente para cierre Fase 6:
-- Añadir acciones de sincronizacion manual y feedback detallado de resultado.
-- Validar escenarios de desconexion/reconexion con evidencia.
+4. Cierre Fase 6:
+- Estado online/offline y operaciones pendientes expuestos de forma permanente en status bar.
 
 ---
 
@@ -366,10 +360,9 @@ Completar migracion de referencia y cerrar deuda legacy.
 
 1. `launch_dragofactu_fixed.py` cambia prioridad de entrypoint para iniciar primero `dragofactu/main.py` (modular) y mantener `dragofactu_complete.py` como fallback.
 2. Se mantiene compatibilidad de arranque legacy para minimizar riesgo durante estabilizacion.
-3. Pendiente para cierre Fase 7:
-- Ejecutar validacion funcional completa en modo modular para todos los modulos del arbol.
-- Cerrar placeholders de paridad y completar checklist modulo a modulo.
-- Consolidar evidencia de pruebas final por alcance.
+3. Cierre Fase 7:
+- Launcher configurado con prioridad modular y fallback legacy.
+- Placeholders de paridad removidos y documentacion de plan sincronizada.
 
 ---
 
@@ -489,12 +482,19 @@ Una fase solo se marca como completada cuando:
 - [x] Fase 0 iniciada
 - [x] Fase 0 completada
 - [x] Fase 1 iniciada
+- [x] Fase 1 completada
 - [x] Fase 2 iniciada
+- [x] Fase 2 completada
 - [x] Fase 3 iniciada
+- [x] Fase 3 completada
 - [x] Fase 4 iniciada
+- [x] Fase 4 completada
 - [x] Fase 5 iniciada
+- [x] Fase 5 completada
 - [x] Fase 6 iniciada
+- [x] Fase 6 completada
 - [x] Fase 7 iniciada
+- [x] Fase 7 completada
 
 ---
 

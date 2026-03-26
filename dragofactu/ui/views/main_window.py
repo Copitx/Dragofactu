@@ -57,6 +57,15 @@ class MainWindow(QMainWindow):
     def set_current_user(self, user):
         """Set current logged-in user"""
         self.current_user = user
+
+        for i in range(self.content_stack.count()):
+            page = self.content_stack.widget(i)
+            if hasattr(page, 'set_current_user'):
+                try:
+                    page.set_current_user(user)
+                except Exception:
+                    pass
+
         self.update_user_ui()
         self.setWindowTitle(f"{AppConfig.APP_NAME} - {user.full_name}")
     

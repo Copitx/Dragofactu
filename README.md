@@ -104,7 +104,7 @@ npm run dev
 ./start_dragofactu.sh
 ```
 
-Admin bootstrap credentials are never hardcoded. Use `DEFAULT_ADMIN_PASSWORD` or a securely generated temporary password.
+Admin bootstrap is created during initialization with an environment-defined password or a one-time generated temporary password that must be rotated after first login.
 
 ## Testing and Quality
 
@@ -143,16 +143,6 @@ dragofactu/             Modular desktop client
 scripts/security/       Security validation and closure scripts
 docs/                   Technical and operational documentation
 ```
-
-## Important Docs
-
-- [AGENTS.md](AGENTS.md)
-- [CLAUDE.md](CLAUDE.md)
-- [MEMORIA_LARGO_PLAZO.md](MEMORIA_LARGO_PLAZO.md)
-- [PLAN_FRONTEND.md](PLAN_FRONTEND.md)
-- [PLAN_BACKEND.md](PLAN_BACKEND.md)
-- [PLAN_DESKTOP_PYTHON.md](PLAN_DESKTOP_PYTHON.md)
-- [PLAN_OPERACIONES_SEGURIDAD.md](PLAN_OPERACIONES_SEGURIDAD.md)
 
 ## License
 

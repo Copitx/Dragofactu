@@ -43,7 +43,7 @@ FONTS = {
     'family': 'system-ui, -apple-system, "SF Pro Display", "Segoe UI", sans-serif',
     'size_xs': '11px',
     'size_sm': '12px',
-    'size_base': '13px',
+    'size_base': '14px',
     'size_lg': '15px',
     'size_xl': '17px',
     'size_2xl': '22px',
@@ -64,7 +64,7 @@ SPACING = {
 # Border radius
 RADIUS = {
     'sm': '4px',
-    'md': '8px',
+    'md': '10px',
     'lg': '12px',
     'xl': '16px',
     'full': '9999px',

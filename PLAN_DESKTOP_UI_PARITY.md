@@ -197,6 +197,15 @@ Unificar sistema visual desktop con tokens equivalentes a web.
 1. Pantalla demo interna de componentes desktop validada.
 2. Contrastes y estados minimos verificados.
 
+### Avance inicial Fase 1 (2026-03-26)
+
+1. Activado stylesheet global en runtime modular via `dragofactu/main.py`.
+2. Eliminado override local de estilos en `dragofactu/ui/views/main_window.py` para evitar divergencia de tokens.
+3. Ajustados tokens base en `dragofactu/ui/styles.py` para acercarlos al sistema web (base font y radio medio).
+4. Pendiente para cierre Fase 1:
+- Demo de componentes equivalente y validada.
+- Verificacion final de estados hover/focus/disabled/error en formularios y tablas.
+
 ---
 
 ## Fase 2 - Shell de aplicacion
@@ -415,7 +424,7 @@ Una fase solo se marca como completada cuando:
 - [x] Archivo de plan/checkpoints/checklist/tests creado
 - [x] Fase 0 iniciada
 - [x] Fase 0 completada
-- [ ] Fase 1 iniciada
+- [x] Fase 1 iniciada
 - [ ] Fase 2 iniciada
 - [ ] Fase 3 iniciada
 - [ ] Fase 4 iniciada

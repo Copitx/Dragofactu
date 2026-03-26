@@ -41,9 +41,6 @@ class MainWindow(QMainWindow):
         
         # Setup timers for updates
         self.setup_timers()
-        
-        # Apply styles
-        self.apply_styles()
     
     def set_current_user(self, user):
         """Set current logged-in user"""
@@ -207,35 +204,8 @@ class MainWindow(QMainWindow):
         self.status_timer.start(60000)  # Update every minute
     
     def apply_styles(self):
-        """Apply application styles"""
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f5f5f5;
-            }
-            QTabWidget::pane {
-                border: 1px solid #c0c0c0;
-                background-color: white;
-            }
-            QTabBar::tab {
-                background-color: #e1e1e1;
-                padding: 8px 16px;
-                margin-right: 2px;
-            }
-            QTabBar::tab:selected {
-                background-color: white;
-                border-bottom: 2px solid #0078d4;
-            }
-            QToolBar {
-                background-color: #f8f8f8;
-                border: 1px solid #e1e1e1;
-                spacing: 3px;
-                padding: 4px;
-            }
-            QStatusBar {
-                background-color: #f8f8f8;
-                border-top: 1px solid #e1e1e1;
-            }
-        """)
+        """Deprecated: global styling is applied at QApplication level."""
+        return
     
     def update_menu_permissions(self):
         """Update menu items based on user permissions"""

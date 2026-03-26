@@ -13,13 +13,15 @@ class SettingsView(QWidget):
     def setup_ui(self):
         layout = QVBoxLayout(self)
 
+        default_language = getattr(AppConfig, "DEFAULT_LANGUAGE", "es")
+
         title_label = QLabel("Settings")
         layout.addWidget(title_label)
 
         info = QLabel(
             f"Application: {AppConfig.APP_NAME}\n"
             f"Version: {AppConfig.APP_VERSION}\n"
-            f"Language: {AppConfig.DEFAULT_LANGUAGE}\n"
+            f"Language: {default_language}\n"
             f"Debug mode: {'on' if AppConfig.DEBUG else 'off'}"
         )
         info.setWordWrap(True)

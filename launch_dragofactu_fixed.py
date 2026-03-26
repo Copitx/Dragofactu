@@ -149,7 +149,13 @@ def setup_virtual_environment(install_dir):
     ]
 
     try:
-        subprocess.run([str(pip_path), "install", "--upgrade", "-q"] + requirements, check=True)
+        subprocess.run([
+            str(pip_path),
+            "install",
+            "--upgrade",
+            "--disable-pip-version-check",
+            "-q",
+        ] + requirements, check=True)
         print("✅ Dependencies installed")
         return venv_path
     except subprocess.CalledProcessError as e:

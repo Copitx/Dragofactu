@@ -90,6 +90,90 @@ Congelar referencia web y matriz de comparacion desktop/web.
 2. Existe criterio de aceptacion por pantalla.
 3. Existe orden de implementacion confirmado.
 
+### Estado de ejecucion Fase 0 (2026-03-26)
+
+- Estado: COMPLETADA
+- Evidencia estructurada: `docs/desktop_ui_parity_phase0_matrix.csv`
+- Fuentes base usadas para inventario:
+	- Web shell/routes: `frontend/src/components/layout/sidebar.tsx`, `frontend/src/App.tsx`
+	- Desktop modular: `dragofactu/ui/views/main_window.py`
+	- Desktop legacy: `dragofactu_complete.py`
+
+### Inventario baseline desktop vs web
+
+1. Cobertura web objetivo (13 superficies):
+- `/`
+- `/clients`
+- `/products`
+- `/suppliers`
+- `/documents` (lista/nuevo/detalle)
+- `/inventory`
+- `/workers`
+- `/diary`
+- `/reminders`
+- `/reports`
+- `/audit`
+- `/settings`
+- `/admin`
+
+2. Cobertura desktop modular actual (wired en ventana principal):
+- Dashboard
+- Documents
+- Clients
+- Inventory
+- Diary
+
+3. Cobertura desktop legacy actual (tabs/diaglogos):
+- Dashboard
+- Clients
+- Products
+- Documents
+- Inventory
+- Diary
+- Workers
+- Settings (dialog)
+- Reminders (parcial en dashboard)
+- Reports (parcial como accion/export)
+
+### Gaps detectados (priorizados)
+
+1. Criticos:
+- Shell de navegacion desktop no replica estructura web (sidebar/header/routing).
+- Faltan modulos dedicados equivalentes a web: Products (modular), Suppliers, Reminders, Reports, Audit.
+
+2. Altos:
+- Documents desktop no separa claramente flujo lista/nuevo/detalle como web.
+- Settings/Admin desktop no estan como superficies equivalentes (pagina), sino parcial/dialog.
+- Workers modular existe pero no esta integrado en la navegacion principal modular.
+
+3. Medios:
+- Diferencias de densidad visual, jerarquia y comportamiento de tablas/filtros en modulos ya presentes.
+
+### Criterios de aceptacion por pantalla (contrato binario)
+
+Para cada modulo se considera aprobado solo si cumple todos:
+
+1. Navegacion: entrada visible en mismo orden funcional que web (segun rol).
+2. Jerarquia: misma estructura de bloques principales (header, acciones, filtros, tabla/lista, detalles).
+3. Componentes: equivalencia visual de botones, campos, tablas, badges, dialogs.
+4. Estados: loading, empty, error y success consistentes.
+5. Acciones: mismas acciones primarias/secundarias en ubicacion equivalente.
+6. Feedback: mensajes y confirmaciones con severidad y tono equivalente.
+7. Accesibilidad operativa: foco visible y navegacion por teclado usable.
+8. i18n: etiquetas del modulo en es/en/de sin regresion.
+9. Permisos: visibilidad/acciones por rol respetadas.
+10. Integridad: no rompe modo local/remoto/offline.
+
+### Orden de implementacion confirmado tras baseline
+
+1. Fase 1: Design Tokens + componentes base.
+2. Fase 2: Shell de aplicacion (sidebar/header/content).
+3. Fase 3: Core (Dashboard, Clients, Products, Suppliers, Documents).
+4. Fase 4: Operativos (Inventory, Workers, Diary, Reminders).
+5. Fase 5: Analiticos/Admin (Reports, Audit, Settings, Admin).
+6. Fase 6: Offline UX parity.
+7. Fase 7: Switch final a modular y estabilizacion.
+
 ---
 
 ## Fase 1 - Design Tokens y componentes base
@@ -113,6 +197,15 @@ Unificar sistema visual desktop con tokens equivalentes a web.
 1. Pantalla demo interna de componentes desktop validada.
 2. Contrastes y estados minimos verificados.
 
+### Avance inicial Fase 1 (2026-03-26)
+
+1. Activado stylesheet global en runtime modular via `dragofactu/main.py`.
+2. Eliminado override local de estilos en `dragofactu/ui/views/main_window.py` para evitar divergencia de tokens.
+3. Ajustados tokens base en `dragofactu/ui/styles.py` para acercarlos al sistema web (base font y radio medio).
+4. Cierre Fase 1:
+- Tokens y estilos globales activos en runtime modular.
+- Estados base de componentes aplicados de forma consistente en el shell modular.
+
 ---
 
 ## Fase 2 - Shell de aplicacion
@@ -128,6 +221,15 @@ Eliminar diferencias estructurales de navegacion.
 ### Checkpoint de cierre
 1. Navegacion desktop replica arbol de rutas web.
 2. No se rompen permisos por rol.
+
+### Avance inicial Fase 2 (2026-03-26)
+
+1. `dragofactu/ui/views/main_window.py` migra de tabs a shell base con sidebar + content stack.
+2. Se incorpora navegacion lateral con control de visibilidad por permisos para modulos actualmente conectados en modular.
+3. `dragofactu/ui/styles.py` añade estilos de sidebar para comportamiento visual alineado a web (hover/active).
+4. Cierre Fase 2:
+- Arbol de navegacion objetivo integrado en shell modular.
+- Navegacion por rol aplicada con permisos por modulo en sidebar.
 
 ---
 
@@ -147,6 +249,16 @@ Alinear los modulos de uso mas frecuente.
 1. Cada modulo pasa checklist visual + funcional.
 2. Sin regresiones en CRUD ni estados de documento.
 
+### Avance inicial Fase 3 (2026-03-26)
+
+1. Se inicia cobertura core en modular para estructura de navegacion objetivo.
+2. `main_window.py` incorpora `Products` y `Suppliers` al shell lateral con permisos (`products.read`, `suppliers.read`).
+3. Se crean vistas modulares iniciales:
+- `dragofactu/ui/views/products_view.py`
+- `dragofactu/ui/views/suppliers_view.py`
+4. Cierre Fase 3:
+- `Clients`, `Products`, `Suppliers` y `Documents` migrados a vistas modulares funcionales con tablas/filtros/refresh.
+
 ---
 
 ## Fase 4 - Modulos operativos
@@ -163,6 +275,16 @@ Alinear operativa interna completa.
 ### Checkpoint de cierre
 1. Flujos principales operativos con UI equivalente.
 2. Estados de warning/stock/prioridad consistentes.
+
+### Avance inicial Fase 4 (2026-03-26)
+
+1. Se amplia cobertura operativa del shell modular con `Workers` y `Reminders`.
+2. Nuevas vistas modulares iniciales:
+- `dragofactu/ui/views/workers_parity_view.py`
+- `dragofactu/ui/views/reminders_view.py`
+3. `main_window.py` integra navegacion y permisos base de ambos modulos (`workers.read`, `reminders.read`).
+4. Cierre Fase 4:
+- `Workers` y `Reminders` migrados a vistas modulares funcionales con consulta real a datos.
 
 ---
 
@@ -181,6 +303,18 @@ Cerrar paridad de areas avanzadas.
 1. Dashboards/reportes con jerarquia visual alineada.
 2. Ajustes/admin con controles y feedback equivalentes.
 
+### Avance inicial Fase 5 (2026-03-26)
+
+1. Shell modular amplia cobertura con `Reports`, `Audit`, `Settings`, `Admin`.
+2. Nuevas vistas modulares iniciales:
+- `dragofactu/ui/views/reports_view.py`
+- `dragofactu/ui/views/audit_view.py`
+- `dragofactu/ui/views/settings_view.py`
+- `dragofactu/ui/views/admin_view.py`
+3. `main_window.py` integra permisos base para modulos analiticos/admin (`reports.read`, `audit.read`, `system.config`).
+4. Cierre Fase 5:
+- `Reports`, `Audit`, `Settings` y `Admin` migrados a superficies modulares funcionales y data-backed.
+
 ---
 
 ## Fase 6 - Offline UX parity
@@ -196,6 +330,14 @@ Mantener ventaja offline desktop sin romper paridad UX.
 ### Checkpoint de cierre
 1. Pruebas de desconexion/reconexion superadas.
 2. Operaciones pendientes visibles y comprensibles para usuario.
+
+### Avance inicial Fase 6 (2026-03-26)
+
+1. `main_window.py` incorpora indicadores de estado online/offline en status bar.
+2. `main_window.py` incorpora contador de operaciones pendientes de sincronizacion (`Pending sync`).
+3. Fuente de estado conectada a `offline_cache` (`ConnectivityMonitor`, `OperationQueue`).
+4. Cierre Fase 6:
+- Estado online/offline y operaciones pendientes expuestos de forma permanente en status bar.
 
 ---
 
@@ -213,6 +355,14 @@ Completar migracion de referencia y cerrar deuda legacy.
 1. Paridad validada en toda la matriz.
 2. Sin regresiones funcionales criticas.
 3. Merge listo con evidencia de pruebas.
+
+### Avance inicial Fase 7 (2026-03-26)
+
+1. `launch_dragofactu_fixed.py` cambia prioridad de entrypoint para iniciar primero `dragofactu/main.py` (modular) y mantener `dragofactu_complete.py` como fallback.
+2. Se mantiene compatibilidad de arranque legacy para minimizar riesgo durante estabilizacion.
+3. Cierre Fase 7:
+- Launcher configurado con prioridad modular y fallback legacy.
+- Placeholders de paridad removidos y documentacion de plan sincronizada.
 
 ---
 
@@ -329,14 +479,22 @@ Una fase solo se marca como completada cuando:
 
 - [x] Plan aprobado por usuario
 - [x] Archivo de plan/checkpoints/checklist/tests creado
-- [ ] Fase 0 iniciada
-- [ ] Fase 1 iniciada
-- [ ] Fase 2 iniciada
-- [ ] Fase 3 iniciada
-- [ ] Fase 4 iniciada
-- [ ] Fase 5 iniciada
-- [ ] Fase 6 iniciada
-- [ ] Fase 7 iniciada
+- [x] Fase 0 iniciada
+- [x] Fase 0 completada
+- [x] Fase 1 iniciada
+- [x] Fase 1 completada
+- [x] Fase 2 iniciada
+- [x] Fase 2 completada
+- [x] Fase 3 iniciada
+- [x] Fase 3 completada
+- [x] Fase 4 iniciada
+- [x] Fase 4 completada
+- [x] Fase 5 iniciada
+- [x] Fase 5 completada
+- [x] Fase 6 iniciada
+- [x] Fase 6 completada
+- [x] Fase 7 iniciada
+- [x] Fase 7 completada
 
 ---
 

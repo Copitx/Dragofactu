@@ -2,25 +2,25 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEd
 from PySide6.QtCore import Qt
 
 from dragofactu.models.database import SessionLocal
-from dragofactu.models.entities import Client
+from dragofactu.models.entities import Worker
 
-class ClientsView(QWidget):
-    """Clients management view"""
-    
+
+class WorkersParityView(QWidget):
+    """Workers data view for modular parity shell."""
+
     def __init__(self):
         super().__init__()
         self.setup_ui()
-    
+
     def setup_ui(self):
-        """Setup clients UI"""
         layout = QVBoxLayout(self)
 
-        title_label = QLabel("Clients Management")
+        title_label = QLabel("Workers Management")
         layout.addWidget(title_label)
 
         toolbar = QHBoxLayout()
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("Search clients...")
+        self.search_edit.setPlaceholderText("Search workers...")
         self.search_edit.textChanged.connect(self.refresh)
         toolbar.addWidget(self.search_edit)
 
@@ -31,8 +31,8 @@ class ClientsView(QWidget):
         layout.addLayout(toolbar)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels(["Code", "Name", "Tax ID", "Phone", "Email"])
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(["Code", "Full Name", "Department", "Position", "Phone", "Email"])
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         layout.addWidget(self.table)
@@ -42,31 +42,31 @@ class ClientsView(QWidget):
         layout.addWidget(self.status_label)
 
         self.refresh()
-    
+
     def refresh(self):
-        """Refresh clients view"""
         query_text = self.search_edit.text().strip().lower() if hasattr(self, "search_edit") else ""
         with SessionLocal() as db:
-            clients = db.query(Client).filter(Client.is_active == True).order_by(Client.name.asc()).all()
+            workers = db.query(Worker).filter(Worker.is_active == True).order_by(Worker.full_name.asc()).all()
 
         if query_text:
-            clients = [
-                c for c in clients
-                if query_text in (c.name or "").lower()
-                or query_text in (c.code or "").lower()
-                or query_text in (c.email or "").lower()
+            workers = [
+                w for w in workers
+                if query_text in (w.full_name or "").lower()
+                or query_text in (w.code or "").lower()
+                or query_text in (w.department or "").lower()
             ]
 
-        self.table.setRowCount(len(clients))
-        for row, client in enumerate(clients):
-            self.table.setItem(row, 0, QTableWidgetItem(client.code or ""))
-            self.table.setItem(row, 1, QTableWidgetItem(client.name or ""))
-            self.table.setItem(row, 2, QTableWidgetItem(client.tax_id or ""))
-            self.table.setItem(row, 3, QTableWidgetItem(client.phone or ""))
-            self.table.setItem(row, 4, QTableWidgetItem(client.email or ""))
-            for col in range(5):
+        self.table.setRowCount(len(workers))
+        for row, worker in enumerate(workers):
+            self.table.setItem(row, 0, QTableWidgetItem(worker.code or ""))
+            self.table.setItem(row, 1, QTableWidgetItem(worker.full_name or ""))
+            self.table.setItem(row, 2, QTableWidgetItem(worker.department or ""))
+            self.table.setItem(row, 3, QTableWidgetItem(worker.position or ""))
+            self.table.setItem(row, 4, QTableWidgetItem(worker.phone or ""))
+            self.table.setItem(row, 5, QTableWidgetItem(worker.email or ""))
+            for col in range(6):
                 item = self.table.item(row, col)
                 if item:
                     item.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
 
-        self.status_label.setText(f"{len(clients)} clients loaded")
+        self.status_label.setText(f"{len(workers)} workers loaded")

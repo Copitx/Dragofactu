@@ -1,0 +1,16 @@
+module,web_route,desktop_modular_status,desktop_legacy_status,gap_level,primary_gap,phase_target
+Shell Navigation,layout+sidebar+header,Missing (tabs shell only),Missing (tabs shell only),Critical,Desktop uses tab navigation instead of web shell,Fase 2
+Dashboard,/,Available,Available,Medium,Visual hierarchy and card composition differ,Fase 3
+Clients,/clients,Available,Available,Medium,Table/actions density and toolbar behavior differ,Fase 3
+Products,/products,Missing,Available,Critical,No modular screen currently wired,Fase 3
+Suppliers,/suppliers,Missing,Partial,Critical,No dedicated desktop module parity with web page,Fase 3
+Documents,/documents + /documents/new + /documents/:id,Available (list-level),Available (single tab),High,Missing web-like split of list/new/detail flows,Fase 3
+Inventory,/inventory,Available,Available,Medium,Filter states and metric card semantics differ,Fase 4
+Workers,/workers,Available (view exists, not in modular main nav),Available,High,Navigation visibility mismatch and UI inconsistency,Fase 4
+Diary,/diary,Available,Available,Medium,Entry UX and controls not equivalent to web design,Fase 4
+Reminders,/reminders,Missing,Partial (dashboard section),Critical,No dedicated reminders module in desktop,Fase 4
+Reports,/reports,Missing,Partial (export/report actions),Critical,No dedicated reports page equivalent,Fase 5
+Audit,/audit,Missing,Missing,Critical,No audit page equivalent in desktop,Fase 5
+Settings,/settings,Missing (as page),Partial (dialog),High,Desktop uses dialog, not page-level settings flow,Fase 5
+Admin,/admin,Missing (as page),Partial (admin info in settings),High,No dedicated admin surface equivalent,Fase 5
+Offline UX,offline/cache/sync indicators,N/A feature present but inconsistent,N/A feature present but inconsistent,High,State communication not aligned with web visual language,Fase 6

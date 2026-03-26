@@ -11,6 +11,7 @@ from PySide6.QtGui import QFont, QIcon
 from dragofactu.models.database import engine, Base, SessionLocal
 from dragofactu.config.config import AppConfig, setup_logging
 from dragofactu.services.auth.auth_service import AuthService
+from dragofactu.ui.styles import apply_stylesheet
 from dragofactu.ui.views.login_dialog import LoginDialog
 from dragofactu.ui.views.main_window import MainWindow
 
@@ -49,6 +50,9 @@ class DragofactuApp(QApplication):
         """Setup main UI components"""
         # Set application style
         self.setStyle("Fusion")
+
+        # Apply global desktop design tokens/styles.
+        apply_stylesheet(self)
         
         # Set application font
         font = QFont("Segoe UI", 9)

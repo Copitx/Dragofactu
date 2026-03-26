@@ -72,6 +72,7 @@ temp/
 # Local-only documentation (keep on disk, out of git/GitHub)
 *.md
 !README.md
+!PLAN_DESKTOP_UI_PARITY.md
 
 # Build/tooling cache
 frontend/tsconfig.tsbuildinfo

@@ -362,6 +362,15 @@ Completar migracion de referencia y cerrar deuda legacy.
 2. Sin regresiones funcionales criticas.
 3. Merge listo con evidencia de pruebas.
 
+### Avance inicial Fase 7 (2026-03-26)
+
+1. `launch_dragofactu_fixed.py` cambia prioridad de entrypoint para iniciar primero `dragofactu/main.py` (modular) y mantener `dragofactu_complete.py` como fallback.
+2. Se mantiene compatibilidad de arranque legacy para minimizar riesgo durante estabilizacion.
+3. Pendiente para cierre Fase 7:
+- Ejecutar validacion funcional completa en modo modular para todos los modulos del arbol.
+- Cerrar placeholders de paridad y completar checklist modulo a modulo.
+- Consolidar evidencia de pruebas final por alcance.
+
 ---
 
 ## 5) Checklist de paridad por modulo
@@ -485,7 +494,7 @@ Una fase solo se marca como completada cuando:
 - [x] Fase 4 iniciada
 - [x] Fase 5 iniciada
 - [x] Fase 6 iniciada
-- [ ] Fase 7 iniciada
+- [x] Fase 7 iniciada
 
 ---
 

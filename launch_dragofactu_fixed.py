@@ -198,8 +198,8 @@ def launch_application(install_dir, venv_path):
     python_path = venv_path / "bin" / "python"
 
     entry_points = [
-        SCRIPT_DIR / "dragofactu_complete.py",
         SCRIPT_DIR / "dragofactu" / "main.py",
+        SCRIPT_DIR / "dragofactu_complete.py",
         SCRIPT_DIR / "main.py",
     ]
 

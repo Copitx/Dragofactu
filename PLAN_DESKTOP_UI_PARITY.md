@@ -250,6 +250,18 @@ Alinear los modulos de uso mas frecuente.
 1. Cada modulo pasa checklist visual + funcional.
 2. Sin regresiones en CRUD ni estados de documento.
 
+### Avance inicial Fase 3 (2026-03-26)
+
+1. Se inicia cobertura core en modular para estructura de navegacion objetivo.
+2. `main_window.py` incorpora `Products` y `Suppliers` al shell lateral con permisos (`products.read`, `suppliers.read`).
+3. Se crean vistas modulares iniciales:
+- `dragofactu/ui/views/products_view.py`
+- `dragofactu/ui/views/suppliers_view.py`
+4. Pendiente para cierre Fase 3:
+- Sustituir placeholders de `Clients/Products/Suppliers/Documents` por UIs modulares completas equivalentes a web.
+- Separar flujo de documentos en lista/nuevo/detalle equivalente.
+- Validacion visual/funcional completa de modulos core.
+
 ---
 
 ## Fase 4 - Modulos operativos
@@ -436,7 +448,7 @@ Una fase solo se marca como completada cuando:
 - [x] Fase 0 completada
 - [x] Fase 1 iniciada
 - [x] Fase 2 iniciada
-- [ ] Fase 3 iniciada
+- [x] Fase 3 iniciada
 - [ ] Fase 4 iniciada
 - [ ] Fase 5 iniciada
 - [ ] Fase 6 iniciada

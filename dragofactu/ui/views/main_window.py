@@ -13,6 +13,8 @@ from dragofactu.config.config import AppConfig
 
 from dragofactu.ui.views.dashboard_view import DashboardView
 from dragofactu.ui.views.clients_view import ClientsView
+from dragofactu.ui.views.products_view import ProductsView
+from dragofactu.ui.views.suppliers_view import SuppliersView
 from dragofactu.ui.views.documents_view import DocumentsView
 from dragofactu.ui.views.inventory_view import InventoryView
 from dragofactu.ui.views.diary_view import DiaryView
@@ -181,6 +183,8 @@ class MainWindow(QMainWindow):
         page_specs = [
             ("dashboard", "Dashboard", DashboardView, None),
             ("clients", "Clients", ClientsView, "clients.read"),
+            ("products", "Products", ProductsView, "products.read"),
+            ("suppliers", "Suppliers", SuppliersView, "suppliers.read"),
             ("documents", "Documents", DocumentsView, "documents.read"),
             ("inventory", "Inventory", InventoryView, "inventory.read"),
             ("diary", "Diary", DiaryView, "diary.read"),

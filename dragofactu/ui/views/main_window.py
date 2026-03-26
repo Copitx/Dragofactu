@@ -9,6 +9,7 @@ from PySide6.QtGui import QKeySequence, QAction
 
 from dragofactu.models.database import SessionLocal
 from dragofactu.services.auth.auth_service import PermissionService
+from dragofactu.services.offline_cache import get_operation_queue, get_connectivity_monitor
 from dragofactu.config.config import AppConfig
 
 from dragofactu.ui.views.dashboard_view import DashboardView
@@ -33,6 +34,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.current_user = None
         self.permission_service = PermissionService()
+        self.operation_queue = get_operation_queue()
+        self.connectivity_monitor = get_connectivity_monitor()
         
         self.setWindowTitle(f"{AppConfig.APP_NAME} - {AppConfig.APP_VERSION}")
         self.setGeometry(100, 100, 1200, 800)
@@ -161,7 +164,15 @@ class MainWindow(QMainWindow):
         """Setup status bar"""
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        
+
+        self.connectivity_label = QLabel("Online")
+        self.connectivity_label.setProperty("secondary", "true")
+        self.status_bar.addPermanentWidget(self.connectivity_label)
+
+        self.queue_label = QLabel("Pending sync: 0")
+        self.queue_label.setProperty("secondary", "true")
+        self.status_bar.addPermanentWidget(self.queue_label)
+
         # User info
         self.user_label = QLabel("No user logged in")
         self.status_bar.addPermanentWidget(self.user_label)
@@ -335,6 +346,12 @@ class MainWindow(QMainWindow):
             self.user_label.setText(f"User: {self.current_user.full_name} ({self.current_user.role.value})")
         else:
             self.user_label.setText("No user logged in")
+
+        is_online = self.connectivity_monitor.is_online
+        self.connectivity_label.setText("Online" if is_online else "Offline")
+
+        pending = self.operation_queue.pending_count
+        self.queue_label.setText(f"Pending sync: {pending}")
     
     def closeEvent(self, event):
         """Handle window close event"""

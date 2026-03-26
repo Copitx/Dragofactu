@@ -336,6 +336,15 @@ Mantener ventaja offline desktop sin romper paridad UX.
 1. Pruebas de desconexion/reconexion superadas.
 2. Operaciones pendientes visibles y comprensibles para usuario.
 
+### Avance inicial Fase 6 (2026-03-26)
+
+1. `main_window.py` incorpora indicadores de estado online/offline en status bar.
+2. `main_window.py` incorpora contador de operaciones pendientes de sincronizacion (`Pending sync`).
+3. Fuente de estado conectada a `offline_cache` (`ConnectivityMonitor`, `OperationQueue`).
+4. Pendiente para cierre Fase 6:
+- Añadir acciones de sincronizacion manual y feedback detallado de resultado.
+- Validar escenarios de desconexion/reconexion con evidencia.
+
 ---
 
 ## Fase 7 - Switch final y estabilizacion
@@ -475,7 +484,7 @@ Una fase solo se marca como completada cuando:
 - [x] Fase 3 iniciada
 - [x] Fase 4 iniciada
 - [x] Fase 5 iniciada
-- [ ] Fase 6 iniciada
+- [x] Fase 6 iniciada
 - [ ] Fase 7 iniciada
 
 ---

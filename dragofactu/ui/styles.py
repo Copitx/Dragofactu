@@ -210,6 +210,36 @@ def get_base_stylesheet() -> str:
     }}
 
     /* ========================================
+       SIDEBAR NAVIGATION (PHASE 2)
+       ======================================== */
+
+    QListWidget#mainNavigation {{
+        background-color: {COLORS['bg_card']};
+        border: none;
+        border-right: 1px solid {COLORS['border_light']};
+        outline: none;
+        padding: {SPACING['sm']};
+    }}
+
+    QListWidget#mainNavigation::item {{
+        color: {COLORS['text_secondary']};
+        padding: {SPACING['sm']} {SPACING['md']};
+        margin: 1px 0;
+        border-radius: {RADIUS['md']};
+    }}
+
+    QListWidget#mainNavigation::item:hover {{
+        background-color: {COLORS['bg_hover']};
+        color: {COLORS['text_primary']};
+    }}
+
+    QListWidget#mainNavigation::item:selected {{
+        background-color: #E9F2FF;
+        color: {COLORS['accent']};
+        font-weight: 600;
+    }}
+
+    /* ========================================
        STATUS BAR
        ======================================== */
 

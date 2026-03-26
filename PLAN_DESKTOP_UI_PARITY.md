@@ -222,6 +222,16 @@ Eliminar diferencias estructurales de navegacion.
 1. Navegacion desktop replica arbol de rutas web.
 2. No se rompen permisos por rol.
 
+### Avance inicial Fase 2 (2026-03-26)
+
+1. `dragofactu/ui/views/main_window.py` migra de tabs a shell base con sidebar + content stack.
+2. Se incorpora navegacion lateral con control de visibilidad por permisos para modulos actualmente conectados en modular.
+3. `dragofactu/ui/styles.py` añade estilos de sidebar para comportamiento visual alineado a web (hover/active).
+4. Pendiente para cierre Fase 2:
+- Integrar el resto del arbol de navegacion objetivo (workers/products/suppliers/reminders/reports/audit/settings/admin) en modular.
+- Alinear header contextual de pagina con acciones globales equivalentes.
+- Validar navegacion por rol completa en shell final.
+
 ---
 
 ## Fase 3 - Modulos core (negocio diario)
@@ -425,7 +435,7 @@ Una fase solo se marca como completada cuando:
 - [x] Fase 0 iniciada
 - [x] Fase 0 completada
 - [x] Fase 1 iniciada
-- [ ] Fase 2 iniciada
+- [x] Fase 2 iniciada
 - [ ] Fase 3 iniciada
 - [ ] Fase 4 iniciada
 - [ ] Fase 5 iniciada

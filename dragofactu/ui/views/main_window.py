@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QTabWidget, QMenuBar, QStatusBar, QLabel, 
-    QMessageBox, QToolBar, QSplitter
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QListWidget, QListWidgetItem, QStackedWidget,
+    QStatusBar, QLabel,
+    QMessageBox, QToolBar
 )
-from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QIcon, QFont, QKeySequence, QAction
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QKeySequence, QAction
 
 from dragofactu.models.database import SessionLocal
 from dragofactu.services.auth.auth_service import PermissionService
@@ -37,7 +38,7 @@ class MainWindow(QMainWindow):
         self.setup_menu_bar()
         self.setup_toolbar()
         self.setup_status_bar()
-        self.setup_main_tabs()
+        self.setup_main_shell()
         
         # Setup timers for updates
         self.setup_timers()
@@ -161,40 +162,51 @@ class MainWindow(QMainWindow):
         self.status_label = QLabel("Ready")
         self.status_bar.addWidget(self.status_label)
     
-    def setup_main_tabs(self):
-        """Setup main tab widget"""
-        self.tab_widget = QTabWidget()
-        self.tab_widget.setTabPosition(QTabWidget.North)
-        
-        # Dashboard tab (always visible)
-        self.dashboard_view = DashboardView()
-        self.dashboard_view.setObjectName("dashboard")
-        self.tab_widget.addTab(self.dashboard_view, "Dashboard")
-        
-        # Documents tab
-        self.documents_view = DocumentsView()
-        self.documents_view.setObjectName("documents")
-        self.tab_widget.addTab(self.documents_view, "Documents")
-        
-        # Clients tab
-        self.clients_view = ClientsView()
-        self.clients_view.setObjectName("clients")
-        self.tab_widget.addTab(self.clients_view, "Clients")
-        
-        # Inventory tab
-        self.inventory_view = InventoryView()
-        self.inventory_view.setObjectName("inventory")
-        self.tab_widget.addTab(self.inventory_view, "Inventory")
-        
-        # Diary tab
-        self.diary_view = DiaryView()
-        self.diary_view.setObjectName("diary")
-        self.tab_widget.addTab(self.diary_view, "Diary")
-        
-        self.main_layout.addWidget(self.tab_widget)
-        
-        # Connect tab change signal
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
+    def setup_main_shell(self):
+        """Setup web-like shell: sidebar navigation + stacked content."""
+        shell_layout = QHBoxLayout()
+        shell_layout.setContentsMargins(0, 0, 0, 0)
+        shell_layout.setSpacing(0)
+
+        self.nav_list = QListWidget()
+        self.nav_list.setObjectName("mainNavigation")
+        self.nav_list.setFixedWidth(220)
+
+        self.content_stack = QStackedWidget()
+        self.content_stack.setObjectName("mainContentStack")
+
+        self.pages = []
+        self.page_permissions = {}
+
+        page_specs = [
+            ("dashboard", "Dashboard", DashboardView, None),
+            ("clients", "Clients", ClientsView, "clients.read"),
+            ("documents", "Documents", DocumentsView, "documents.read"),
+            ("inventory", "Inventory", InventoryView, "inventory.read"),
+            ("diary", "Diary", DiaryView, "diary.read"),
+        ]
+
+        for key, label, page_cls, permission in page_specs:
+            page = page_cls()
+            page.setObjectName(key)
+            index = self.content_stack.addWidget(page)
+
+            nav_item = QListWidgetItem(label)
+            nav_item.setData(Qt.UserRole, key)
+            self.nav_list.addItem(nav_item)
+
+            self.pages.append((index, key, label, permission))
+            self.page_permissions[key] = permission
+
+        self.nav_list.currentRowChanged.connect(self.on_nav_changed)
+
+        shell_layout.addWidget(self.nav_list)
+        shell_layout.addWidget(self.content_stack, 1)
+        self.main_layout.addLayout(shell_layout)
+
+        # Default landing view
+        if self.nav_list.count() > 0:
+            self.nav_list.setCurrentRow(0)
     
     def setup_timers(self):
         """Setup periodic timers"""
@@ -224,39 +236,37 @@ class MainWindow(QMainWindow):
                     action.setVisible(self.permission_service.has_permission(self.current_user, action.permission_required))
     
     def update_tab_permissions(self):
-        """Update tab visibility based on user permissions"""
+        """Update navigation visibility based on user permissions."""
         if not self.current_user:
             return
-        
-        # Hide tabs based on permissions
-        has_clients = self.permission_service.has_permission(self.current_user, 'clients.read')
-        has_documents = self.permission_service.has_permission(self.current_user, 'documents.read')
-        has_inventory = self.permission_service.has_permission(self.current_user, 'inventory.read')
-        has_diary = self.permission_service.has_permission(self.current_user, 'diary.read')
-        
-        # Find and hide tabs based on permissions
-        for i in range(self.tab_widget.count()):
-            widget = self.tab_widget.widget(i)
-            object_name = widget.objectName()
-            
-            if object_name == "clients":
-                self.tab_widget.setTabVisible(i, has_clients)
-            elif object_name == "documents":
-                self.tab_widget.setTabVisible(i, has_documents)
-            elif object_name == "inventory":
-                self.tab_widget.setTabVisible(i, has_inventory)
-            elif object_name == "diary":
-                self.tab_widget.setTabVisible(i, has_diary)
+ 
+        first_visible_row = None
+        for row, (_, key, _, permission) in enumerate(self.pages):
+            is_visible = True
+            if permission:
+                is_visible = self.permission_service.has_permission(self.current_user, permission)
+            self.nav_list.setRowHidden(row, not is_visible)
+            if is_visible and first_visible_row is None:
+                first_visible_row = row
+
+        current_row = self.nav_list.currentRow()
+        if current_row < 0 or self.nav_list.isRowHidden(current_row):
+            if first_visible_row is not None:
+                self.nav_list.setCurrentRow(first_visible_row)
     
-    def on_tab_changed(self, index):
-        """Handle tab change event"""
-        widget = self.tab_widget.widget(index)
+    def on_nav_changed(self, row):
+        """Handle sidebar navigation changes."""
+        if row < 0 or row >= len(self.pages) or self.nav_list.isRowHidden(row):
+            return
+
+        index, _, label, _ = self.pages[row]
+        self.content_stack.setCurrentIndex(index)
+
+        widget = self.content_stack.widget(index)
         if hasattr(widget, 'refresh'):
             widget.refresh()
-        
-        # Update status
-        tab_name = self.tab_widget.tabText(index)
-        self.status_label.setText(f"Viewing {tab_name}")
+
+        self.status_label.setText(f"Viewing {label}")
     
     def create_new_quote(self):
         """Create new quote document"""
@@ -298,7 +308,7 @@ class MainWindow(QMainWindow):
     
     def refresh_current_tab(self):
         """Refresh the current active tab"""
-        current_widget = self.tab_widget.currentWidget()
+        current_widget = self.content_stack.currentWidget()
         if hasattr(current_widget, 'refresh'):
             current_widget.refresh()
         self.status_label.setText("Refreshed")

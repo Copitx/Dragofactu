@@ -20,7 +20,7 @@ const registerSchema = z.object({
   company_tax_id: z.string().max(20).optional(),
   username: z.string().min(3).max(50),
   email: z.string().email(),
-  password: z.string().min(6).max(128),
+  password: z.string().min(8).max(128),
   first_name: z.string().max(50).optional(),
   last_name: z.string().max(50).optional(),
 });
@@ -48,7 +48,7 @@ export default function RegisterPage() {
         username: data.username,
         password: data.password,
       });
-      setTokens(loginResponse.access_token, loginResponse.refresh_token);
+      setTokens(loginResponse.access_token);
       setUser(loginResponse.user);
       navigate("/");
     } catch (err) {

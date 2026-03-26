@@ -4,6 +4,7 @@ import type { RefreshResponse } from "@/types/auth";
 
 const api = axios.create({
   baseURL: "/api/v1",
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
@@ -62,17 +63,11 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = useAuthStore.getState().refreshToken;
-      if (!refreshToken) {
-        useAuthStore.getState().logout();
-        window.location.href = "/login";
-        return Promise.reject(error);
-      }
-
       try {
         const response = await axios.post<RefreshResponse>(
           "/api/v1/auth/refresh",
-          { refresh_token: refreshToken }
+          {},
+          { withCredentials: true }
         );
 
         const newAccessToken = response.data.access_token;

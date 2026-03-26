@@ -22,9 +22,7 @@ export async function getMe(): Promise<UserResponse> {
   return response.data;
 }
 
-export async function logout(refreshToken?: string | null): Promise<MessageResponse> {
-  const response = await api.post<MessageResponse>("/auth/logout", {
-    refresh_token: refreshToken ?? undefined,
-  });
+export async function logout(): Promise<MessageResponse> {
+  const response = await api.post<MessageResponse>("/auth/logout", {});
   return response.data;
 }

@@ -1,0 +1,32 @@
+name: Security Dependency Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * 1"
+
+jobs:
+  backend-pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+
+      - name: Run pip-audit (non-blocking)
+        run: |
+          cd backend
+          pip-audit -r requirements.txt || true
+
+      - name: Guidance
+        run: |
+          echo "Review advisories and update PLAN_OPERACIONES_SEGURIDAD.md + MEMORIA_LARGO_PLAZO.md if status changes."

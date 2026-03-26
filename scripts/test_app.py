@@ -32,12 +32,18 @@ def test_app_functionality():
         print(f"❌ Error de base de datos: {e}")
         return False
     
+    admin_username = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
+    admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD")
+    if not admin_password:
+        print("❌ DEFAULT_ADMIN_PASSWORD no definido. Exporta credenciales seguras para ejecutar este test.")
+        return False
+
     # Probar autenticación
     print("\n🔐 Probando autenticación...")
     try:
         auth = AuthService()
         with SessionLocal() as db:
-            user = auth.authenticate(db, 'admin', 'admin123')
+            user = auth.authenticate(db, admin_username, admin_password)
             if user:
                 print(f"✅ Autenticación exitosa: {user.full_name} ({user.role})")
             else:
@@ -55,7 +61,7 @@ def test_app_functionality():
         
         # Probar configuración de usuario
         with SessionLocal() as db:
-            user = auth.authenticate(db, 'admin', 'admin123')
+            user = auth.authenticate(db, admin_username, admin_password)
             merged_user = db.merge(user)
             main_window.set_current_user(merged_user)
             print("✅ UI configurada con usuario correctamente")

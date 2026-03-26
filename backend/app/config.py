@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     # CORS - Set ALLOWED_ORIGINS env var as comma-separated list
     # e.g. ALLOWED_ORIGINS=http://localhost,https://myapp.com
     ALLOWED_ORIGINS: str = "*"
+    ENABLE_API_DOCS: bool = False
+    METRICS_TOKEN: str = ""
 
     # Rate limiting
     LOGIN_RATE_LIMIT: int = 5  # attempts
@@ -93,6 +95,10 @@ class Settings(BaseSettings):
         if self.ALLOWED_ORIGINS == "*":
             return ["*"]
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
+    def get_cors_allow_credentials(self, origins: List[str]) -> bool:
+        """Disallow credentialed CORS when wildcard origin is configured."""
+        return "*" not in origins
 
     class Config:
         env_file = ".env"

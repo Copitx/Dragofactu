@@ -295,12 +295,15 @@ def main():
         print("\n⚠️  WARNING: Using default SECRET_KEY")
 
     if not os.getenv('DEFAULT_ADMIN_PASSWORD'):
-        print("⚠️  WARNING: Using default admin password")
+        print("⚠️  NOTICE: DEFAULT_ADMIN_PASSWORD not set (bootstrap password may be generated at initialization)")
 
     # Show credentials
     print(f"\n🔐 Login Credentials:")
     print(f"   Username: {os.getenv('DEFAULT_ADMIN_USERNAME', 'admin')}")
-    print(f"   Password: {os.getenv('DEFAULT_ADMIN_PASSWORD', 'admin123')}")
+    if os.getenv('DEFAULT_ADMIN_PASSWORD'):
+        print("   Password: [from DEFAULT_ADMIN_PASSWORD]")
+    else:
+        print("   Password: [set during first DB initialization; check init output]")
 
     # Show paths
     print(f"\n📁 Paths:")

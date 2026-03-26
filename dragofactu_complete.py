@@ -9273,7 +9273,7 @@ class LoginDialog(QDialog):
         layout.addWidget(server_btn)
 
         # Hint
-        self.hint_label = QLabel("Modo local: admin / admin123")
+        self.hint_label = QLabel("Modo local: usar credenciales configuradas en inicializacion")
         self.hint_label.setStyleSheet(f"""
             color: {UIStyles.COLORS['text_tertiary']};
             font-size: 11px;
@@ -9306,7 +9306,7 @@ class LoginDialog(QDialog):
                 background-color: {UIStyles.COLORS['bg_hover']};
                 color: {UIStyles.COLORS['text_secondary']};
             """)
-            self.hint_label.setText("Modo local: admin / admin123")
+            self.hint_label.setText("Modo local: usar credenciales configuradas en inicializacion")
 
     def show_server_config(self):
         """Show server configuration dialog."""

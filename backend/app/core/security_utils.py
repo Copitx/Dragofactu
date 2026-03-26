@@ -1,12 +1,22 @@
 """
 Security utilities: Rate limiting, password validation, token blacklist.
 """
+import os
+import logging
 import re
 import time
 from collections import defaultdict
 from threading import Lock
 from typing import Set, Dict, Tuple
 from fastapi import HTTPException, status, Request
+
+try:
+    import redis
+except ImportError:  # pragma: no cover - optional dependency at runtime
+    redis = None
+
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -107,11 +117,70 @@ class RateLimiter:
         return max(0, retry_after)
 
 
-# Global rate limiters
-login_rate_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 attempts per 5 min
-register_rate_limiter = RateLimiter(max_requests=3, window_seconds=3600)  # 3 per hour
-# Global API rate limiter: 120 requests/minute per IP
-api_rate_limiter = RateLimiter(max_requests=120, window_seconds=60)
+class RedisRateLimiter:
+    """
+    Redis-backed fixed-window rate limiter.
+    Uses atomic INCR + EXPIRE to share limits across instances.
+    """
+
+    def __init__(self, redis_client, prefix: str, max_requests: int = 5, window_seconds: int = 60):
+        self.redis = redis_client
+        self.prefix = prefix
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+
+    def _key(self, key: str) -> str:
+        return f"rl:{self.prefix}:{key}"
+
+    def is_allowed(self, key: str) -> bool:
+        redis_key = self._key(key)
+        try:
+            current = self.redis.incr(redis_key)
+            if current == 1:
+                self.redis.expire(redis_key, self.window_seconds)
+            return current <= self.max_requests
+        except Exception as e:
+            logger.warning("Redis rate limiter error, allowing request: %s", e)
+            return True
+
+    def get_retry_after(self, key: str) -> int:
+        redis_key = self._key(key)
+        try:
+            ttl = self.redis.ttl(redis_key)
+            if ttl is None or ttl < 0:
+                return 0
+            return int(ttl)
+        except Exception:
+            return 0
+
+
+def _build_redis_client():
+    """Build redis client from REDIS_URL when available."""
+    redis_url = os.getenv("REDIS_URL", "").strip()
+    if not redis_url or redis is None:
+        return None
+    try:
+        client = redis.from_url(redis_url, decode_responses=True)
+        client.ping()
+        logger.info("Using Redis-backed security controls.")
+        return client
+    except Exception as e:
+        logger.warning("Redis unavailable, using in-memory fallback: %s", e)
+        return None
+
+
+_redis_client = _build_redis_client()
+
+if _redis_client:
+    login_rate_limiter = RedisRateLimiter(_redis_client, prefix="login", max_requests=5, window_seconds=300)
+    register_rate_limiter = RedisRateLimiter(_redis_client, prefix="register", max_requests=3, window_seconds=3600)
+    api_rate_limiter = RedisRateLimiter(_redis_client, prefix="api", max_requests=120, window_seconds=60)
+else:
+    # Global rate limiters (fallback)
+    login_rate_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 attempts per 5 min
+    register_rate_limiter = RateLimiter(max_requests=3, window_seconds=3600)  # 3 per hour
+    # Global API rate limiter: 120 requests/minute per IP
+    api_rate_limiter = RateLimiter(max_requests=120, window_seconds=60)
 
 
 def check_login_rate_limit(request: Request):
@@ -177,8 +246,34 @@ class TokenBlacklist:
                 del self.token_times[token]
 
 
-# Global token blacklist
-token_blacklist = TokenBlacklist()
+class RedisTokenBlacklist:
+    """Redis-backed token blacklist with per-token TTL."""
+
+    def __init__(self, redis_client, prefix: str = "token_blacklist"):
+        self.redis = redis_client
+        self.prefix = prefix
+
+    def _key(self, token: str) -> str:
+        return f"{self.prefix}:{token}"
+
+    def add(self, token: str, ttl_seconds: int = 86400):
+        try:
+            self.redis.setex(self._key(token), ttl_seconds, "1")
+        except Exception as e:
+            logger.warning("Redis blacklist add failed: %s", e)
+
+    def is_blacklisted(self, token: str) -> bool:
+        try:
+            return self.redis.exists(self._key(token)) == 1
+        except Exception as e:
+            logger.warning("Redis blacklist check failed: %s", e)
+            return False
+
+
+if _redis_client:
+    token_blacklist = RedisTokenBlacklist(_redis_client)
+else:
+    token_blacklist = TokenBlacklist()
 
 
 # ============================================================================

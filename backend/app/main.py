@@ -12,7 +12,7 @@ import json
 from typing import Optional, Any
 from datetime import datetime, timezone
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -82,7 +82,7 @@ logger = logging.getLogger("dragofactu")
 # Startup logging
 logger.info(f"Python version: {sys.version}")
 logger.info(f"PORT env: {os.environ.get('PORT', 'not set')}")
-logger.info(f"DATABASE_URL: {settings.DATABASE_URL[:30]}...")
+logger.info("DATABASE_URL configured")
 logger.info(f"DEBUG mode: {settings.DEBUG}")
 logger.info(f"CORS origins: {settings.get_cors_origins()}")
 
@@ -315,9 +315,9 @@ app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="API backend for Dragofactu ERP - Multi-tenant invoicing system",
-    openapi_url="/openapi.json",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    openapi_url="/openapi.json" if (settings.DEBUG or settings.ENABLE_API_DOCS) else None,
+    docs_url="/docs" if (settings.DEBUG or settings.ENABLE_API_DOCS) else None,
+    redoc_url="/redoc" if (settings.DEBUG or settings.ENABLE_API_DOCS) else None,
     debug=settings.DEBUG,
     lifespan=lifespan
 )
@@ -331,10 +331,15 @@ app.add_middleware(SecurityHeadersMiddleware)
 # CORS middleware - Required for desktop client
 # In production, set ALLOWED_ORIGINS env var to comma-separated list
 cors_origins = settings.get_cors_origins()
+if not settings.DEBUG and cors_origins == ["*"]:
+    logger.warning("Wildcard CORS disabled in non-debug mode. Configure explicit ALLOWED_ORIGINS.")
+    cors_origins = []
+
+cors_allow_credentials = settings.get_cors_allow_credentials(cors_origins)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=cors_allow_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
     expose_headers=["X-Total-Count"],  # For pagination
@@ -375,7 +380,10 @@ async def readiness_check():
         finally:
             db.close()
     except Exception as e:
-        checks["database"] = {"status": "error", "detail": str(e)}
+        checks["database"] = {
+            "status": "error",
+            "detail": str(e) if settings.DEBUG else "unavailable"
+        }
         overall_healthy = False
 
     uptime = time.time() - _app_start_time
@@ -393,11 +401,18 @@ async def readiness_check():
 
 
 @app.get("/metrics", tags=["Monitoring"])
-async def get_metrics():
+async def get_metrics(x_metrics_token: Optional[str] = Header(default=None)):
     """
     Application metrics endpoint.
     Returns request counts, error rates, and latency data.
     """
+    if not settings.DEBUG:
+        if not settings.METRICS_TOKEN:
+            # Fail closed in production-like environments when token is not configured.
+            raise HTTPException(status_code=404, detail="Not found")
+        if x_metrics_token != settings.METRICS_TOKEN:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
     uptime = time.time() - _app_start_time
     with _metrics_lock:
         total = _request_metrics["total_requests"]

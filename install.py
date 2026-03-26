@@ -5,6 +5,7 @@ Dragofactu - Professional Business Management System Installation Script
 
 import os
 import sys
+import secrets
 
 # Add current directory to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -56,17 +57,26 @@ def main():
             with SessionLocal() as db:
                 user_service = UserService(db)
                 
-                admin_user = user_service.get_user_by_username("admin")
+                admin_username = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
+                admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD")
+                generated_password = False
+                if not admin_password:
+                    admin_password = secrets.token_urlsafe(12)
+                    generated_password = True
+
+                admin_user = user_service.get_user_by_username(admin_username)
                 if not admin_user:
                     user_service.create_user(
-                        username="admin",
-                        email="admin@dragofactu.com",
-                        password="admin123",
+                        username=admin_username,
+                        email=f"{admin_username}@dragofactu.com",
+                        password=admin_password,
                         full_name="System Administrator",
                         role=UserRole.ADMIN
                     )
-                    print("✅ Created default admin user: admin/admin123")
-                    print("⚠️  Please change the default password after first login!")
+                    print(f"✅ Created admin user: {admin_username}")
+                    print(f"🔐 Temporary password: {admin_password}")
+                    if generated_password:
+                        print("⚠️  This password was generated automatically. Store it and rotate it after first login.")
                 else:
                     print("✅ Admin user already exists")
             
@@ -137,7 +147,7 @@ def main():
         print("\n🎯 Next Steps:")
         print("1. Update .env file with your database and email configuration")
         print("2. Run: python3 main.py")
-        print("3. Login with admin/admin123 (change password after first login)")
+        print("3. Login with the admin credentials shown during installation")
         
     except Exception as e:
         print(f"❌ Installation failed: {e}")

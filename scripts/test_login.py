@@ -24,8 +24,11 @@ def test_login():
     
     print("🔐 Prueba de Login")
     print("Credenciales:")
-    print("  Username: admin")
-    print("  Password: admin123")
+    print(f"  Username: {os.getenv('DEFAULT_ADMIN_USERNAME', 'admin')}")
+    if os.getenv("DEFAULT_ADMIN_PASSWORD"):
+        print("  Password: [desde DEFAULT_ADMIN_PASSWORD]")
+    else:
+        print("  Password: [definir DEFAULT_ADMIN_PASSWORD en el entorno]")
     print("\nAbriendo diálogo de login...")
     
     result = login_dialog.exec()

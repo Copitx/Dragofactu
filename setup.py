@@ -115,7 +115,7 @@ def main():
     print("🎯 Next steps:")
     print(f"1. Configure your database in {env_file}")
     print("2. Run: python3 main.py")
-    print("3. Login with admin/admin123 (change after first login)")
+    print("3. Login with the admin credentials configured for your environment")
     print()
     print("📖 For full documentation, see README.md")
 

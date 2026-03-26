@@ -16,7 +16,7 @@ import { LanguageSelector } from "@/components/language-selector";
 
 const loginSchema = z.object({
   username: z.string().min(3),
-  password: z.string().min(6),
+  password: z.string().min(8),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -37,7 +37,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const response = await login(data);
-      setTokens(response.access_token, response.refresh_token);
+      setTokens(response.access_token);
       setUser(response.user);
       navigate("/");
     } catch {

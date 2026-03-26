@@ -10,7 +10,7 @@ psycopg2-binary>=2.9.9
 alembic>=1.13.0
 
 # Security
-python-jose[cryptography]>=3.3.0
+PyJWT>=2.10.0
 cryptography>=46.0.5
 bcrypt>=4.1.0
 
@@ -23,9 +23,11 @@ email-validator>=2.1.0
 python-multipart>=0.0.20
 python-dotenv>=1.0.0
 pyasn1>=0.6.3
+redis>=5.0.0
 
 # PDF generation (same as desktop)
 reportlab>=4.0.0
+pillow>=11.3.0
 
 # Monitoring
 sentry-sdk[fastapi]>=2.0.0

@@ -3,7 +3,8 @@ Security utilities: Password hashing and JWT token management.
 """
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError
 import bcrypt
 import base64
 import hashlib
@@ -115,7 +116,7 @@ def decode_token(token: str) -> Optional[Dict[str, Any]]:
             algorithms=[settings.ALGORITHM]
         )
         return payload
-    except JWTError:
+    except InvalidTokenError:
         return None
 
 

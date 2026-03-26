@@ -32,6 +32,18 @@ CODE_PREFIXES = {
 }
 
 
+def _mask_email(value: str) -> str:
+    """Return a minimally identifiable representation of an email."""
+    if "@" not in value:
+        return "[redacted]"
+    local, domain = value.split("@", 1)
+    if not local:
+        return f"***@{domain}"
+    if len(local) == 1:
+        return f"{local}***@{domain}"
+    return f"{local[0]}***{local[-1]}@{domain}"
+
+
 def generate_document_code(db: Session, company_id: UUID, doc_type: DocumentType) -> str:
     """Generate next document code for the company."""
     prefix = CODE_PREFIXES[doc_type]
@@ -653,13 +665,14 @@ async def send_document_email(
 
     # Audit log should not fail the main operation once email is delivered.
     try:
+        masked_recipient = _mask_email(recipient_email)
         audit = AuditLog(
             company_id=current_user.company_id,
             user_id=current_user.id,
             action="email_sent",
             entity_type="document",
             entity_id=document_id.hex,
-            details=f"Email sent to {recipient_email}",
+            details=f"Email sent to {masked_recipient}",
         )
         db.add(audit)
         db.commit()
@@ -667,4 +680,4 @@ async def send_document_email(
         db.rollback()
         logger.warning("Email delivered but audit log failed for document %s: %s", document_id, audit_error)
 
-    return {"message": f"Email sent to {recipient_email}", "success": True}
+    return {"message": f"Email sent to {_mask_email(recipient_email)}", "success": True}

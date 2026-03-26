@@ -3,12 +3,13 @@ Authentication endpoints: login, register, refresh, logout.
 """
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Cookie
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 import uuid
 
 from app.api.deps import get_db, get_current_user, security
+from app.config import get_settings
 from app.core.security import (
     hash_password, verify_password,
     create_access_token, create_refresh_token,
@@ -26,12 +27,34 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/auth", tags=["Autenticacion"])
+settings = get_settings()
+
+REFRESH_COOKIE_NAME = "dragofactu_refresh_token"
+
+
+def _set_refresh_cookie(response: Response, refresh_token: str):
+    """Store refresh token in HttpOnly cookie for web clients."""
+    max_age = 60 * 60 * 24 * 7
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="lax",
+        max_age=max_age,
+        path="/api/v1/auth",
+    )
+
+
+def _clear_refresh_cookie(response: Response):
+    response.delete_cookie(key=REFRESH_COOKIE_NAME, path="/api/v1/auth")
 
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
     request: LoginRequest,
     http_request: Request,
+    response: Response,
     db: Session = Depends(get_db)
 ):
     """
@@ -66,6 +89,7 @@ async def login(
     token_data = {"sub": str(user.id)}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
+    _set_refresh_cookie(response, refresh_token)
 
     user_response = UserResponse.model_validate(user)
     # Add company name
@@ -82,17 +106,29 @@ async def login(
 
 
 @router.post("/refresh", response_model=RefreshResponse)
-async def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
+async def refresh_token(
+    request: Optional[RefreshRequest] = None,
+    refresh_cookie: Optional[str] = Cookie(default=None, alias=REFRESH_COOKIE_NAME),
+    db: Session = Depends(get_db)
+):
     """
     Obtener nuevo access token usando refresh token.
     """
-    if token_blacklist.is_blacklisted(request.refresh_token):
+    refresh_token = request.refresh_token if request and request.refresh_token else refresh_cookie
+
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token ausente"
+        )
+
+    if token_blacklist.is_blacklisted(refresh_token):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token invalidado"
         )
 
-    user_id = verify_refresh_token(request.refresh_token)
+    user_id = verify_refresh_token(refresh_token)
 
     if not user_id:
         raise HTTPException(
@@ -227,7 +263,9 @@ async def get_current_user_info(
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout(
+    response: Response,
     request: Optional[LogoutRequest] = None,
+    refresh_cookie: Optional[str] = Cookie(default=None, alias=REFRESH_COOKIE_NAME),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user: User = Depends(get_current_user)
 ):
@@ -238,9 +276,12 @@ async def logout(
         # Add token to blacklist so it can't be reused
         token_blacklist.add(credentials.credentials)
 
-    # Best-effort refresh token revocation (optional to preserve backwards compatibility)
-    if request and request.refresh_token:
-        token_blacklist.add(request.refresh_token, ttl_seconds=7 * 24 * 3600)
+    # Best-effort refresh token revocation from payload or HttpOnly cookie
+    refresh_token = request.refresh_token if request and request.refresh_token else refresh_cookie
+    if refresh_token:
+        token_blacklist.add(refresh_token, ttl_seconds=7 * 24 * 3600)
+
+    _clear_refresh_cookie(response)
 
     return MessageResponse(
         message="Sesion cerrada correctamente",

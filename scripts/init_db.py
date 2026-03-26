@@ -19,9 +19,13 @@ def create_default_admin():
     db = SessionLocal()
     
     try:
-        # Get credentials from environment or use secure defaults
+        # Get credentials from environment or generate secure bootstrap password
         admin_username = os.getenv('DEFAULT_ADMIN_USERNAME', 'admin')
-        admin_password = os.getenv('DEFAULT_ADMIN_PASSWORD', 'admin123')
+        admin_password = os.getenv('DEFAULT_ADMIN_PASSWORD')
+        generated_password = False
+        if not admin_password:
+            admin_password = secrets.token_urlsafe(12)
+            generated_password = True
         
         # Verificar si ya existe el usuario admin
         admin_user = db.query(User).filter(User.username == admin_username).first()
@@ -52,10 +56,9 @@ def create_default_admin():
         print(f"   Password: {admin_password}")
         print(f"   ID: {admin_user.id}")
         
-        # Security warning if using default credentials
-        if admin_password == "admin123":
-            print("\n⚠️ SECURITY WARNING: Using default password!")
-            print("   Change it after first login or set DEFAULT_ADMIN_PASSWORD env var.")
+        if generated_password:
+            print("\n⚠️ SECURITY NOTICE: Generated temporary admin password.")
+            print("   Save it now and rotate it after first login.")
         
         return admin_user
         

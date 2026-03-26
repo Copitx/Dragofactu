@@ -69,7 +69,8 @@ class DragofactuApp(QApplication):
         It can be explicitly enabled for controlled CI/dev scenarios with:
         DRAGOFACTU_ALLOW_HEADLESS_AUTOLOGIN=true
         """
-        headless_env = os.environ.get('QT_QPA_PLATFORM') == 'offscreen' or not os.environ.get('DISPLAY')
+        is_linux = sys.platform.startswith('linux')
+        headless_env = os.environ.get('QT_QPA_PLATFORM') == 'offscreen' or (is_linux and not os.environ.get('DISPLAY'))
         allow_headless_autologin = os.environ.get('DRAGOFACTU_ALLOW_HEADLESS_AUTOLOGIN', '').lower() == 'true'
 
         if headless_env and allow_headless_autologin:

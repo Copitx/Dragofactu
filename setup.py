@@ -6,18 +6,19 @@ Simple setup script for Dragofactu
 import os
 import sys
 import subprocess
+from pathlib import Path
 
 def check_python_version():
     """Check Python version"""
     version = sys.version_info
-    version_parts = version.split('.')
-    major = int(version_parts[0])
+    major = version.major
+    minor = version.minor
     
-    print(f"🐍 Python version: {version}")
+    print(f"🐍 Python version: {major}.{minor}.{version.micro}")
     
-    if major < 3:
-        print("❌ Dragofactu requires Python 3.11+")
-        print("Please install Python 3.11 or higher")
+    if major < 3 or (major == 3 and minor < 8):
+        print("❌ Dragofactu requires Python 3.8+")
+        print("Please install Python 3.8 or higher")
         return False
     
     return True
@@ -63,14 +64,19 @@ EXPORTS_DIR=./exports
 ATTACHMENTS_DIR=./attachments
 '''
     
-    env_file = "/home/copi/Dragofactu/.env"
+    project_root = Path(__file__).resolve().parent
+    env_file = project_root / ".env"
+
+    if env_file.exists():
+        print(f"✓ .env already exists at {env_file}")
+        return str(env_file)
     
     # Write .env file
     with open(env_file, 'w') as f:
         f.write(env_content)
     
     print(f"✓ Created .env file at {env_file}")
-    return env_file
+    return str(env_file)
 
 def main():
     """Main setup function"""
@@ -87,7 +93,7 @@ def main():
     # Install dependencies
     print("📦 Installing dependencies...")
     try:
-        subprocess.run([
+        result = subprocess.run([
             sys.executable, "-m", "pip", "install",
             "PySide6>=6.5.0",
             "sqlalchemy>=2.0.0",
@@ -114,7 +120,7 @@ def main():
     print()
     print("🎯 Next steps:")
     print(f"1. Configure your database in {env_file}")
-    print("2. Run: python3 main.py")
+    print("2. Run: ./start_dragofactu.sh")
     print("3. Login with the admin credentials configured for your environment")
     print()
     print("📖 For full documentation, see README.md")

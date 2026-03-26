@@ -20,6 +20,10 @@ from dragofactu.ui.views.inventory_view import InventoryView
 from dragofactu.ui.views.diary_view import DiaryView
 from dragofactu.ui.views.workers_parity_view import WorkersParityView
 from dragofactu.ui.views.reminders_view import RemindersView
+from dragofactu.ui.views.reports_view import ReportsView
+from dragofactu.ui.views.audit_view import AuditView
+from dragofactu.ui.views.settings_view import SettingsView
+from dragofactu.ui.views.admin_view import AdminView
 
 
 class MainWindow(QMainWindow):
@@ -192,6 +196,10 @@ class MainWindow(QMainWindow):
             ("workers", "Workers", WorkersParityView, "workers.read"),
             ("diary", "Diary", DiaryView, "diary.read"),
             ("reminders", "Reminders", RemindersView, "reminders.read"),
+            ("reports", "Reports", ReportsView, "reports.read"),
+            ("audit", "Audit", AuditView, "audit.read"),
+            ("settings", "Settings", SettingsView, None),
+            ("admin", "Admin", AdminView, "system.config"),
         ]
 
         for key, label, page_cls, permission in page_specs:

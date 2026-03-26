@@ -307,6 +307,19 @@ Cerrar paridad de areas avanzadas.
 1. Dashboards/reportes con jerarquia visual alineada.
 2. Ajustes/admin con controles y feedback equivalentes.
 
+### Avance inicial Fase 5 (2026-03-26)
+
+1. Shell modular amplia cobertura con `Reports`, `Audit`, `Settings`, `Admin`.
+2. Nuevas vistas modulares iniciales:
+- `dragofactu/ui/views/reports_view.py`
+- `dragofactu/ui/views/audit_view.py`
+- `dragofactu/ui/views/settings_view.py`
+- `dragofactu/ui/views/admin_view.py`
+3. `main_window.py` integra permisos base para modulos analiticos/admin (`reports.read`, `audit.read`, `system.config`).
+4. Pendiente para cierre Fase 5:
+- Sustituir placeholders por UIs modulares equivalentes a web.
+- Implementar tablas/filtros y feedback de estado en reports/audit/admin/settings.
+
 ---
 
 ## Fase 6 - Offline UX parity
@@ -461,7 +474,7 @@ Una fase solo se marca como completada cuando:
 - [x] Fase 2 iniciada
 - [x] Fase 3 iniciada
 - [x] Fase 4 iniciada
-- [ ] Fase 5 iniciada
+- [x] Fase 5 iniciada
 - [ ] Fase 6 iniciada
 - [ ] Fase 7 iniciada
 

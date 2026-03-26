@@ -11,6 +11,10 @@ from .inventory_view import InventoryView
 from .diary_view import DiaryView
 from .workers_parity_view import WorkersParityView
 from .reminders_view import RemindersView
+from .reports_view import ReportsView
+from .audit_view import AuditView
+from .settings_view import SettingsView
+from .admin_view import AdminView
 
 __all__ = [
     'LoginDialog',
@@ -23,5 +27,9 @@ __all__ = [
     'InventoryView',
     'DiaryView',
     'WorkersParityView',
-    'RemindersView'
+    'RemindersView',
+    'ReportsView',
+    'AuditView',
+    'SettingsView',
+    'AdminView'
 ]

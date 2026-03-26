@@ -90,6 +90,90 @@ Congelar referencia web y matriz de comparacion desktop/web.
 2. Existe criterio de aceptacion por pantalla.
 3. Existe orden de implementacion confirmado.
 
+### Estado de ejecucion Fase 0 (2026-03-26)
+
+- Estado: COMPLETADA
+- Evidencia estructurada: `docs/desktop_ui_parity_phase0_matrix.csv`
+- Fuentes base usadas para inventario:
+	- Web shell/routes: `frontend/src/components/layout/sidebar.tsx`, `frontend/src/App.tsx`
+	- Desktop modular: `dragofactu/ui/views/main_window.py`
+	- Desktop legacy: `dragofactu_complete.py`
+
+### Inventario baseline desktop vs web
+
+1. Cobertura web objetivo (13 superficies):
+- `/`
+- `/clients`
+- `/products`
+- `/suppliers`
+- `/documents` (lista/nuevo/detalle)
+- `/inventory`
+- `/workers`
+- `/diary`
+- `/reminders`
+- `/reports`
+- `/audit`
+- `/settings`
+- `/admin`
+
+2. Cobertura desktop modular actual (wired en ventana principal):
+- Dashboard
+- Documents
+- Clients
+- Inventory
+- Diary
+
+3. Cobertura desktop legacy actual (tabs/diaglogos):
+- Dashboard
+- Clients
+- Products
+- Documents
+- Inventory
+- Diary
+- Workers
+- Settings (dialog)
+- Reminders (parcial en dashboard)
+- Reports (parcial como accion/export)
+
+### Gaps detectados (priorizados)
+
+1. Criticos:
+- Shell de navegacion desktop no replica estructura web (sidebar/header/routing).
+- Faltan modulos dedicados equivalentes a web: Products (modular), Suppliers, Reminders, Reports, Audit.
+
+2. Altos:
+- Documents desktop no separa claramente flujo lista/nuevo/detalle como web.
+- Settings/Admin desktop no estan como superficies equivalentes (pagina), sino parcial/dialog.
+- Workers modular existe pero no esta integrado en la navegacion principal modular.
+
+3. Medios:
+- Diferencias de densidad visual, jerarquia y comportamiento de tablas/filtros en modulos ya presentes.
+
+### Criterios de aceptacion por pantalla (contrato binario)
+
+Para cada modulo se considera aprobado solo si cumple todos:
+
+1. Navegacion: entrada visible en mismo orden funcional que web (segun rol).
+2. Jerarquia: misma estructura de bloques principales (header, acciones, filtros, tabla/lista, detalles).
+3. Componentes: equivalencia visual de botones, campos, tablas, badges, dialogs.
+4. Estados: loading, empty, error y success consistentes.
+5. Acciones: mismas acciones primarias/secundarias en ubicacion equivalente.
+6. Feedback: mensajes y confirmaciones con severidad y tono equivalente.
+7. Accesibilidad operativa: foco visible y navegacion por teclado usable.
+8. i18n: etiquetas del modulo en es/en/de sin regresion.
+9. Permisos: visibilidad/acciones por rol respetadas.
+10. Integridad: no rompe modo local/remoto/offline.
+
+### Orden de implementacion confirmado tras baseline
+
+1. Fase 1: Design Tokens + componentes base.
+2. Fase 2: Shell de aplicacion (sidebar/header/content).
+3. Fase 3: Core (Dashboard, Clients, Products, Suppliers, Documents).
+4. Fase 4: Operativos (Inventory, Workers, Diary, Reminders).
+5. Fase 5: Analiticos/Admin (Reports, Audit, Settings, Admin).
+6. Fase 6: Offline UX parity.
+7. Fase 7: Switch final a modular y estabilizacion.
+
 ---
 
 ## Fase 1 - Design Tokens y componentes base
@@ -329,7 +413,8 @@ Una fase solo se marca como completada cuando:
 
 - [x] Plan aprobado por usuario
 - [x] Archivo de plan/checkpoints/checklist/tests creado
-- [ ] Fase 0 iniciada
+- [x] Fase 0 iniciada
+- [x] Fase 0 completada
 - [ ] Fase 1 iniciada
 - [ ] Fase 2 iniciada
 - [ ] Fase 3 iniciada

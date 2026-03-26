@@ -18,6 +18,8 @@ from dragofactu.ui.views.suppliers_view import SuppliersView
 from dragofactu.ui.views.documents_view import DocumentsView
 from dragofactu.ui.views.inventory_view import InventoryView
 from dragofactu.ui.views.diary_view import DiaryView
+from dragofactu.ui.views.workers_parity_view import WorkersParityView
+from dragofactu.ui.views.reminders_view import RemindersView
 
 
 class MainWindow(QMainWindow):
@@ -187,7 +189,9 @@ class MainWindow(QMainWindow):
             ("suppliers", "Suppliers", SuppliersView, "suppliers.read"),
             ("documents", "Documents", DocumentsView, "documents.read"),
             ("inventory", "Inventory", InventoryView, "inventory.read"),
+            ("workers", "Workers", WorkersParityView, "workers.read"),
             ("diary", "Diary", DiaryView, "diary.read"),
+            ("reminders", "Reminders", RemindersView, "reminders.read"),
         ]
 
         for key, label, page_cls, permission in page_specs:

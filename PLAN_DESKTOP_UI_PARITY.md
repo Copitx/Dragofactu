@@ -279,6 +279,17 @@ Alinear operativa interna completa.
 1. Flujos principales operativos con UI equivalente.
 2. Estados de warning/stock/prioridad consistentes.
 
+### Avance inicial Fase 4 (2026-03-26)
+
+1. Se amplia cobertura operativa del shell modular con `Workers` y `Reminders`.
+2. Nuevas vistas modulares iniciales:
+- `dragofactu/ui/views/workers_parity_view.py`
+- `dragofactu/ui/views/reminders_view.py`
+3. `main_window.py` integra navegacion y permisos base de ambos modulos (`workers.read`, `reminders.read`).
+4. Pendiente para cierre Fase 4:
+- Reemplazar placeholders por UIs modulares completas equivalentes.
+- Validar estados de warning/prioridad/stock y flujos de edicion completos.
+
 ---
 
 ## Fase 5 - Modulos analiticos y administracion
@@ -449,7 +460,7 @@ Una fase solo se marca como completada cuando:
 - [x] Fase 1 iniciada
 - [x] Fase 2 iniciada
 - [x] Fase 3 iniciada
-- [ ] Fase 4 iniciada
+- [x] Fase 4 iniciada
 - [ ] Fase 5 iniciada
 - [ ] Fase 6 iniciada
 - [ ] Fase 7 iniciada

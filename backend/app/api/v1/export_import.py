@@ -1,18 +1,19 @@
 """
 Export/Import CSV endpoints.
 Export clients, products, suppliers to CSV.
-Import clients and products from CSV.
+Import clients, products, suppliers, workers and diary from CSV.
 """
 import csv
 import io
 import logging
+from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_permission
-from app.models import Client, Product, Supplier, User
+from app.models import Client, Product, Supplier, Worker, DiaryEntry, User
 from app.schemas.base import MessageResponse
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,33 @@ ALLOWED_CSV_CONTENT_TYPES = {
 }
 MAX_IMPORT_FILE_SIZE_BYTES = 2 * 1024 * 1024
 MAX_IMPORT_ROWS = 10000
+
+
+def _parse_datetime(value: str) -> Optional[datetime]:
+    """Parse common datetime/date formats used in CSV imports."""
+    text = (value or "").strip()
+    if not text:
+        return None
+
+    normalized = text.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        pass
+
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+
+    raise ValueError(f"fecha invalida: {text}")
+
+
+def _parse_bool(value: str) -> bool:
+    """Parse truthy strings from CSV imports."""
+    text = (value or "").strip().lower()
+    return text in {"1", "true", "yes", "si", "sí", "y"}
 
 
 def _sanitize_csv_cell(value: Optional[object]) -> str:
@@ -300,6 +328,248 @@ async def import_products(
 
     db.commit()
     logger.info(f"Imported {created} products for company {current_user.company_id}")
+
+    msg = f"Importados: {created}, Omitidos (duplicados): {skipped}"
+    if errors:
+        msg += f", Errores: {len(errors)}"
+    return MessageResponse(message=msg)
+
+
+@router.post("/import/suppliers", response_model=MessageResponse)
+async def import_suppliers(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("export.write"))
+):
+    """
+    Import suppliers from CSV file.
+    Expected columns: code, name, tax_id, address, city, postal_code,
+    province, country, phone, email, website, notes
+    Skips rows with duplicate codes.
+    """
+    content = await file.read()
+    _validate_csv_upload(file, content)
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo CSV debe estar codificado en UTF-8"
+        )
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    created = 0
+    skipped = 0
+    errors = []
+
+    for i, row in enumerate(reader, start=2):
+        if i - 1 > MAX_IMPORT_ROWS:
+            errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
+            break
+
+        code = row.get("code", "").strip()
+        name = row.get("name", "").strip()
+
+        if not code or not name:
+            errors.append(f"Fila {i}: code y name son obligatorios")
+            continue
+
+        existing = db.query(Supplier).filter(
+            Supplier.company_id == current_user.company_id,
+            Supplier.code == code
+        ).first()
+
+        if existing:
+            skipped += 1
+            continue
+
+        supplier = Supplier(
+            company_id=current_user.company_id,
+            code=code,
+            name=name,
+            tax_id=row.get("tax_id", "").strip() or None,
+            address=row.get("address", "").strip() or None,
+            city=row.get("city", "").strip() or None,
+            postal_code=row.get("postal_code", "").strip() or None,
+            province=row.get("province", "").strip() or None,
+            country=row.get("country", "").strip() or "Espana",
+            phone=row.get("phone", "").strip() or None,
+            email=row.get("email", "").strip() or None,
+            website=row.get("website", "").strip() or None,
+            notes=row.get("notes", "").strip() or None,
+        )
+        db.add(supplier)
+        created += 1
+
+    db.commit()
+    logger.info(f"Imported {created} suppliers for company {current_user.company_id}")
+
+    msg = f"Importados: {created}, Omitidos (duplicados): {skipped}"
+    if errors:
+        msg += f", Errores: {len(errors)}"
+    return MessageResponse(message=msg)
+
+
+@router.post("/import/workers", response_model=MessageResponse)
+async def import_workers(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("export.write"))
+):
+    """
+    Import workers from CSV file.
+    Expected columns: code, first_name, last_name, phone, email, address,
+    position, department, hire_date, salary
+    Skips rows with duplicate codes.
+    """
+    content = await file.read()
+    _validate_csv_upload(file, content)
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo CSV debe estar codificado en UTF-8"
+        )
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    created = 0
+    skipped = 0
+    errors = []
+
+    for i, row in enumerate(reader, start=2):
+        if i - 1 > MAX_IMPORT_ROWS:
+            errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
+            break
+
+        code = row.get("code", "").strip()
+        first_name = row.get("first_name", "").strip()
+        last_name = row.get("last_name", "").strip()
+
+        if not code or not first_name or not last_name:
+            errors.append(f"Fila {i}: code, first_name y last_name son obligatorios")
+            continue
+
+        existing = db.query(Worker).filter(
+            Worker.company_id == current_user.company_id,
+            Worker.code == code
+        ).first()
+
+        if existing:
+            skipped += 1
+            continue
+
+        hire_date_raw = row.get("hire_date", "")
+        try:
+            hire_date = _parse_datetime(hire_date_raw) if hire_date_raw.strip() else None
+        except ValueError as e:
+            errors.append(f"Fila {i}: {str(e)}")
+            continue
+
+        salary_raw = row.get("salary", "").strip()
+        try:
+            salary = float(salary_raw) if salary_raw else None
+        except ValueError:
+            errors.append(f"Fila {i}: salary invalido")
+            continue
+
+        worker = Worker(
+            company_id=current_user.company_id,
+            code=code,
+            first_name=first_name,
+            last_name=last_name,
+            phone=row.get("phone", "").strip() or None,
+            email=row.get("email", "").strip() or None,
+            address=row.get("address", "").strip() or None,
+            position=row.get("position", "").strip() or None,
+            department=row.get("department", "").strip() or None,
+            hire_date=hire_date,
+            salary=salary,
+        )
+        db.add(worker)
+        created += 1
+
+    db.commit()
+    logger.info(f"Imported {created} workers for company {current_user.company_id}")
+
+    msg = f"Importados: {created}, Omitidos (duplicados): {skipped}"
+    if errors:
+        msg += f", Errores: {len(errors)}"
+    return MessageResponse(message=msg)
+
+
+@router.post("/import/diary", response_model=MessageResponse)
+async def import_diary_entries(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("export.write"))
+):
+    """
+    Import diary entries from CSV file.
+    Expected columns: title, content, entry_date, tags, is_pinned
+    Skips rows with duplicate title+entry_date.
+    """
+    content = await file.read()
+    _validate_csv_upload(file, content)
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo CSV debe estar codificado en UTF-8"
+        )
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    created = 0
+    skipped = 0
+    errors = []
+
+    for i, row in enumerate(reader, start=2):
+        if i - 1 > MAX_IMPORT_ROWS:
+            errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
+            break
+
+        title = row.get("title", "").strip()
+        content_text = row.get("content", "").strip()
+        entry_date_raw = row.get("entry_date", "").strip()
+
+        if not title or not content_text or not entry_date_raw:
+            errors.append(f"Fila {i}: title, content y entry_date son obligatorios")
+            continue
+
+        try:
+            entry_date = _parse_datetime(entry_date_raw)
+        except ValueError as e:
+            errors.append(f"Fila {i}: {str(e)}")
+            continue
+
+        existing = db.query(DiaryEntry).filter(
+            DiaryEntry.company_id == current_user.company_id,
+            DiaryEntry.title == title,
+            DiaryEntry.entry_date == entry_date
+        ).first()
+
+        if existing:
+            skipped += 1
+            continue
+
+        entry = DiaryEntry(
+            company_id=current_user.company_id,
+            user_id=current_user.id,
+            title=title,
+            content=content_text,
+            entry_date=entry_date,
+            tags=row.get("tags", "").strip() or None,
+            is_pinned=_parse_bool(row.get("is_pinned", "")),
+        )
+        db.add(entry)
+        created += 1
+
+    db.commit()
+    logger.info(f"Imported {created} diary entries for company {current_user.company_id}")
 
     msg = f"Importados: {created}, Omitidos (duplicados): {skipped}"
     if errors:

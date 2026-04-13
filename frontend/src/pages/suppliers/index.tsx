@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Pencil, Trash2, Download } from "lucide-react";
+import { Pencil, Trash2, Download, Upload } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { DataTable, type Column } from "@/components/data-table/data-table";
@@ -24,7 +24,7 @@ import {
 
 import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier } from "@/hooks/use-suppliers";
 import { supplierSchema, type SupplierFormData } from "@/lib/validators";
-import { exportCSV, downloadBlob } from "@/api/export-import";
+import { exportCSV, importCSV, downloadBlob } from "@/api/export-import";
 import type { Supplier } from "@/types/supplier";
 
 export default function SuppliersPage() {
@@ -36,6 +36,8 @@ export default function SuppliersPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const { data, isLoading } = useSuppliers({
     skip: page * pageSize,
@@ -130,6 +132,21 @@ export default function SuppliersPage() {
     }
   };
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const result = await importCSV("suppliers", file);
+      toast.success(result.message || t("export_import.import_success"));
+      setImportOpen(false);
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const columns: Column<Supplier>[] = [
     { key: "code", header: t("suppliers.code"), cell: (s) => (
       <span className="font-mono text-xs">{s.code}</span>
@@ -174,6 +191,10 @@ export default function SuppliersPage() {
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-1" />
             CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            {t("buttons.import")}
           </Button>
         </DataTableToolbar>
 
@@ -270,6 +291,20 @@ export default function SuppliersPage() {
         onConfirm={onDelete}
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{t("export_import.import_title")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">{t("export_import.file_hint")}</p>
+            <Input type="file" accept=".csv" onChange={handleImport} disabled={importing} />
+            {importing && <p className="text-sm">{t("buttons.loading")}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

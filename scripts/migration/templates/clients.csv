@@ -1,0 +1,2 @@
+code,name,tax_id,address,city,postal_code,province,country,phone,email,website,notes
+C-0001,Cliente Ejemplo,B12345678,Calle Ejemplo 1,Palma,07001,Baleares,Espana,600000000,cliente@example.com,,

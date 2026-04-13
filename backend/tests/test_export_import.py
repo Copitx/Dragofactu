@@ -5,10 +5,11 @@ import io
 import csv
 import uuid
 import pytest
+from datetime import datetime
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import Client, Product, Supplier, Company, User, UserRole
+from app.models import Client, Product, Supplier, Worker, DiaryEntry, Company, User, UserRole
 from app.core.security import hash_password, create_access_token
 
 
@@ -253,3 +254,172 @@ class TestImportEndpoints:
         )
         assert response.status_code == 400
         assert response.json()["detail"] == "El archivo CSV debe estar codificado en UTF-8"
+
+    def test_import_suppliers_success(self, client: TestClient, auth_headers):
+        """Import valid suppliers CSV."""
+        csv_content = "code,name,tax_id,email\nSUPIMP1,Supplier One,B11111111,sup1@test.com\nSUPIMP2,Supplier Two,,sup2@test.com"
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/suppliers",
+            headers=auth_headers,
+            files={"file": ("suppliers.csv", file, "text/csv")}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "Importados: 2" in data["message"]
+
+    def test_import_suppliers_skips_duplicates(self, client: TestClient, auth_headers, db, test_company):
+        """Import suppliers skips rows with existing code."""
+        existing_supplier = Supplier(company_id=test_company.id, code="SUPDUP1", name="Existing Supplier")
+        db.add(existing_supplier)
+        db.commit()
+
+        csv_content = "code,name\nSUPDUP1,Duplicate\nSUPNEW1,New Supplier"
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/suppliers",
+            headers=auth_headers,
+            files={"file": ("suppliers.csv", file, "text/csv")}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "Importados: 1" in data["message"]
+        assert "Omitidos (duplicados): 1" in data["message"]
+
+    def test_import_suppliers_invalid_file(self, client: TestClient, auth_headers):
+        """Import rejects non-CSV files for suppliers."""
+        file = io.BytesIO(b"not a csv")
+
+        response = client.post(
+            "/api/v1/export/import/suppliers",
+            headers=auth_headers,
+            files={"file": ("suppliers.txt", file, "text/plain")}
+        )
+        assert response.status_code == 400
+
+    def test_import_suppliers_forbidden_for_warehouse(self, client: TestClient, auth_headers_warehouse):
+        """Warehouse role cannot import suppliers CSV."""
+        csv_content = "code,name\nSUPFORBID,Forbidden Supplier"
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/suppliers",
+            headers=auth_headers_warehouse,
+            files={"file": ("suppliers.csv", file, "text/csv")}
+        )
+        assert response.status_code == 403
+
+    def test_import_workers_success(self, client: TestClient, auth_headers):
+        """Import valid workers CSV."""
+        csv_content = (
+            "code,first_name,last_name,email,department\n"
+            "WRKIMP1,Ana,Perez,ana@test.com,Engineering\n"
+            "WRKIMP2,Luis,Garcia,luis@test.com,Operations"
+        )
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/workers",
+            headers=auth_headers,
+            files={"file": ("workers.csv", file, "text/csv")}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "Importados: 2" in data["message"]
+
+    def test_import_workers_skips_duplicates(self, client: TestClient, auth_headers, db, test_company):
+        """Import workers skips rows with existing code."""
+        existing_worker = Worker(
+            company_id=test_company.id,
+            code="WRKDUP1",
+            first_name="Existing",
+            last_name="Worker"
+        )
+        db.add(existing_worker)
+        db.commit()
+
+        csv_content = "code,first_name,last_name\nWRKDUP1,Duplicate,User\nWRKNEW1,New,Worker"
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/workers",
+            headers=auth_headers,
+            files={"file": ("workers.csv", file, "text/csv")}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "Importados: 1" in data["message"]
+        assert "Omitidos (duplicados): 1" in data["message"]
+
+    def test_import_workers_forbidden_for_warehouse(self, client: TestClient, auth_headers_warehouse):
+        """Warehouse role cannot import workers CSV."""
+        csv_content = "code,first_name,last_name\nWRKFORB,Forbidden,Worker"
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/workers",
+            headers=auth_headers_warehouse,
+            files={"file": ("workers.csv", file, "text/csv")}
+        )
+        assert response.status_code == 403
+
+    def test_import_diary_success(self, client: TestClient, auth_headers):
+        """Import valid diary CSV."""
+        csv_content = (
+            "title,content,entry_date,tags,is_pinned\n"
+            "Nota A,Contenido A,2026-04-10T10:00:00,tag1,false\n"
+            "Nota B,Contenido B,2026-04-11,tag2,true"
+        )
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/diary",
+            headers=auth_headers,
+            files={"file": ("diary.csv", file, "text/csv")}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "Importados: 2" in data["message"]
+
+    def test_import_diary_skips_duplicates(self, client: TestClient, auth_headers, db, test_company, test_user):
+        """Import diary skips rows with existing title+entry_date."""
+        existing_entry = DiaryEntry(
+            company_id=test_company.id,
+            user_id=test_user.id,
+            title="Nota Duplicada",
+            content="Contenido",
+            entry_date=datetime.fromisoformat("2026-04-12T09:00:00")
+        )
+        db.add(existing_entry)
+        db.commit()
+
+        csv_content = (
+            "title,content,entry_date\n"
+            "Nota Duplicada,Contenido nuevo,2026-04-12T09:00:00\n"
+            "Nota Nueva,Contenido nuevo,2026-04-13"
+        )
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/diary",
+            headers=auth_headers,
+            files={"file": ("diary.csv", file, "text/csv")}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "Importados: 1" in data["message"]
+        assert "Omitidos (duplicados): 1" in data["message"]
+
+    def test_import_diary_forbidden_for_warehouse(self, client: TestClient, auth_headers_warehouse):
+        """Warehouse role cannot import diary CSV."""
+        csv_content = "title,content,entry_date\nNota,Contenido,2026-04-10"
+        file = io.BytesIO(csv_content.encode("utf-8"))
+
+        response = client.post(
+            "/api/v1/export/import/diary",
+            headers=auth_headers_warehouse,
+            files={"file": ("diary.csv", file, "text/csv")}
+        )
+        assert response.status_code == 403

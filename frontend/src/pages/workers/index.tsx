@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Pencil, Trash2, GraduationCap, Plus, X } from "lucide-react";
+import { Pencil, Trash2, GraduationCap, Plus, X, Upload } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { DataTable, type Column } from "@/components/data-table/data-table";
@@ -39,6 +39,7 @@ import {
   useDeleteCourse,
 } from "@/hooks/use-workers";
 import { workerSchema, courseSchema, type WorkerFormData, type CourseFormData } from "@/lib/validators";
+import { importCSV } from "@/api/export-import";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { WorkerSummary } from "@/types/worker";
 
@@ -52,6 +53,8 @@ export default function WorkersPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [courseOpen, setCourseOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
@@ -170,6 +173,21 @@ export default function WorkersPage() {
     }
   };
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const result = await importCSV("workers", file);
+      toast.success(result.message || t("export_import.import_success"));
+      setImportOpen(false);
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const columns: Column<WorkerSummary>[] = [
     { key: "code", header: t("workers.code"), cell: (w) => (
       <span className="font-mono text-xs">{w.code}</span>
@@ -212,6 +230,10 @@ export default function WorkersPage() {
           onAdd={openCreate}
           addLabel={t("workers.new")}
         >
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            {t("buttons.import")}
+          </Button>
           {departments.length > 0 && (
             <Select value={department} onValueChange={(v) => { setDepartment(v); setPage(0); }}>
               <SelectTrigger className="w-[160px]">
@@ -424,6 +446,20 @@ export default function WorkersPage() {
         onConfirm={onDelete}
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{t("export_import.import_title")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">{t("export_import.file_hint")}</p>
+            <Input type="file" accept=".csv" onChange={handleImport} disabled={importing} />
+            {importing && <p className="text-sm">{t("buttons.loading")}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

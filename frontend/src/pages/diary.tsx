@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Pencil, Trash2, Pin, PinOff, X } from "lucide-react";
+import { Pencil, Trash2, Pin, PinOff, X, Upload } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { DataTable, type Column } from "@/components/data-table/data-table";
@@ -32,6 +32,7 @@ import {
   useDeleteDiaryEntry,
 } from "@/hooks/use-diary";
 import { diarySchema, type DiaryFormData } from "@/lib/validators";
+import { importCSV } from "@/api/export-import";
 import { formatDate } from "@/lib/utils";
 import type { DiaryEntry } from "@/types/diary";
 
@@ -42,6 +43,8 @@ export default function DiaryPage() {
   const [pinnedOnly, setPinnedOnly] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<DiaryEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -161,6 +164,21 @@ export default function DiaryPage() {
     setPage(0);
   }, []);
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const result = await importCSV("diary", file);
+      toast.success(result.message || t("export_import.import_success"));
+      setImportOpen(false);
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const columns: Column<DiaryEntry>[] = [
     {
       key: "pin",
@@ -240,6 +258,10 @@ export default function DiaryPage() {
           onAdd={openCreate}
           addLabel={t("diary.new")}
         >
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            {t("buttons.import")}
+          </Button>
           <Button
             variant={pinnedOnly ? "default" : "outline"}
             size="sm"
@@ -328,6 +350,20 @@ export default function DiaryPage() {
         onConfirm={onDelete}
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{t("export_import.import_title")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">{t("export_import.file_hint")}</p>
+            <Input type="file" accept=".csv" onChange={handleImport} disabled={importing} />
+            {importing && <p className="text-sm">{t("buttons.loading")}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

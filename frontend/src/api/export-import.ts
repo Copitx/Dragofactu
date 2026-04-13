@@ -6,7 +6,7 @@ export async function exportCSV(entity: "clients" | "products" | "suppliers"): P
   return response.data;
 }
 
-export async function importCSV(entity: "clients" | "products", file: File): Promise<MessageResponse> {
+export async function importCSV(entity: "clients" | "products" | "suppliers" | "workers" | "diary", file: File): Promise<MessageResponse> {
   const formData = new FormData();
   formData.append("file", file);
   const response = await api.post<MessageResponse>(`/export/import/${entity}`, formData, {

@@ -87,3 +87,7 @@ migration_data/
 scripts/migration/input/
 scripts/migration/output/
 scripts/migration/.state/
+
+# Datos empresariales sensibles — NUNCA versionar
+# Contiene información personal y confidencial de clientes reales
+EMPRESA/

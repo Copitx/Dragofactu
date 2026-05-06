@@ -9,6 +9,7 @@ export interface DocumentLine {
   discount_percent: number;
   subtotal: number;
   order_index: number;
+  measurements?: string;
 }
 
 export interface DocumentLineCreate {
@@ -18,6 +19,7 @@ export interface DocumentLineCreate {
   quantity?: number;
   unit_price?: number;
   discount_percent?: number;
+  measurements?: string;
 }
 
 export interface Document {
@@ -36,6 +38,11 @@ export interface Document {
   notes?: string;
   internal_notes?: string;
   terms?: string;
+  // Business fields
+  client_reference?: string;
+  payment_method?: string;
+  execution_location?: string;
+  payment_date?: string;
   created_by: string;
   lines: DocumentLine[];
   created_at: string;
@@ -63,6 +70,9 @@ export interface DocumentCreate {
   notes?: string;
   internal_notes?: string;
   terms?: string;
+  client_reference?: string;
+  payment_method?: string;
+  execution_location?: string;
   lines: DocumentLineCreate[];
 }
 
@@ -72,6 +82,10 @@ export interface DocumentUpdate {
   notes?: string;
   internal_notes?: string;
   terms?: string;
+  client_reference?: string;
+  payment_method?: string;
+  execution_location?: string;
+  payment_date?: string;
   lines?: DocumentLineCreate[];
 }
 

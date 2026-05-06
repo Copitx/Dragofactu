@@ -1,7 +1,7 @@
 """
 Document and DocumentLine models with multi-tenant support.
 """
-from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Integer, Float, Enum, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, DateTime, Date, Text, ForeignKey, Integer, Float, Enum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.models.base import Base, GUID
@@ -84,6 +84,12 @@ class Document(Base):
     internal_notes = Column(Text)
     terms = Column(Text)
 
+    # Business fields
+    client_reference = Column(String(100))       # Nº pedido/referencia del cliente
+    payment_method = Column(String(50))          # Forma de pago de este documento
+    execution_location = Column(String(200))     # Lugar de ejecución (obras/construcción)
+    payment_date = Column(Date)                  # Fecha real de cobro (cuando pasa a PAID)
+
     # Audit
     created_by = Column(GUID(), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -147,6 +153,9 @@ class DocumentLine(Base):
 
     # Tax per line (JSON string, optional)
     tax_config = Column(Text)
+
+    # Measurements (for construction quotes)
+    measurements = Column(String(200))
 
     # Order in document
     order_index = Column(Integer, default=0)

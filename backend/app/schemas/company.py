@@ -12,6 +12,7 @@ class CompanyBase(BaseModel):
     """Base company fields."""
     name: str = Field(..., min_length=2, max_length=200)
     legal_name: Optional[str] = Field(None, max_length=200)
+    trade_name: Optional[str] = Field(None, max_length=200)  # Nombre comercial (aparece en PDF)
     tax_id: Optional[str] = Field(None, max_length=20)
     address: Optional[str] = None
     city: Optional[str] = Field(None, max_length=100)
@@ -65,6 +66,7 @@ class CompanyResponse(BaseSchema, TimestampMixin):
     code: str
     name: str
     legal_name: Optional[str] = None
+    trade_name: Optional[str] = None
     tax_id: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None

@@ -49,22 +49,22 @@ export default function ClientsPage() {
   const updateMutation = useUpdateClient();
   const deleteMutation = useDeleteClient();
 
+  const emptyClient = {
+    code: "", name: "", tax_id: "", address: "", city: "",
+    postal_code: "", province: "", country: "", phone: "",
+    email: "", website: "", notes: "",
+    payment_method: "", payment_days: 30, contact_person: "",
+    bank_iban: "", default_discount: 0, notes_internal: "",
+  };
+
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
-    defaultValues: {
-      code: "", name: "", tax_id: "", address: "", city: "",
-      postal_code: "", province: "", country: "", phone: "",
-      email: "", website: "", notes: "",
-    },
+    defaultValues: emptyClient,
   });
 
   const openCreate = useCallback(() => {
     setEditing(null);
-    form.reset({
-      code: "", name: "", tax_id: "", address: "", city: "",
-      postal_code: "", province: "", country: "", phone: "",
-      email: "", website: "", notes: "",
-    });
+    form.reset(emptyClient);
     setFormOpen(true);
   }, [form]);
 
@@ -83,6 +83,12 @@ export default function ClientsPage() {
       email: client.email || "",
       website: client.website || "",
       notes: client.notes || "",
+      payment_method: client.payment_method || "",
+      payment_days: client.payment_days ?? 30,
+      contact_person: client.contact_person || "",
+      bank_iban: client.bank_iban || "",
+      default_discount: client.default_discount ?? 0,
+      notes_internal: client.notes_internal || "",
     });
     setFormOpen(true);
   }, [form]);
@@ -270,8 +276,40 @@ export default function ClientsPage() {
             </div>
             <div className="space-y-2">
               <Label>{t("clients.notes")}</Label>
-              <Textarea {...form.register("notes")} rows={3} />
+              <Textarea {...form.register("notes")} rows={2} />
             </div>
+
+            {/* Business fields */}
+            <div className="border-t pt-3">
+              <p className="text-sm font-medium text-muted-foreground mb-3">{t("clients.business_fields")}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{t("clients.contact_person")}</Label>
+                  <Input {...form.register("contact_person")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("clients.payment_method")}</Label>
+                  <Input {...form.register("payment_method")} placeholder="Transferencia, Efectivo..." />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("clients.payment_days")}</Label>
+                  <Input type="number" {...form.register("payment_days")} min={0} max={365} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("clients.default_discount")} (%)</Label>
+                  <Input type="number" {...form.register("default_discount")} min={0} max={100} step="0.1" />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>{t("clients.bank_iban")}</Label>
+                  <Input {...form.register("bank_iban")} placeholder="ES00 0000 0000 0000 0000 0000" />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("clients.notes_internal")}</Label>
+              <Textarea {...form.register("notes_internal")} rows={2} placeholder={t("clients.notes_internal_hint")} />
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 {t("buttons.cancel")}

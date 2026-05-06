@@ -14,6 +14,13 @@ export interface Client {
   website?: string;
   notes?: string;
   is_active: boolean;
+  // Business fields
+  payment_method?: string;
+  payment_days?: number;
+  contact_person?: string;
+  bank_iban?: string;
+  default_discount?: number;
+  notes_internal?: string;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +38,13 @@ export interface ClientCreate {
   email?: string;
   website?: string;
   notes?: string;
+  // Business fields
+  payment_method?: string;
+  payment_days?: number;
+  contact_person?: string;
+  bank_iban?: string;
+  default_discount?: number;
+  notes_internal?: string;
 }
 
 export type ClientUpdate = Partial<ClientCreate>;

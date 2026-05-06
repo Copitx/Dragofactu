@@ -43,6 +43,9 @@ export default function DocumentNewPage() {
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
+  const [clientReference, setClientReference] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [executionLocation, setExecutionLocation] = useState("");
   const [lines, setLines] = useState<LineRow[]>([{ ...defaultLine }]);
 
   const { data: clientsData } = useClients({ limit: 500 });
@@ -69,6 +72,9 @@ export default function DocumentNewPage() {
       due_date: dueDate.length > 0 ? new Date(dueDate).toISOString() : undefined,
       notes: notes || undefined,
       internal_notes: internalNotes || undefined,
+      client_reference: clientReference || undefined,
+      payment_method: paymentMethod || undefined,
+      execution_location: executionLocation || undefined,
       lines: lines
         .filter((l) => l.description)
         .map((l) => ({
@@ -147,6 +153,34 @@ export default function DocumentNewPage() {
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Business fields */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>{t("documents.client_reference")}</Label>
+            <Input
+              value={clientReference}
+              onChange={(e) => setClientReference(e.target.value)}
+              placeholder="Nº pedido cliente"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("documents.payment_method")}</Label>
+            <Input
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              placeholder="Transferencia, Efectivo..."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("documents.execution_location")}</Label>
+            <Input
+              value={executionLocation}
+              onChange={(e) => setExecutionLocation(e.target.value)}
+              placeholder="Lugar de ejecución / obra"
             />
           </div>
         </div>

@@ -13,6 +13,13 @@ export const clientSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   website: z.string().max(200).optional().or(z.literal("")),
   notes: z.string().max(2000).optional().or(z.literal("")),
+  // Business fields
+  payment_method: z.string().max(50).optional().or(z.literal("")),
+  payment_days: z.coerce.number().int().min(0).max(365).optional(),
+  contact_person: z.string().max(100).optional().or(z.literal("")),
+  bank_iban: z.string().max(34).optional().or(z.literal("")),
+  default_discount: z.coerce.number().min(0).max(100).optional(),
+  notes_internal: z.string().max(2000).optional().or(z.literal("")),
 });
 
 export type ClientFormData = z.infer<typeof clientSchema>;

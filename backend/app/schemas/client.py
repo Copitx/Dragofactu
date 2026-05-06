@@ -22,6 +22,13 @@ class ClientBase(BaseModel):
     email: Optional[str] = Field(None, max_length=100)
     website: Optional[str] = Field(None, max_length=200)
     notes: Optional[str] = Field(None, max_length=2000)
+    # Business fields
+    payment_method: Optional[str] = Field(None, max_length=50)
+    payment_days: Optional[int] = Field(30, ge=0, le=365)
+    contact_person: Optional[str] = Field(None, max_length=100)
+    bank_iban: Optional[str] = Field(None, max_length=34)
+    default_discount: Optional[float] = Field(0.0, ge=0.0, le=100.0)
+    notes_internal: Optional[str] = Field(None, max_length=2000)
 
 
 class ClientCreate(ClientBase):
@@ -44,6 +51,12 @@ class ClientUpdate(BaseModel):
     website: Optional[str] = Field(None, max_length=200)
     notes: Optional[str] = Field(None, max_length=2000)
     is_active: Optional[bool] = None
+    payment_method: Optional[str] = Field(None, max_length=50)
+    payment_days: Optional[int] = Field(None, ge=0, le=365)
+    contact_person: Optional[str] = Field(None, max_length=100)
+    bank_iban: Optional[str] = Field(None, max_length=34)
+    default_discount: Optional[float] = Field(None, ge=0.0, le=100.0)
+    notes_internal: Optional[str] = Field(None, max_length=2000)
 
 
 class ClientResponse(BaseSchema, TimestampMixin):
@@ -63,6 +76,12 @@ class ClientResponse(BaseSchema, TimestampMixin):
     website: Optional[str] = None
     notes: Optional[str] = Field(None, max_length=2000)
     is_active: bool
+    payment_method: Optional[str] = None
+    payment_days: Optional[int] = 30
+    contact_person: Optional[str] = None
+    bank_iban: Optional[str] = None   # Returned as-is (encrypted in DB, but masked here)
+    default_discount: Optional[float] = 0.0
+    notes_internal: Optional[str] = None
 
 
 class ClientList(PaginatedResponse[ClientResponse]):

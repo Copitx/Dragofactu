@@ -22,6 +22,7 @@ class Company(Base):
     code = Column(String(20), unique=True, nullable=False, index=True)
     name = Column(String(200), nullable=False)
     legal_name = Column(String(200))  # Razon social
+    trade_name = Column(String(200))  # Nombre comercial (aparece en PDF si distinto de name)
     tax_id = Column(String(20))  # CIF/NIF
 
     # Contact

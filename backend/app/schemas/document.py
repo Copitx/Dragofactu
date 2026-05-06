@@ -3,7 +3,7 @@ Document schemas.
 """
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from uuid import UUID
 from app.schemas.base import BaseSchema, TimestampMixin, PaginatedResponse
 
@@ -16,6 +16,7 @@ class DocumentLineBase(BaseModel):
     quantity: float = Field(1, gt=0)
     unit_price: float = Field(0, ge=0)
     discount_percent: float = Field(0, ge=0, le=100)
+    measurements: Optional[str] = Field(None, max_length=200)
 
 
 class DocumentLineCreate(DocumentLineBase):
@@ -35,6 +36,7 @@ class DocumentLineResponse(BaseSchema):
     discount_percent: float
     subtotal: float
     order_index: int
+    measurements: Optional[str] = None
 
 
 class DocumentBase(BaseModel):
@@ -46,6 +48,9 @@ class DocumentBase(BaseModel):
     notes: Optional[str] = Field(None, max_length=5000)
     internal_notes: Optional[str] = Field(None, max_length=5000)
     terms: Optional[str] = Field(None, max_length=5000)
+    client_reference: Optional[str] = Field(None, max_length=100)
+    payment_method: Optional[str] = Field(None, max_length=50)
+    execution_location: Optional[str] = Field(None, max_length=200)
 
 
 class DocumentCreate(DocumentBase):
@@ -61,6 +66,10 @@ class DocumentUpdate(BaseModel):
     internal_notes: Optional[str] = Field(None, max_length=5000)
     terms: Optional[str] = Field(None, max_length=5000)
     lines: Optional[List[DocumentLineCreate]] = None
+    client_reference: Optional[str] = Field(None, max_length=100)
+    payment_method: Optional[str] = Field(None, max_length=50)
+    execution_location: Optional[str] = Field(None, max_length=200)
+    payment_date: Optional[date] = None
 
 
 class StatusChange(BaseModel):

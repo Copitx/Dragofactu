@@ -56,6 +56,7 @@ export default function SettingsPage() {
     defaultValues: {
       name: "",
       legal_name: "",
+      trade_name: "",
       tax_id: "",
       address: "",
       city: "",
@@ -78,6 +79,7 @@ export default function SettingsPage() {
       companyForm.reset({
         name: company.name || "",
         legal_name: company.legal_name || "",
+        trade_name: (company as any).trade_name || "",
         tax_id: company.tax_id || "",
         address: company.address || "",
         city: company.city || "",
@@ -186,6 +188,10 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label>{t("settings.legal_name")}</Label>
                 <Input {...companyForm.register("legal_name")} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.trade_name")}</Label>
+                <Input {...companyForm.register("trade_name")} placeholder={t("settings.trade_name_hint")} />
               </div>
               <div className="space-y-2">
                 <Label>{t("settings.tax_id")}</Label>

@@ -1,7 +1,7 @@
 """
 Client model with multi-tenant support.
 """
-from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Integer, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.models.base import Base, GUID
@@ -39,6 +39,14 @@ class Client(Base):
 
     # Additional
     notes = Column(Text)
+
+    # Business fields
+    payment_method = Column(String(50))     # "Transferencia", "Efectivo", "Tarjeta", "Domiciliacion"
+    payment_days = Column(Integer, default=30)   # Plazo de pago en días
+    contact_person = Column(String(100))    # Persona de contacto
+    bank_iban = Column(String(255))         # IBAN cifrado con encrypt_secret_value
+    default_discount = Column(Float, default=0.0)  # Descuento % por defecto
+    notes_internal = Column(Text)           # Notas internas (no aparecen en PDF)
 
     # Status
     is_active = Column(Boolean, default=True)

@@ -51,6 +51,17 @@ class RegisterCompanyRequest(BaseModel):
     last_name: Optional[str] = Field(None, max_length=50)
 
 
+class CreateUserRequest(BaseModel):
+    """Request for admin to create a new user in their company."""
+    username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+    full_name: str = Field(..., min_length=2, max_length=100)
+    first_name: Optional[str] = Field(None, max_length=50)
+    last_name: Optional[str] = Field(None, max_length=50)
+    role: str = Field(default="read_only")
+
+
 class UserResponse(BaseSchema):
     """User data response (safe, no password)."""
     id: UUID
@@ -62,6 +73,7 @@ class UserResponse(BaseSchema):
     last_name: Optional[str] = None
     role: str
     is_active: bool
+    is_superadmin: bool = False
     company_name: Optional[str] = None
 
 

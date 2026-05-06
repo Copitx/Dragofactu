@@ -42,6 +42,7 @@ class User(Base):
 
     # Authorization
     role = Column(Enum(UserRole), nullable=False, default=UserRole.READ_ONLY)
+    is_superadmin = Column(Boolean, default=False, nullable=False)
 
     # Status
     is_active = Column(Boolean, default=True, nullable=False)

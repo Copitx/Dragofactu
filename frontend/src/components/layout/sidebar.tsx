@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Settings,
   Shield,
+  ShieldAlert,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -38,6 +39,7 @@ const navItems = [
 ];
 
 const adminItem = { path: "/admin", icon: Shield, labelKey: "nav.admin" };
+const superadminItem = { path: "/superadmin", icon: ShieldAlert, labelKey: "nav.superadmin" };
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -45,7 +47,9 @@ export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const user = useAuthStore((s) => s.user);
 
-  const items = user?.role === "admin" ? [...navItems, adminItem] : navItems;
+  let items = [...navItems];
+  if (user?.role === "admin") items = [...items, adminItem];
+  if (user?.is_superadmin) items = [...items, superadminItem];
 
   return (
     <aside

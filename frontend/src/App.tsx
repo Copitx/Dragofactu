@@ -21,6 +21,7 @@ const RemindersPage = lazy(() => import("@/pages/reminders"));
 const ReportsPage = lazy(() => import("@/pages/reports"));
 const AuditPage = lazy(() => import("@/pages/audit"));
 const AdminPage = lazy(() => import("@/pages/admin"));
+const SuperadminPage = lazy(() => import("@/pages/superadmin"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const NotFoundPage = lazy(() => import("@/pages/not-found"));
 
@@ -87,6 +88,7 @@ export default function App() {
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/superadmin" element={<SuperadminPage />} />
             </Route>
 
             {/* 404 */}

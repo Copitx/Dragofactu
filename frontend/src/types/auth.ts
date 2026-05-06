@@ -40,5 +40,16 @@ export interface UserResponse {
   last_name?: string;
   role: string;
   is_active: boolean;
+  is_superadmin?: boolean;
   company_name?: string;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  email: string;
+  password: string;
+  full_name: string;
+  first_name?: string;
+  last_name?: string;
+  role: string;
 }

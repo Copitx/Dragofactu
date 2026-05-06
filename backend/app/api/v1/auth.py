@@ -8,7 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 import uuid
 
-from app.api.deps import get_db, get_current_user, security
+from app.api.deps import get_db, get_current_user, security, require_permission
 from app.config import get_settings
 from app.core.security import (
     hash_password, verify_password,
@@ -25,6 +25,7 @@ from app.schemas import (
     RefreshRequest, RefreshResponse,
     RegisterCompanyRequest, UserResponse, MessageResponse, LogoutRequest
 )
+from app.schemas.auth import CreateUserRequest
 
 router = APIRouter(prefix="/auth", tags=["Autenticacion"])
 settings = get_settings()
@@ -259,6 +260,135 @@ async def get_current_user_info(
     if company:
         response.company_name = company.name
     return response
+
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_company_user(
+    request: CreateUserRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("admin"))
+):
+    """
+    Crear un nuevo usuario en la misma empresa del admin.
+    Solo el rol ADMIN puede crear usuarios. No crea empresa nueva.
+    El nuevo usuario NO puede ser superadmin.
+    """
+    # Validate password
+    PasswordValidator.validate_or_raise(request.password)
+
+    username = sanitize_username(request.username)
+    if len(username) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El nombre de usuario debe tener al menos 3 caracteres"
+        )
+
+    # Validate role — superadmin cannot be assigned via API
+    allowed_roles = {r.value for r in UserRole}
+    if request.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Rol inválido. Opciones: {', '.join(allowed_roles)}"
+        )
+
+    # Check username uniqueness within company
+    existing = db.query(User).filter(
+        User.company_id == current_user.company_id,
+        User.username == username
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El nombre de usuario ya existe en esta empresa"
+        )
+
+    # Check email uniqueness within company
+    existing_email = db.query(User).filter(
+        User.company_id == current_user.company_id,
+        User.email == request.email
+    ).first()
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El email ya está en uso en esta empresa"
+        )
+
+    new_user = User(
+        id=uuid.uuid4(),
+        company_id=current_user.company_id,
+        username=username,
+        email=request.email,
+        password_hash=hash_password(request.password),
+        full_name=request.full_name,
+        first_name=request.first_name,
+        last_name=request.last_name,
+        role=UserRole(request.role),
+        is_active=True,
+        is_superadmin=False,  # Hardcoded — never via API
+    )
+    db.add(new_user)
+
+    # Audit log
+    try:
+        from app.models.audit_log import AuditLog
+        audit = AuditLog(
+            company_id=current_user.company_id,
+            user_id=current_user.id,
+            action="create",
+            entity_type="user",
+            entity_id=str(new_user.id),
+            details=f'{{"created_username": "{username}", "role": "{request.role}"}}',
+        )
+        db.add(audit)
+    except Exception:
+        pass
+
+    db.commit()
+    db.refresh(new_user)
+    return UserResponse.model_validate(new_user)
+
+
+@router.get("/users", response_model=list[UserResponse])
+async def list_company_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("admin"))
+):
+    """
+    Listar todos los usuarios de la empresa del admin actual.
+    """
+    users = db.query(User).filter(
+        User.company_id == current_user.company_id,
+        User.is_active == True
+    ).order_by(User.full_name).all()
+    return [UserResponse.model_validate(u) for u in users]
+
+
+@router.delete("/users/{user_id}", response_model=MessageResponse)
+async def deactivate_company_user(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("admin"))
+):
+    """
+    Desactivar (soft delete) un usuario de la empresa. El admin no puede desactivarse a sí mismo.
+    """
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No puedes desactivar tu propio usuario"
+        )
+
+    user = db.query(User).filter(
+        User.id == user_id,
+        User.company_id == current_user.company_id,
+        User.is_active == True
+    ).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+    user.is_active = False
+    db.commit()
+    return MessageResponse(message="Usuario desactivado correctamente", success=True)
 
 
 @router.post("/logout", response_model=MessageResponse)

@@ -1,15 +1,58 @@
 import { useTranslation } from "react-i18next";
-import { Server, Database, HardDrive, Users, FileText, Building2, Shield } from "lucide-react";
+import { useState } from "react";
+import { Server, Database, HardDrive, Users, FileText, Building2, Shield, UserPlus, Trash2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useForm } from "react-hook-form";
 
 import { Header } from "@/components/layout/header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSystemInfo, useBackupInfo } from "@/hooks/use-admin";
+import { listCompanyUsers, createCompanyUser, deactivateCompanyUser } from "@/api/auth";
 import { formatDateTime } from "@/lib/utils";
+import type { CreateUserRequest } from "@/types/auth";
 
 export default function AdminPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [showCreateUser, setShowCreateUser] = useState(false);
   const { data: sysInfo, isLoading: sysLoading } = useSystemInfo();
   const { data: backupInfo, isLoading: backupLoading } = useBackupInfo();
+
+  const { data: companyUsers = [] } = useQuery({
+    queryKey: ["company-users"],
+    queryFn: listCompanyUsers,
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: createCompanyUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-users"] });
+      setShowCreateUser(false);
+      toast.success(t("admin.user_created"));
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.detail || t("admin.user_create_error"));
+    },
+  });
+
+  const deactivateUserMutation = useMutation({
+    mutationFn: deactivateCompanyUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-users"] });
+      toast.success(t("admin.user_deactivated"));
+    },
+    onError: () => toast.error(t("common.error")),
+  });
+
+  const userForm = useForm<CreateUserRequest>({
+    defaultValues: { role: "read_only" },
+  });
 
   const isLoading = sysLoading || backupLoading;
 
@@ -95,6 +138,107 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {/* Company Users */}
+        <div className="rounded-lg border bg-card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              {t("admin.company_users")}
+            </h3>
+            <Button size="sm" onClick={() => setShowCreateUser(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              {t("admin.add_user")}
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {companyUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("common.no_results")}</p>
+            ) : (
+              companyUsers.map((u) => (
+                <div key={u.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <span className="font-medium">{u.full_name}</span>
+                      <span className="text-muted-foreground ml-2">@{u.username}</span>
+                    </div>
+                    <Badge variant="secondary">{u.role}</Badge>
+                    {u.is_superadmin && <Badge variant="destructive">Superadmin</Badge>}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => {
+                      if (confirm(t("admin.confirm_deactivate_user"))) {
+                        deactivateUserMutation.mutate(u.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Create User Dialog */}
+        <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("admin.add_user")}</DialogTitle>
+            </DialogHeader>
+            <form
+              onSubmit={userForm.handleSubmit((data) => createUserMutation.mutate(data))}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>{t("admin.username")}</Label>
+                  <Input {...userForm.register("username", { required: true })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>{t("admin.full_name")}</Label>
+                  <Input {...userForm.register("full_name", { required: true })} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>{t("admin.email")}</Label>
+                <Input type="email" {...userForm.register("email", { required: true })} />
+              </div>
+              <div className="space-y-1">
+                <Label>{t("admin.password")}</Label>
+                <Input type="password" {...userForm.register("password", { required: true })} />
+              </div>
+              <div className="space-y-1">
+                <Label>{t("admin.role")}</Label>
+                <Select
+                  defaultValue="read_only"
+                  onValueChange={(v) => userForm.setValue("role", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">{t("admin.role_admin")}</SelectItem>
+                    <SelectItem value="management">{t("admin.role_management")}</SelectItem>
+                    <SelectItem value="warehouse">{t("admin.role_warehouse")}</SelectItem>
+                    <SelectItem value="read_only">{t("admin.role_read_only")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button type="button" variant="outline" onClick={() => setShowCreateUser(false)}>
+                  {t("buttons.cancel")}
+                </Button>
+                <Button type="submit" disabled={createUserMutation.isPending}>
+                  {createUserMutation.isPending ? t("buttons.loading") : t("buttons.add")}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Backup Info */}
         {backupInfo && (

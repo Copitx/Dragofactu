@@ -130,3 +130,21 @@ def get_company_id(current_user: User = Depends(get_current_user)) -> UUID:
     Useful for filtering queries by tenant.
     """
     return current_user.company_id
+
+
+def require_superadmin() -> "Callable":
+    """
+    Dependency that ensures the current user is a platform superadmin.
+    Raises 403 for any non-superadmin user, including company admins.
+    """
+    async def superadmin_checker(
+        current_user: User = Depends(get_current_user)
+    ) -> User:
+        if not current_user.is_superadmin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acceso restringido a administradores de plataforma"
+            )
+        return current_user
+
+    return superadmin_checker

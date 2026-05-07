@@ -26,10 +26,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend application code
 COPY backend/app/ ./app/
-
-# Copy alembic configuration and migrations
-COPY backend/alembic.ini ./alembic.ini
-COPY backend/alembic/ ./alembic/
+COPY backend/startup.py ./startup.py
 
 # Copy frontend build output as static files
 COPY --from=frontend-build /app/frontend/dist ./static
@@ -41,5 +38,5 @@ USER appuser
 # Railway provides PORT env var - default to 8000 for local
 ENV PORT=8000
 
-# Run migrations then start server
-CMD /bin/sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"
+# Run schema migrations then start server
+CMD ["python", "startup.py"]

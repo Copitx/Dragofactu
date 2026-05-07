@@ -41,7 +41,8 @@
     "settings": "Ajustes",
     "admin": "Administración",
     "superadmin": "Superadmin",
-    "projects": "Obras"
+    "projects": "Obras",
+    "export": "Exportar/Importar"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -379,6 +380,27 @@
     "import_title": "Importar CSV",
     "select_file": "Seleccionar archivo",
     "file_hint": "Archivo CSV con las mismas columnas que la exportación"
+  },
+  "export": {
+    "title": "Exportar / Importar",
+    "export_title": "Exportar datos",
+    "import_title": "Importar datos",
+    "entity_type": "Tipo de entidad",
+    "select_file": "Seleccionar archivo",
+    "file_hint": "Formatos soportados: CSV, XLSX. Las columnas deben coincidir con las del export.",
+    "preview_btn": "Vista previa",
+    "import_btn": "Importar",
+    "import_another": "Importar otro archivo",
+    "import_success": "Importación completada",
+    "step_select": "Seleccionar",
+    "step_preview": "Vista previa",
+    "step_confirm": "Importar",
+    "total_rows": "Total filas",
+    "valid_rows": "Válidas",
+    "error_rows": "Con errores",
+    "errors_found": "Errores encontrados",
+    "sample_rows": "Primeras filas",
+    "records": "registros"
   },
   "projects": {
     "title": "Obras",

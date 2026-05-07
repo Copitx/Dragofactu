@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
+  ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ const navItems = [
   { path: "/reminders", icon: Bell, labelKey: "nav.reminders" },
   { path: "/projects", icon: Building2, labelKey: "nav.projects" },
   { path: "/reports", icon: BarChart3, labelKey: "nav.reports" },
+  { path: "/export", icon: ArrowUpDown, labelKey: "nav.export" },
   { path: "/audit", icon: ClipboardList, labelKey: "nav.audit" },
   { path: "/settings", icon: Settings, labelKey: "nav.settings" },
 ];

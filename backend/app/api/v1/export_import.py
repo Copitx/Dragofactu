@@ -1,15 +1,16 @@
 """
-Export/Import CSV endpoints.
+Export/Import CSV/XLSX endpoints.
 Export clients, products, suppliers to CSV.
-Import clients, products, suppliers, workers and diary from CSV.
+Import clients, products, suppliers, workers and diary from CSV or XLSX.
 """
 import csv
 import io
 import logging
 from datetime import datetime
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, Depends, Form, HTTPException, status, UploadFile, File
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_permission
@@ -25,8 +26,23 @@ ALLOWED_CSV_CONTENT_TYPES = {
     "application/csv",
     "application/vnd.ms-excel",
 }
-MAX_IMPORT_FILE_SIZE_BYTES = 2 * 1024 * 1024
+ALLOWED_XLSX_CONTENT_TYPES = {
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+}
+MAX_IMPORT_FILE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB for xlsx support
 MAX_IMPORT_ROWS = 10000
+PREVIEW_SAMPLE_ROWS = 5
+
+
+class ImportPreviewResponse(BaseModel):
+    total_rows: int
+    valid_rows: int
+    skipped_rows: int
+    error_rows: int
+    errors: List[str]
+    sample: List[Dict[str, Any]]
+    headers: List[str]
 
 
 def _parse_datetime(value: str) -> Optional[datetime]:
@@ -86,6 +102,146 @@ def _validate_csv_upload(file: UploadFile, content: bytes):
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="Archivo demasiado grande"
         )
+
+
+def _validate_xlsx_upload(file: UploadFile, content: bytes):
+    """Validate basic XLSX upload constraints before parsing."""
+    filename = (file.filename or "").lower()
+    if not (filename.endswith(".xlsx") or filename.endswith(".xls")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo debe ser CSV o XLSX"
+        )
+    if len(content) > MAX_IMPORT_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Archivo demasiado grande (máx. 5 MB)"
+        )
+
+
+def _parse_xlsx_to_rows(content: bytes) -> tuple[list, list]:
+    """Parse xlsx content into (headers, list_of_dicts)."""
+    try:
+        import openpyxl
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="openpyxl no instalado en el servidor"
+        )
+    wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    ws = wb.active
+    rows_iter = ws.iter_rows(values_only=True)
+
+    try:
+        header_row = next(rows_iter)
+    except StopIteration:
+        return [], []
+
+    headers = [str(h).strip() if h is not None else "" for h in header_row]
+
+    data_rows = []
+    for row in rows_iter:
+        row_dict = {}
+        for i, val in enumerate(row):
+            key = headers[i] if i < len(headers) else f"col_{i}"
+            row_dict[key] = str(val).strip() if val is not None else ""
+        data_rows.append(row_dict)
+
+    wb.close()
+    return headers, data_rows
+
+
+def _is_xlsx(file: UploadFile) -> bool:
+    filename = (file.filename or "").lower()
+    return filename.endswith(".xlsx") or filename.endswith(".xls")
+
+
+def _parse_file_to_rows(file: UploadFile, content: bytes) -> tuple[list, list]:
+    """Parse CSV or XLSX file into (headers, list_of_dicts)."""
+    if _is_xlsx(file):
+        _validate_xlsx_upload(file, content)
+        return _parse_xlsx_to_rows(content)
+    else:
+        _validate_csv_upload(file, content)
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El archivo CSV debe estar codificado en UTF-8"
+            )
+        reader = csv.DictReader(io.StringIO(text))
+        rows = list(reader)
+        headers = list(reader.fieldnames or [])
+        return headers, rows
+
+
+# ENTITY_TYPE → required fields for validation
+ENTITY_REQUIRED_FIELDS: dict[str, list[str]] = {
+    "clients": ["code", "name"],
+    "products": ["code", "name"],
+    "suppliers": ["code", "name"],
+    "workers": ["code", "first_name", "last_name"],
+    "diary": ["title", "content", "entry_date"],
+}
+
+
+@router.post("/import/preview", response_model=ImportPreviewResponse)
+async def import_preview(
+    entity_type: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permission("export.write"))
+):
+    """
+    Preview import without inserting data.
+    Returns stats and first 5 sample rows.
+    """
+    if entity_type not in ENTITY_REQUIRED_FIELDS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Tipo no soportado: {entity_type}. Valores válidos: {list(ENTITY_REQUIRED_FIELDS)}"
+        )
+
+    content = await file.read()
+    headers, rows = _parse_file_to_rows(file, content)
+    required = ENTITY_REQUIRED_FIELDS[entity_type]
+
+    total_rows = len(rows)
+    valid_rows = 0
+    error_rows = 0
+    errors: list[str] = []
+    sample: list[dict] = []
+
+    for i, row in enumerate(rows, start=2):
+        if len(errors) >= 20:
+            break  # cap error list
+
+        missing = [f for f in required if not row.get(f, "").strip()]
+        if missing:
+            errors.append(f"Fila {i}: faltan campos obligatorios ({', '.join(missing)})")
+            error_rows += 1
+        else:
+            valid_rows += 1
+            if len(sample) < PREVIEW_SAMPLE_ROWS:
+                # Limit cell values to 100 chars to avoid leaking large data
+                sample.append({k: str(v)[:100] for k, v in row.items()})
+
+    skipped_rows = 0  # duplicates only known at import time, not preview
+
+    logger.info(
+        f"Import preview: entity={entity_type} total={total_rows} valid={valid_rows} "
+        f"errors={error_rows} user={current_user.id}"
+    )
+
+    return ImportPreviewResponse(
+        total_rows=total_rows,
+        valid_rows=valid_rows,
+        skipped_rows=skipped_rows,
+        error_rows=error_rows,
+        errors=errors,
+        sample=sample,
+        headers=headers[:20],  # cap headers to prevent data leakage
+    )
 
 
 def _stream_csv(rows: list, headers: list, filename: str) -> StreamingResponse:
@@ -190,28 +346,19 @@ async def import_clients(
     current_user: User = Depends(require_permission("export.write"))
 ):
     """
-    Import clients from CSV file.
+    Import clients from CSV or XLSX file.
     Expected columns: code, name, tax_id, address, city, postal_code,
     province, country, phone, email, website, notes
     Skips rows with duplicate codes.
     """
     content = await file.read()
-    _validate_csv_upload(file, content)
-    try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo CSV debe estar codificado en UTF-8"
-        )
-
-    reader = csv.DictReader(io.StringIO(text))
+    _, rows = _parse_file_to_rows(file, content)
 
     created = 0
     skipped = 0
     errors = []
 
-    for i, row in enumerate(reader, start=2):
+    for i, row in enumerate(rows, start=2):
         if i - 1 > MAX_IMPORT_ROWS:
             errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
             break
@@ -266,28 +413,19 @@ async def import_products(
     current_user: User = Depends(require_permission("export.write"))
 ):
     """
-    Import products from CSV file.
+    Import products from CSV or XLSX file.
     Expected columns: code, name, description, category, purchase_price,
     sale_price, current_stock, minimum_stock, stock_unit
     Skips rows with duplicate codes.
     """
     content = await file.read()
-    _validate_csv_upload(file, content)
-    try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo CSV debe estar codificado en UTF-8"
-        )
-
-    reader = csv.DictReader(io.StringIO(text))
+    _, rows = _parse_file_to_rows(file, content)
 
     created = 0
     skipped = 0
     errors = []
 
-    for i, row in enumerate(reader, start=2):
+    for i, row in enumerate(rows, start=2):
         if i - 1 > MAX_IMPORT_ROWS:
             errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
             break
@@ -342,28 +480,19 @@ async def import_suppliers(
     current_user: User = Depends(require_permission("export.write"))
 ):
     """
-    Import suppliers from CSV file.
+    Import suppliers from CSV or XLSX file.
     Expected columns: code, name, tax_id, address, city, postal_code,
     province, country, phone, email, website, notes
     Skips rows with duplicate codes.
     """
     content = await file.read()
-    _validate_csv_upload(file, content)
-    try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo CSV debe estar codificado en UTF-8"
-        )
-
-    reader = csv.DictReader(io.StringIO(text))
+    _, rows = _parse_file_to_rows(file, content)
 
     created = 0
     skipped = 0
     errors = []
 
-    for i, row in enumerate(reader, start=2):
+    for i, row in enumerate(rows, start=2):
         if i - 1 > MAX_IMPORT_ROWS:
             errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
             break
@@ -418,28 +547,19 @@ async def import_workers(
     current_user: User = Depends(require_permission("export.write"))
 ):
     """
-    Import workers from CSV file.
+    Import workers from CSV or XLSX file.
     Expected columns: code, first_name, last_name, phone, email, address,
     position, department, hire_date, salary
     Skips rows with duplicate codes.
     """
     content = await file.read()
-    _validate_csv_upload(file, content)
-    try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo CSV debe estar codificado en UTF-8"
-        )
-
-    reader = csv.DictReader(io.StringIO(text))
+    _, rows = _parse_file_to_rows(file, content)
 
     created = 0
     skipped = 0
     errors = []
 
-    for i, row in enumerate(reader, start=2):
+    for i, row in enumerate(rows, start=2):
         if i - 1 > MAX_IMPORT_ROWS:
             errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
             break
@@ -507,27 +627,18 @@ async def import_diary_entries(
     current_user: User = Depends(require_permission("export.write"))
 ):
     """
-    Import diary entries from CSV file.
+    Import diary entries from CSV or XLSX file.
     Expected columns: title, content, entry_date, tags, is_pinned
     Skips rows with duplicate title+entry_date.
     """
     content = await file.read()
-    _validate_csv_upload(file, content)
-    try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo CSV debe estar codificado en UTF-8"
-        )
-
-    reader = csv.DictReader(io.StringIO(text))
+    _, rows = _parse_file_to_rows(file, content)
 
     created = 0
     skipped = 0
     errors = []
 
-    for i, row in enumerate(reader, start=2):
+    for i, row in enumerate(rows, start=2):
         if i - 1 > MAX_IMPORT_ROWS:
             errors.append(f"Se alcanzó el límite de filas ({MAX_IMPORT_ROWS})")
             break

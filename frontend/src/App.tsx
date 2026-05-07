@@ -22,6 +22,7 @@ const ReportsPage = lazy(() => import("@/pages/reports"));
 const AuditPage = lazy(() => import("@/pages/audit"));
 const AdminPage = lazy(() => import("@/pages/admin"));
 const SuperadminPage = lazy(() => import("@/pages/superadmin"));
+const ExportPage = lazy(() => import("@/pages/export"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const ProjectsPage = lazy(() => import("@/pages/projects"));
 const ProjectDetailPage = lazy(() => import("@/pages/projects/detail"));
@@ -87,6 +88,7 @@ export default function App() {
               <Route path="/diary" element={<DiaryPage />} />
               <Route path="/reminders" element={<RemindersPage />} />
               <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/export" element={<ExportPage />} />
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />

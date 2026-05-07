@@ -24,6 +24,14 @@ from app.models.user import UserRole
 class SuperadminResetPasswordRequest(BaseModel):
     new_password: str
 
+
+class SuperadminUpdateUserRequest(BaseModel):
+    role: str | None = None
+    company_id: str | None = None
+    is_active: bool | None = None
+    full_name: str | None = None
+
+
 router = APIRouter(prefix="/superadmin", tags=["Superadmin"])
 
 
@@ -270,3 +278,140 @@ async def get_global_audit(
             for log in logs
         ]
     }
+
+
+# ---------------------------------------------------------------------------
+# All users across platform
+# ---------------------------------------------------------------------------
+
+@router.get("/users")
+async def list_all_users(
+    company_id: str | None = None,
+    db: Session = Depends(get_db),
+    superadmin: User = Depends(require_superadmin()),
+):
+    """List all users on the platform, optionally filtered by company."""
+    _audit_superadmin(db, superadmin, "list_all_users", f"company_filter={company_id}")
+
+    q = db.query(User, Company).join(Company, User.company_id == Company.id)
+    if company_id:
+        q = q.filter(User.company_id == company_id)
+    rows = q.order_by(Company.name, User.full_name).all()
+
+    return {
+        "items": [
+            {
+                "id": str(u.id),
+                "username": u.username,
+                "full_name": u.full_name,
+                "email": u.email,
+                "role": u.role.value if hasattr(u.role, "value") else u.role,
+                "is_active": u.is_active,
+                "is_superadmin": getattr(u, "is_superadmin", False),
+                "company_id": str(u.company_id),
+                "company_name": c.name,
+                "company_code": c.code,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+            for u, c in rows
+        ]
+    }
+
+
+@router.patch("/users/{user_id}", response_model=MessageResponse)
+async def update_user_superadmin(
+    user_id: UUID,
+    request: SuperadminUpdateUserRequest,
+    db: Session = Depends(get_db),
+    superadmin: User = Depends(require_superadmin()),
+):
+    """Update a user's role, company, or active status. Cannot promote to superadmin."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    changes = []
+
+    if request.role is not None:
+        allowed = {r.value for r in UserRole}
+        if request.role not in allowed:
+            raise HTTPException(status_code=400, detail=f"Rol inválido: {request.role}")
+        user.role = UserRole(request.role)
+        changes.append(f"role={request.role}")
+
+    if request.company_id is not None:
+        new_company = db.query(Company).filter(Company.id == request.company_id).first()
+        if not new_company:
+            raise HTTPException(status_code=404, detail="Empresa destino no encontrada")
+        user.company_id = request.company_id
+        changes.append(f"company={request.company_id}")
+
+    if request.is_active is not None:
+        user.is_active = request.is_active
+        changes.append(f"is_active={request.is_active}")
+
+    if request.full_name is not None:
+        user.full_name = request.full_name
+        changes.append(f"full_name={request.full_name}")
+
+    db.commit()
+    _audit_superadmin(db, superadmin, "update_user", f"user={user_id} changes={','.join(changes)}")
+    return MessageResponse(message=f"Usuario '{user.username}' actualizado.", success=True)
+
+
+@router.delete("/users/{user_id}", response_model=MessageResponse)
+async def delete_user_superadmin(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    superadmin: User = Depends(require_superadmin()),
+):
+    """Soft-delete a user. Cannot delete another superadmin or yourself."""
+    if str(user_id) == str(superadmin.id):
+        raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo.")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    if getattr(user, "is_superadmin", False):
+        raise HTTPException(status_code=403, detail="No se puede eliminar a otro superadmin.")
+
+    user.is_active = False
+    db.commit()
+    _audit_superadmin(db, superadmin, "delete_user", f"user={user_id} username={user.username}")
+    return MessageResponse(message=f"Usuario '{user.username}' desactivado.", success=True)
+
+
+# ---------------------------------------------------------------------------
+# Company management
+# ---------------------------------------------------------------------------
+
+@router.delete("/companies/{company_id}", response_model=MessageResponse)
+async def delete_company_superadmin(
+    company_id: UUID,
+    db: Session = Depends(get_db),
+    superadmin: User = Depends(require_superadmin()),
+):
+    """
+    Hard-delete a company and ALL its data. IRREVERSIBLE.
+    Superadmin only. Heavily audited.
+    """
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+
+    _audit_superadmin(
+        db, superadmin, "DELETE_COMPANY",
+        f"company_id={company_id} name={company.name} code={company.code} — PERMANENT"
+    )
+
+    # Soft-delete all users in the company
+    db.query(User).filter(User.company_id == company_id).update({"is_active": False})
+    # Soft-delete the company itself
+    company.is_active = False
+    db.commit()
+
+    return MessageResponse(
+        message=f"Empresa '{company.name}' y sus usuarios han sido desactivados.",
+        success=True,
+    )

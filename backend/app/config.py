@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "2.5.0"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
+    APP_URL: str = "http://localhost:5173"  # Override in production: https://your-domain.com
 
     # Database - SQLite for development, PostgreSQL for production
     DATABASE_URL: str = "sqlite:///./dragofactu_api.db"

@@ -13,6 +13,7 @@ from app.models.client import Client
 from app.models.supplier import Supplier
 from app.models.product import Product
 from app.models.supplier_catalog import SupplierProduct
+from app.models.project import Project, ProjectExpense, ProjectDocument, ProjectStatus, ExpenseCategory
 
 # Documents
 from app.models.document import (
@@ -30,6 +31,7 @@ from app.models.worker import Worker, Course
 from app.models.diary import DiaryEntry
 from app.models.reminder import Reminder, ReminderPriority
 from app.models.audit_log import AuditLog
+from app.models.password_reset import PasswordResetToken
 
 __all__ = [
     # Base
@@ -44,6 +46,11 @@ __all__ = [
     'Supplier',
     'Product',
     'SupplierProduct',
+    'Project',
+    'ProjectExpense',
+    'ProjectDocument',
+    'ProjectStatus',
+    'ExpenseCategory',
     # Documents
     'Document',
     'DocumentLine',
@@ -58,4 +65,5 @@ __all__ = [
     'Reminder',
     'ReminderPriority',
     'AuditLog',
+    'PasswordResetToken',
 ]

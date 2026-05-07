@@ -1,8 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Sun, Moon, Monitor, Globe, Info, LogOut, Building, Mail } from "lucide-react";
+import api from "@/api/client";
+import { Sun, Moon, Monitor, Globe, Info, LogOut, Building, Mail, KeyRound, Eye, EyeOff } from "lucide-react";
 
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -46,6 +48,29 @@ export default function SettingsPage() {
   const setLocale = useUIStore((s) => s.setLocale);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+
+  const [showChangePwd, setShowChangePwd] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+
+  const changePwdMutation = useMutation({
+    mutationFn: () =>
+      api.post("/auth/change-password", {
+        current_password: currentPwd,
+        new_password: newPwd,
+      }).then((r) => r.data),
+    onSuccess: () => {
+      toast.success(t("settings.password_changed"));
+      setShowChangePwd(false);
+      setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+    },
+    onError: (err: any) => {
+      const detail = err?.response?.data?.detail || t("common.error");
+      toast.error(detail);
+    },
+  });
 
   const { data: company } = useCompanySettings();
   const updateCompany = useUpdateCompanySettings();
@@ -282,6 +307,81 @@ export default function SettingsPage() {
               </>
             )}
           </div>
+        </div>
+
+        {/* Change password */}
+        <div className="rounded-md border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{t("settings.change_password")}</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowChangePwd((v) => !v)}
+            >
+              {showChangePwd ? t("buttons.cancel") : t("settings.change_password_btn")}
+            </Button>
+          </div>
+
+          {showChangePwd && (
+            <form
+              className="space-y-3 pt-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newPwd !== confirmPwd) {
+                  toast.error(t("auth.passwords_dont_match"));
+                  return;
+                }
+                changePwdMutation.mutate();
+              }}
+            >
+              <div className="space-y-1">
+                <Label className="text-xs">{t("settings.current_password")}</Label>
+                <div className="relative">
+                  <Input
+                    type={showPwd ? "text" : "password"}
+                    value={currentPwd}
+                    onChange={(e) => setCurrentPwd(e.target.value)}
+                    required
+                    className="pr-9"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-2.5 text-muted-foreground"
+                    onClick={() => setShowPwd((v) => !v)}
+                  >
+                    {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("settings.new_password")}</Label>
+                <Input
+                  type={showPwd ? "text" : "password"}
+                  value={newPwd}
+                  onChange={(e) => setNewPwd(e.target.value)}
+                  required
+                  minLength={8}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("settings.confirm_new_password")}</Label>
+                <Input
+                  type={showPwd ? "text" : "password"}
+                  value={confirmPwd}
+                  onChange={(e) => setConfirmPwd(e.target.value)}
+                  required
+                  minLength={8}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{t("auth.password_requirements")}</p>
+              <Button type="submit" size="sm" disabled={changePwdMutation.isPending}>
+                {changePwdMutation.isPending ? t("buttons.loading") : t("settings.save_password")}
+              </Button>
+            </form>
+          )}
         </div>
 
         {/* Logout */}

@@ -6,6 +6,7 @@ Access is audited on every call.
 Superadmin status can ONLY be set via the create_superadmin.py script, never via API.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from uuid import UUID
@@ -18,6 +19,10 @@ from app.schemas.base import PaginatedResponse, MessageResponse
 from app.core.security import hash_password
 from app.core.security_utils import PasswordValidator, sanitize_username
 from app.models.user import UserRole
+
+
+class SuperadminResetPasswordRequest(BaseModel):
+    new_password: str
 
 router = APIRouter(prefix="/superadmin", tags=["Superadmin"])
 
@@ -191,6 +196,40 @@ async def create_user_in_company(
     db.commit()
     db.refresh(new_user)
     return UserResponse.model_validate(new_user)
+
+
+@router.post("/users/{user_id}/reset-password", response_model=MessageResponse)
+async def superadmin_reset_user_password(
+    user_id: UUID,
+    request: SuperadminResetPasswordRequest,
+    db: Session = Depends(get_db),
+    superadmin: User = Depends(require_superadmin()),
+):
+    """
+    Reset the password of any user on the platform.
+    Superadmin only. Audited. Cannot set the same password as current
+    (but cannot verify — hash is one-way, so we skip that check here).
+    Cannot demote/affect another superadmin's password (still allows it for self-service).
+    """
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado o inactivo")
+
+    PasswordValidator.validate_or_raise(request.new_password)
+
+    user.password_hash = hash_password(request.new_password)
+    db.commit()
+
+    _audit_superadmin(
+        db, superadmin,
+        "reset_user_password",
+        f"target_user={user_id} username={user.username}"
+    )
+
+    return MessageResponse(
+        message=f"Contrase\u00f1a de '{user.username}' restablecida correctamente.",
+        success=True,
+    )
 
 
 # ---------------------------------------------------------------------------

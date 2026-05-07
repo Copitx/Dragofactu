@@ -254,6 +254,85 @@ def build_document_email_content(
     return rendered_subject, html_content
 
 
+def send_plain_email(
+    recipient_email: str,
+    subject: str,
+    body_html: str,
+    smtp_config: Optional[Dict[str, Any]] = None,
+) -> None:
+    """
+    Send a plain (no attachment) email — used for password reset, notifications, etc.
+    Uses the same SMTP channel as document emails.
+    """
+    settings = get_settings()
+    managed_config = get_managed_email_config()
+
+    effective_config = smtp_config or {
+        "host": settings.SMTP_HOST,
+        "port": settings.SMTP_PORT,
+        "user": settings.SMTP_USER,
+        "password": settings.SMTP_PASSWORD,
+        "use_tls": True,
+        "from_email": settings.SMTP_USER,
+        "from_name": None,
+    }
+
+    smtp_ready = bool(
+        effective_config.get("host") and effective_config.get("user") and effective_config.get("password")
+    )
+    if not smtp_ready and not managed_config:
+        raise ValueError("Email no configurado. Configura el SMTP de tu empresa en Ajustes.")
+
+    msg = MIMEMultipart("alternative")
+    from_email = effective_config.get("from_email") or effective_config.get("user")
+    from_name = effective_config.get("from_name")
+    msg["From"] = f"{from_name} <{from_email}>" if from_name else from_email
+    msg["To"] = recipient_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body_html, "html"))
+
+    if smtp_ready:
+        try:
+            with smtplib.SMTP(effective_config["host"], effective_config["port"], timeout=20) as server:
+                if effective_config.get("use_tls", True):
+                    server.starttls()
+                server.login(effective_config["user"], effective_config["password"])
+                server.send_message(msg)
+            logger.info("Plain email sent to %s via SMTP", recipient_email)
+            return
+        except Exception as smtp_error:
+            if not managed_config:
+                raise smtp_error
+            logger.warning("SMTP failed for plain email, trying managed API: %s", smtp_error)
+
+    if managed_config:
+        payload = {
+            "sender": {
+                "name": managed_config["sender_name"],
+                "email": managed_config["sender_email"],
+            },
+            "to": [{"email": recipient_email}],
+            "subject": subject,
+            "htmlContent": body_html,
+        }
+        response = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "accept": "application/json",
+                "api-key": managed_config["api_key"],
+                "content-type": "application/json",
+            },
+            json=payload,
+            timeout=20,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(f"Brevo API error ({response.status_code}): {response.text[:200]}")
+        logger.info("Plain email sent to %s via managed API", recipient_email)
+        return
+
+    raise RuntimeError("No email delivery channel available")
+
+
 def build_document_email_html(
     company_name: str,
     doc_type: str,

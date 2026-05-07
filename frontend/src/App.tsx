@@ -7,6 +7,8 @@ import { AppLayout } from "@/components/layout/app-layout";
 
 const LoginPage = lazy(() => import("@/pages/auth/login"));
 const RegisterPage = lazy(() => import("@/pages/auth/register"));
+const ForgotPasswordPage = lazy(() => import("@/pages/auth/forgot-password"));
+const ResetPasswordPage = lazy(() => import("@/pages/auth/reset-password"));
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const ClientsPage = lazy(() => import("@/pages/clients"));
 const ProductsPage = lazy(() => import("@/pages/products"));
@@ -73,6 +75,9 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
             </Route>
+            {/* Password recovery — always accessible, even when logged in */}
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             {/* Protected routes with layout */}
             <Route element={<ProtectedRoute />}>

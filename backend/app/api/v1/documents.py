@@ -4,8 +4,9 @@ Handles quotes, delivery notes, and invoices.
 """
 import logging
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from uuid import UUID
@@ -681,3 +682,149 @@ async def send_document_email(
         logger.warning("Email delivered but audit log failed for document %s: %s", document_id, audit_error)
 
     return {"message": f"Email sent to {_mask_email(recipient_email)}", "success": True}
+
+
+# ---------------------------------------------------------------------------
+# Group invoice: combine multiple delivery notes into a single invoice
+# ---------------------------------------------------------------------------
+
+class GroupInvoiceRequest(BaseModel):
+    delivery_note_ids: List[UUID]
+    client_id: UUID
+
+
+@router.post("/group-invoice", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+async def create_group_invoice(
+    data: GroupInvoiceRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("documents.create"))
+):
+    """
+    Create an INVOICE by grouping all lines from the given delivery notes.
+    The delivery notes must belong to the same client and company.
+    """
+    if not data.delivery_note_ids:
+        raise HTTPException(status_code=400, detail="Se requiere al menos un albarán")
+
+    # Validate client
+    client = db.query(Client).filter(
+        Client.id == data.client_id,
+        Client.company_id == current_user.company_id,
+        Client.is_active == True
+    ).first()
+    if not client:
+        raise HTTPException(status_code=400, detail="Cliente no encontrado")
+
+    # Load delivery notes and validate
+    delivery_notes = db.query(Document).filter(
+        Document.id.in_(data.delivery_note_ids),
+        Document.company_id == current_user.company_id,
+        Document.type == DocumentType.DELIVERY_NOTE,
+    ).all()
+
+    if len(delivery_notes) != len(data.delivery_note_ids):
+        raise HTTPException(status_code=400, detail="Algunos albaranes no se encontraron o no son válidos")
+
+    for dn in delivery_notes:
+        if str(dn.client_id) != str(data.client_id):
+            raise HTTPException(
+                status_code=400,
+                detail=f"El albarán {dn.code} no pertenece al cliente seleccionado"
+            )
+
+    # Collect all lines from the delivery notes (with eager load)
+    all_lines = []
+    for dn in delivery_notes:
+        dn_with_lines = db.query(Document).options(
+            joinedload(Document.lines)
+        ).filter(Document.id == dn.id).first()
+        if dn_with_lines:
+            all_lines.extend(dn_with_lines.lines)
+
+    if not all_lines:
+        raise HTTPException(status_code=400, detail="Los albaranes seleccionados no tienen líneas")
+
+    # Generate invoice code
+    code = generate_document_code(db, current_user.company_id, DocumentType.INVOICE)
+
+    invoice = Document(
+        company_id=current_user.company_id,
+        code=code,
+        type=DocumentType.INVOICE,
+        status=DocumentStatus.DRAFT,
+        client_id=data.client_id,
+        issue_date=datetime.now(timezone.utc),
+        created_by=current_user.id,
+        notes=f"Factura agrupada de {len(delivery_notes)} albarán/es: " +
+              ", ".join(dn.code for dn in delivery_notes if dn.code),
+    )
+    db.add(invoice)
+    db.flush()
+
+    for idx, src_line in enumerate(all_lines):
+        new_line = DocumentLine(
+            document_id=invoice.id,
+            line_type=src_line.line_type,
+            product_id=src_line.product_id,
+            description=src_line.description,
+            quantity=src_line.quantity,
+            unit_price=src_line.unit_price,
+            discount_percent=src_line.discount_percent,
+            order_index=idx,
+        )
+        new_line.subtotal = calculate_line_subtotal(new_line)
+        db.add(new_line)
+
+    db.flush()
+    calculate_document_totals(invoice)
+    db.commit()
+    db.refresh(invoice)
+
+    logger.info(
+        f"Group invoice {invoice.code} created from {len(delivery_notes)} delivery notes "
+        f"for company {current_user.company_id}"
+    )
+    return DocumentResponse.model_validate(invoice)
+
+
+# ---------------------------------------------------------------------------
+# Quick mark as paid
+# ---------------------------------------------------------------------------
+
+class QuickPaidRequest(BaseModel):
+    payment_date: Optional[date] = None
+
+
+@router.post("/{document_id}/mark-paid", response_model=DocumentResponse)
+async def mark_document_paid(
+    document_id: UUID,
+    data: QuickPaidRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("documents.create"))
+):
+    """
+    Quickly mark a document as PAID with an optional payment_date.
+    Allowed from SENT or ACCEPTED status.
+    """
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.company_id == current_user.company_id,
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    if document.status not in (DocumentStatus.SENT, DocumentStatus.ACCEPTED):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Solo se puede marcar como pagado desde estado SENT o ACCEPTED (actual: {document.status})"
+        )
+
+    document.status = DocumentStatus.PAID
+    if data.payment_date:
+        document.payment_date = datetime.combine(data.payment_date, datetime.min.time())
+
+    db.commit()
+    db.refresh(document)
+    logger.info(f"Document {document.code} marked as PAID for company {current_user.company_id}")
+    return DocumentResponse.model_validate(document)

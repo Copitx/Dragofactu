@@ -13,6 +13,9 @@ import {
   Plus,
   FilePlus,
   UserPlus,
+  Building2,
+  ClipboardList,
+  CalendarClock,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { MetricCard } from "@/components/common/metric-card";
@@ -82,6 +85,34 @@ export default function DashboardPage() {
             value={stats?.unpaid_invoices ?? 0}
             icon={CreditCard}
             variant={stats?.unpaid_invoices ? "warning" : "default"}
+          />
+        </div>
+
+        {/* Construction KPIs */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            title={t("dashboard.active_projects")}
+            value={stats?.active_projects ?? 0}
+            icon={Building2}
+            variant={stats?.active_projects ? "default" : "default"}
+          />
+          <MetricCard
+            title={t("dashboard.uninvoiced_delivery_notes")}
+            value={stats?.uninvoiced_delivery_notes ?? 0}
+            icon={ClipboardList}
+            variant={stats?.uninvoiced_delivery_notes ? "warning" : "default"}
+          />
+          <MetricCard
+            title={t("dashboard.overdue_invoices")}
+            value={stats?.overdue_invoices ?? 0}
+            icon={AlertTriangle}
+            variant={stats?.overdue_invoices ? "destructive" : "default"}
+          />
+          <MetricCard
+            title={t("dashboard.due_soon_invoices")}
+            value={stats?.due_soon_invoices ?? 0}
+            icon={CalendarClock}
+            variant={stats?.due_soon_invoices ? "warning" : "default"}
           />
         </div>
 
@@ -155,6 +186,14 @@ export default function DashboardPage() {
               >
                 <UserPlus className="h-4 w-4" />
                 {t("dashboard.new_client")}
+              </Button>
+              <Button
+                className="w-full justify-start gap-2"
+                variant="outline"
+                onClick={() => navigate("/projects")}
+              >
+                <Building2 className="h-4 w-4" />
+                {t("dashboard.view_projects")}
               </Button>
             </CardContent>
           </Card>

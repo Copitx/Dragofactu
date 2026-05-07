@@ -2,7 +2,7 @@
 Dashboard statistics endpoint.
 Returns aggregated stats for the desktop client dashboard.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -10,6 +10,7 @@ from sqlalchemy import func
 from app.api.deps import get_db, require_permission
 from app.models import User, Client, Product, Document, Supplier, Reminder
 from app.models.document import DocumentStatus, DocumentType
+from app.models.project import Project, ProjectStatus
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -122,6 +123,41 @@ async def get_dashboard_stats(
             "type": doc.type.value if doc.type else "",
         })
 
+    # Construction KPIs
+    active_projects = db.query(Project).filter(
+        Project.company_id == company_id,
+        Project.status == ProjectStatus.ACTIVE,
+        Project.is_active == True,
+    ).count()
+
+    # Delivery notes not linked to any invoice
+    # (status SENT or ACCEPTED, type DELIVERY_NOTE)
+    uninvoiced_delivery_notes = db.query(Document).filter(
+        Document.company_id == company_id,
+        Document.type == DocumentType.DELIVERY_NOTE,
+        Document.status.in_([DocumentStatus.SENT, DocumentStatus.ACCEPTED]),
+    ).count()
+
+    # Invoices pending collection >30 days (sent but not paid)
+    overdue_cutoff = datetime.now() - timedelta(days=30)
+    overdue_invoices = db.query(Document).filter(
+        Document.company_id == company_id,
+        Document.type == DocumentType.INVOICE,
+        Document.status.in_([DocumentStatus.SENT, DocumentStatus.ACCEPTED]),
+        Document.issue_date <= overdue_cutoff,
+    ).count()
+
+    # Invoices with due_date in next 15 days
+    now = datetime.now()
+    due_soon_cutoff = now + timedelta(days=15)
+    due_soon_invoices = db.query(Document).filter(
+        Document.company_id == company_id,
+        Document.type == DocumentType.INVOICE,
+        Document.status.in_([DocumentStatus.SENT, DocumentStatus.ACCEPTED]),
+        Document.due_date >= now,
+        Document.due_date <= due_soon_cutoff,
+    ).count()
+
     return {
         # Legacy keys (desktop client compatibility)
         "clients": client_count,
@@ -140,4 +176,9 @@ async def get_dashboard_stats(
         "unpaid_invoices": unpaid_invoices,
         "pending_reminders": pending_reminders,
         "recent_pending_docs": recent_docs_list,
+        # Construction KPIs
+        "active_projects": active_projects,
+        "uninvoiced_delivery_notes": uninvoiced_delivery_notes,
+        "overdue_invoices": overdue_invoices,
+        "due_soon_invoices": due_soon_invoices,
     }

@@ -21,6 +21,11 @@ export interface DashboardStats {
   month_invoices: number;
   pending_reminders: number;
   recent_pending_docs: RecentDocument[];
+  // Construction KPIs
+  active_projects: number;
+  uninvoiced_delivery_notes: number;
+  overdue_invoices: number;
+  due_soon_invoices: number;
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {

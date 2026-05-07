@@ -62,7 +62,12 @@
     "new_invoice": "Nueva Factura",
     "new_quote": "Nuevo Presupuesto",
     "new_client": "Nuevo Cliente",
-    "financial_summary": "Resumen Financiero"
+    "view_projects": "Ver Obras",
+    "financial_summary": "Resumen Financiero",
+    "active_projects": "Obras Activas",
+    "uninvoiced_delivery_notes": "Albaranes sin Facturar",
+    "overdue_invoices": "Facturas Vencidas (+30d)",
+    "due_soon_invoices": "Vencen en 15 días"
   },
   "clients": {
     "title": "Clientes",

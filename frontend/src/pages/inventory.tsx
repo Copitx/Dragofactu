@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Package, AlertTriangle, DollarSign, PackageMinus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Package, AlertTriangle, DollarSign, PackageMinus, Search } from "lucide-react";
+import { supplierCatalogApi } from "@/api/supplier-catalog";
 
 import { Header } from "@/components/layout/header";
 import { DataTable, type Column } from "@/components/data-table/data-table";
@@ -43,6 +45,13 @@ export default function InventoryPage() {
   const [stockFilter, setStockFilter] = useState<StockFilter>("all");
   const [stockOpen, setStockOpen] = useState(false);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
+  const [catalogSearch, setCatalogSearch] = useState("");
+
+  const { data: catalogResults } = useQuery({
+    queryKey: ["catalog-search", catalogSearch],
+    queryFn: () => supplierCatalogApi.search({ q: catalogSearch || undefined, limit: 50 }),
+    staleTime: 30_000,
+  });
 
   const { data, isLoading } = useProducts({
     skip: page * pageSize,
@@ -189,6 +198,61 @@ export default function InventoryPage() {
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />
+      </div>
+
+      {/* Catalog Section */}
+      <div className="px-4 md:px-6 pb-6">
+        <div className="border rounded-md overflow-hidden">
+          <div className="p-3 bg-muted/30 border-b flex items-center gap-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-sm">{t("catalog.title")} — {t("catalog.price_comparison")}</span>
+            <div className="ml-auto w-56">
+              <input
+                className="w-full border rounded px-2 py-1 text-sm bg-background"
+                placeholder={t("catalog.search_placeholder")}
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          {!catalogResults || catalogResults.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">{t("catalog.empty_global")}</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="text-left px-3 py-2">{t("catalog.product")}</th>
+                  <th className="text-left px-3 py-2">{t("suppliers.name")}</th>
+                  <th className="text-left px-3 py-2">{t("catalog.supplier_ref")}</th>
+                  <th className="text-right px-3 py-2">{t("catalog.purchase_price")}</th>
+                  <th className="text-right px-3 py-2">{t("catalog.sale_price")}</th>
+                  <th className="text-right px-3 py-2">{t("catalog.margin")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {catalogResults.map((r) => (
+                  <tr key={r.id} className="border-t hover:bg-muted/20">
+                    <td className="px-3 py-2">
+                      <span className="font-mono text-xs text-muted-foreground mr-1">{r.product_code}</span>
+                      {r.product_name}
+                    </td>
+                    <td className="px-3 py-2">{r.supplier_name}</td>
+                    <td className="px-3 py-2">{r.supplier_ref || "—"}</td>
+                    <td className="px-3 py-2 text-right">€{r.purchase_price.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-right">€{r.sale_price.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-right">
+                      {r.margin_pct != null ? (
+                        <span className={r.margin_pct >= 0 ? "text-green-600" : "text-red-600"}>
+                          {r.margin_pct.toFixed(1)}%
+                        </span>
+                      ) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       {/* Stock Adjustment Dialog */}

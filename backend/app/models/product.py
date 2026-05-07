@@ -49,6 +49,7 @@ class Product(Base):
     company = relationship("Company", back_populates="products")
     supplier = relationship("Supplier", back_populates="products")
     document_lines = relationship("DocumentLine", back_populates="product")
+    catalog_entries = relationship("SupplierProduct", back_populates="product", cascade="all, delete-orphan")
 
     # Unique constraint: code unique per company
     __table_args__ = (

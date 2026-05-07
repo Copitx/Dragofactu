@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Pencil, Trash2, Download, Upload } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Trash2, Download, Upload, BookOpen, Plus, X } from "lucide-react";
+import { supplierCatalogApi } from "@/api/supplier-catalog";
 
 import { Header } from "@/components/layout/header";
 import { DataTable, type Column } from "@/components/data-table/data-table";
@@ -23,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier } from "@/hooks/use-suppliers";
+import { useProducts } from "@/hooks/use-products";
 import { supplierSchema, type SupplierFormData } from "@/lib/validators";
 import { exportCSV, importCSV, downloadBlob } from "@/api/export-import";
 import type { Supplier } from "@/types/supplier";
@@ -39,6 +42,14 @@ export default function SuppliersPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
 
+  // Catalog state
+  const [catalogSupplier, setCatalogSupplier] = useState<Supplier | null>(null);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [addProductId, setAddProductId] = useState("");
+  const [addSupplierRef, setAddSupplierRef] = useState("");
+  const [addPurchasePrice, setAddPurchasePrice] = useState("");
+  const qc = useQueryClient();
+
   const { data, isLoading } = useSuppliers({
     skip: page * pageSize,
     limit: pageSize,
@@ -48,6 +59,36 @@ export default function SuppliersPage() {
   const createMutation = useCreateSupplier();
   const updateMutation = useUpdateSupplier();
   const deleteMutation = useDeleteSupplier();
+
+  // Catalog queries
+  const { data: catalogEntries = [], isLoading: catalogLoading } = useQuery({
+    queryKey: ["supplier-catalog", catalogSupplier?.id],
+    queryFn: () => supplierCatalogApi.list(catalogSupplier!.id),
+    enabled: !!catalogSupplier,
+  });
+
+  const addCatalogMutation = useMutation({
+    mutationFn: (payload: { product_id: string; supplier_ref?: string; purchase_price?: number }) =>
+      supplierCatalogApi.add(catalogSupplier!.id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["supplier-catalog", catalogSupplier?.id] });
+      setAddProductId(""); setAddSupplierRef(""); setAddPurchasePrice("");
+      toast.success(t("catalog.added"));
+    },
+    onError: () => toast.error(t("common.error")),
+  });
+
+  const removeCatalogMutation = useMutation({
+    mutationFn: (entryId: string) => supplierCatalogApi.remove(catalogSupplier!.id, entryId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["supplier-catalog", catalogSupplier?.id] });
+      toast.success(t("catalog.removed"));
+    },
+    onError: () => toast.error(t("common.error")),
+  });
+
+  const { data: productsData } = useProducts({ limit: 500 });
+  const allProducts = productsData?.items || [];
 
   const form = useForm<SupplierFormData>({
     resolver: zodResolver(supplierSchema),
@@ -164,6 +205,10 @@ export default function SuppliersPage() {
       className: "w-24",
       cell: (s) => (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" title={t("catalog.title")}
+            onClick={() => { setCatalogSupplier(s); setCatalogOpen(true); }}>
+            <BookOpen className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}>
             <Pencil className="h-4 w-4" />
           </Button>
@@ -303,6 +348,117 @@ export default function SuppliersPage() {
             <Input type="file" accept=".csv" onChange={handleImport} disabled={importing} />
             {importing && <p className="text-sm">{t("buttons.loading")}</p>}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Supplier Catalog Dialog */}
+      <Dialog open={catalogOpen} onOpenChange={(v) => { setCatalogOpen(v); if (!v) setCatalogSupplier(null); }}>
+        <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {t("catalog.title")} — {catalogSupplier?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Add product row */}
+          <div className="border rounded-md p-3 bg-muted/30 space-y-2">
+            <p className="text-sm font-medium">{t("catalog.add_product")}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              <div className="sm:col-span-2">
+                <select
+                  className="w-full border rounded px-2 py-1.5 text-sm bg-background"
+                  value={addProductId}
+                  onChange={(e) => setAddProductId(e.target.value)}
+                >
+                  <option value="">{t("catalog.select_product")}</option>
+                  {allProducts
+                    .filter((p) => !catalogEntries.some((e) => e.product_id === p.id))
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                    ))}
+                </select>
+              </div>
+              <Input
+                placeholder={t("catalog.supplier_ref")}
+                value={addSupplierRef}
+                onChange={(e) => setAddSupplierRef(e.target.value)}
+              />
+              <Input
+                type="number"
+                placeholder={t("catalog.purchase_price")}
+                value={addPurchasePrice}
+                onChange={(e) => setAddPurchasePrice(e.target.value)}
+                min={0}
+                step="0.01"
+              />
+            </div>
+            <Button
+              size="sm"
+              disabled={!addProductId || addCatalogMutation.isPending}
+              onClick={() => addCatalogMutation.mutate({
+                product_id: addProductId,
+                supplier_ref: addSupplierRef || undefined,
+                purchase_price: addPurchasePrice ? parseFloat(addPurchasePrice) : 0,
+              })}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              {t("catalog.add")}
+            </Button>
+          </div>
+
+          {/* Catalog entries table */}
+          {catalogLoading ? (
+            <p className="text-sm text-muted-foreground">{t("buttons.loading")}</p>
+          ) : catalogEntries.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">{t("catalog.empty")}</p>
+          ) : (
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="text-left px-3 py-2">{t("catalog.product")}</th>
+                    <th className="text-left px-3 py-2">{t("catalog.supplier_ref")}</th>
+                    <th className="text-right px-3 py-2">{t("catalog.purchase_price")}</th>
+                    <th className="text-right px-3 py-2">{t("catalog.sale_price")}</th>
+                    <th className="text-right px-3 py-2">{t("catalog.margin")}</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {catalogEntries.map((entry) => {
+                    const sale = entry.product_sale_price || 0;
+                    const buy = entry.purchase_price || 0;
+                    const margin = buy > 0 ? ((sale - buy) / buy * 100).toFixed(1) : "—";
+                    return (
+                      <tr key={entry.id} className="border-t">
+                        <td className="px-3 py-2">
+                          <span className="font-mono text-xs text-muted-foreground mr-1">{entry.product_code}</span>
+                          {entry.product_name}
+                        </td>
+                        <td className="px-3 py-2">{entry.supplier_ref || "—"}</td>
+                        <td className="px-3 py-2 text-right">€{buy.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right">€{sale.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right">
+                          <span className={typeof margin === "string" ? "" : parseFloat(margin) >= 0 ? "text-green-600" : "text-red-600"}>
+                            {typeof margin === "string" ? margin : `${margin}%`}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Button
+                            variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                            onClick={() => removeCatalogMutation.mutate(entry.id)}
+                            disabled={removeCatalogMutation.isPending}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

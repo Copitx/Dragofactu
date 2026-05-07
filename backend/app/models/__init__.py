@@ -12,6 +12,7 @@ from app.models.user import User, UserRole
 from app.models.client import Client
 from app.models.supplier import Supplier
 from app.models.product import Product
+from app.models.supplier_catalog import SupplierProduct
 
 # Documents
 from app.models.document import (
@@ -42,6 +43,7 @@ __all__ = [
     'Client',
     'Supplier',
     'Product',
+    'SupplierProduct',
     # Documents
     'Document',
     'DocumentLine',

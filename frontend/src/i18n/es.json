@@ -131,6 +131,23 @@
     "updated": "Proveedor actualizado correctamente",
     "deleted": "Proveedor eliminado correctamente"
   },
+  "catalog": {
+    "title": "Catálogo",
+    "add_product": "Añadir producto al catálogo",
+    "select_product": "Seleccionar producto...",
+    "supplier_ref": "Ref. proveedor",
+    "purchase_price": "Precio compra (€)",
+    "sale_price": "Precio venta",
+    "margin": "Margen",
+    "product": "Producto",
+    "add": "Añadir",
+    "empty": "Este proveedor no tiene productos en el catálogo",
+    "added": "Producto añadido al catálogo",
+    "removed": "Producto eliminado del catálogo",
+    "price_comparison": "Comparación de precios por proveedor",
+    "search_placeholder": "Buscar en catálogo...",
+    "empty_global": "No hay productos en ningún catálogo de proveedores todavía"
+  },
   "documents": {
     "title": "Documentos",
     "code": "Código",

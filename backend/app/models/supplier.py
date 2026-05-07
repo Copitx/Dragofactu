@@ -50,6 +50,7 @@ class Supplier(Base):
     # Relationships
     company = relationship("Company", back_populates="suppliers")
     products = relationship("Product", back_populates="supplier")
+    catalog_entries = relationship("SupplierProduct", back_populates="supplier", cascade="all, delete-orphan")
 
     # Unique constraint: code unique per company
     __table_args__ = (

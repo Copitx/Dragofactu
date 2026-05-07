@@ -8,6 +8,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import inspect
 
 # revision identifiers
 revision: str = '001'
@@ -16,7 +17,15 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(table_name: str) -> bool:
+    bind = op.get_bind()
+    insp = inspect(bind)
+    return table_name in insp.get_table_names()
+
+
 def upgrade() -> None:
+    if _table_exists('companies'):
+        return
     op.create_table(
         'companies',
         sa.Column('id', UUID(as_uuid=True), primary_key=True),

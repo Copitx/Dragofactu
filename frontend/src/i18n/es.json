@@ -40,7 +40,8 @@
     "audit": "Auditoría",
     "settings": "Ajustes",
     "admin": "Administración",
-    "superadmin": "Superadmin"
+    "superadmin": "Superadmin",
+    "projects": "Obras"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -378,6 +379,68 @@
     "import_title": "Importar CSV",
     "select_file": "Seleccionar archivo",
     "file_hint": "Archivo CSV con las mismas columnas que la exportación"
+  },
+  "projects": {
+    "title": "Obras",
+    "new": "Nueva Obra",
+    "code": "Código",
+    "name": "Nombre de obra",
+    "client": "Cliente",
+    "no_client": "Sin cliente",
+    "address": "Dirección",
+    "status": "Estado",
+    "all_statuses": "Todos los estados",
+    "start_date": "Fecha inicio",
+    "end_date": "Fecha fin",
+    "estimated_value": "Presupuesto (€)",
+    "total_expenses": "Total gastos",
+    "total_invoiced": "Total facturado",
+    "margin": "Margen",
+    "notes": "Notas",
+    "search_placeholder": "Buscar obras...",
+    "created": "Obra creada correctamente",
+    "updated": "Obra actualizada",
+    "deleted": "Obra eliminada",
+    "statuses": {
+      "active": "Activa",
+      "paused": "Pausada",
+      "completed": "Completada",
+      "cancelled": "Cancelada"
+    },
+    "kpis": {
+      "budget": "Presupuesto",
+      "expenses": "Gastos",
+      "invoiced": "Facturado",
+      "margin": "Margen"
+    },
+    "expenses": "Gastos de obra",
+    "add_expense": "Añadir gasto",
+    "no_expenses": "Sin gastos registrados",
+    "expense_date": "Fecha",
+    "expense_description": "Descripción",
+    "expense_supplier": "Proveedor/Tienda",
+    "expense_document_ref": "Ref. albarán",
+    "expense_amount": "Importe (€)",
+    "expense_category": "Categoría",
+    "expense_worker": "Trabajador",
+    "expense_notes": "Notas",
+    "expense_added": "Gasto añadido",
+    "expense_deleted": "Gasto eliminado",
+    "expense_categories": {
+      "material": "Material",
+      "labor": "Mano de obra",
+      "subcontract": "Subcontrata",
+      "other": "Otro"
+    },
+    "total_expenses_row": "Total gastos",
+    "linked_documents": "Documentos vinculados",
+    "link_document": "Vincular documento",
+    "link_document_id": "ID del documento",
+    "unlink": "Desvincular",
+    "no_documents": "Sin documentos vinculados",
+    "new_document": "Nuevo documento",
+    "document_linked": "Documento vinculado",
+    "document_unlinked": "Documento desvinculado"
   },
   "admin": {
     "title": "Administración",

@@ -23,6 +23,8 @@ const AuditPage = lazy(() => import("@/pages/audit"));
 const AdminPage = lazy(() => import("@/pages/admin"));
 const SuperadminPage = lazy(() => import("@/pages/superadmin"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
+const ProjectsPage = lazy(() => import("@/pages/projects"));
+const ProjectDetailPage = lazy(() => import("@/pages/projects/detail"));
 const NotFoundPage = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient({
@@ -86,6 +88,8 @@ export default function App() {
               <Route path="/reminders" element={<RemindersPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/audit" element={<AuditPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/projects/:id" element={<ProjectDetailPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/superadmin" element={<SuperadminPage />} />

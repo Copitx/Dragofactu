@@ -24,13 +24,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useDashboardStats } from "@/hooks/use-dashboard";
 
 const navItems = [
   { path: "/", icon: LayoutDashboard, labelKey: "nav.dashboard" },
   { path: "/clients", icon: Users, labelKey: "nav.clients" },
   { path: "/products", icon: Package, labelKey: "nav.products" },
   { path: "/suppliers", icon: Truck, labelKey: "nav.suppliers" },
-  { path: "/documents", icon: FileText, labelKey: "nav.documents" },
+  { path: "/documents", icon: FileText, labelKey: "nav.documents", badgeKey: "documents" },
   { path: "/inventory", icon: Warehouse, labelKey: "nav.inventory" },
   { path: "/workers", icon: HardHat, labelKey: "nav.workers" },
   { path: "/diary", icon: BookOpen, labelKey: "nav.diary" },
@@ -50,6 +51,10 @@ export function Sidebar() {
   const location = useLocation();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const user = useAuthStore((s) => s.user);
+  const { data: stats } = useDashboardStats();
+
+  // Badge counts
+  const overdueCount = (stats?.overdue_invoices ?? 0) + (stats?.due_soon_invoices ?? 0);
 
   let items = [...navItems];
   if (user?.role === "admin") items = [...items, adminItem];
@@ -91,6 +96,11 @@ export function Sidebar() {
               ? location.pathname === "/"
               : location.pathname.startsWith(item.path);
 
+          // Determine badge count for this item
+          const badgeCount = item.badgeKey === "documents" && overdueCount > 0
+            ? overdueCount
+            : 0;
+
           return (
             <Link
               key={item.path}
@@ -104,8 +114,22 @@ export function Sidebar() {
               )}
               title={sidebarCollapsed ? t(item.labelKey) : undefined}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!sidebarCollapsed && <span>{t(item.labelKey)}</span>}
+              <div className="relative">
+                <item.icon className="h-5 w-5 shrink-0" />
+                {badgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground flex items-center justify-center">
+                    {badgeCount > 9 ? "9+" : badgeCount}
+                  </span>
+                )}
+              </div>
+              {!sidebarCollapsed && (
+                <span className="flex-1">{t(item.labelKey)}</span>
+              )}
+              {!sidebarCollapsed && badgeCount > 0 && (
+                <span className="ml-auto bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                  {badgeCount > 99 ? "99+" : badgeCount}
+                </span>
+              )}
             </Link>
           );
         })}

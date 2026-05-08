@@ -97,6 +97,7 @@ export interface DocumentListParams {
   client_id?: string;
   date_from?: string;
   date_to?: string;
+  search?: string;
 }
 
 export interface StatusChange {

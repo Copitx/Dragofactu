@@ -400,5 +400,30 @@
     "not_found": "Seite nicht gefunden",
     "not_found_description": "Die gesuchte Seite existiert nicht.",
     "go_home": "Zur Startseite"
+  },
+  "search": {
+    "placeholder": "Kunden, Dokumente, Projekte suchen...",
+    "type_hint": "Mindestens 2 Zeichen eingeben",
+    "no_results": "Keine Ergebnisse gefunden",
+    "keyboard_hint": "↵ auswählen · Esc schließen"
+  },
+  "catalog": {
+    "search_in_catalog": "Lieferantenkatalog durchsuchen",
+    "type_to_search": "Mindestens 2 Zeichen eingeben",
+    "title": "Katalog",
+    "add_product": "Produkt zum Katalog hinzufügen",
+    "select_product": "Produkt auswählen...",
+    "supplier_ref": "Lieferantenreferenz",
+    "purchase_price": "Einkaufspreis",
+    "sale_price": "Verkaufspreis",
+    "margin": "Marge",
+    "product": "Produkt",
+    "add": "Hinzufügen",
+    "empty": "Dieser Lieferant hat keine Produkte im Katalog",
+    "added": "Produkt zum Katalog hinzugefügt",
+    "removed": "Produkt aus dem Katalog entfernt",
+    "price_comparison": "Preisvergleich nach Lieferant",
+    "search_placeholder": "Katalog durchsuchen...",
+    "empty_global": "Keine Ergebnisse im Lieferantenkatalog"
   }
 }

@@ -400,5 +400,30 @@
     "not_found": "Page not found",
     "not_found_description": "The page you are looking for does not exist.",
     "go_home": "Go home"
+  },
+  "search": {
+    "placeholder": "Search clients, documents, projects...",
+    "type_hint": "Type at least 2 characters to search",
+    "no_results": "No results found",
+    "keyboard_hint": "↵ select · Esc close"
+  },
+  "catalog": {
+    "search_in_catalog": "Search supplier catalog",
+    "type_to_search": "Type at least 2 characters to search the catalog",
+    "title": "Catalog",
+    "add_product": "Add product to catalog",
+    "select_product": "Select product...",
+    "supplier_ref": "Supplier ref.",
+    "purchase_price": "Purchase price",
+    "sale_price": "Sale price",
+    "margin": "Margin",
+    "product": "Product",
+    "add": "Add",
+    "empty": "This supplier has no products in the catalog",
+    "added": "Product added to catalog",
+    "removed": "Product removed from catalog",
+    "price_comparison": "Price comparison by supplier",
+    "search_placeholder": "Search catalog...",
+    "empty_global": "No results found in supplier catalog"
   }
 }

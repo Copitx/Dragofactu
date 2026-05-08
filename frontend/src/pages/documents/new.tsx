@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Header } from "@/components/layout/header";
@@ -23,6 +23,7 @@ import { useClients } from "@/hooks/use-clients";
 import { useProducts } from "@/hooks/use-products";
 import { DOC_TYPES, TAX_RATE } from "@/lib/constants";
 import type { DocumentCreate } from "@/types/document";
+import type { Client } from "@/types/client";
 
 const defaultLine: LineRow = {
   line_type: "product",
@@ -36,17 +37,24 @@ const defaultLine: LineRow = {
 export default function DocumentNewPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [docType, setDocType] = useState<string>(DOC_TYPES.INVOICE);
-  const [clientId, setClientId] = useState("");
+  // Pre-fill from URL params (e.g. when navigating from a project)
+  const prefillClientId = searchParams.get("client_id") || "";
+  const prefillExecLocation = searchParams.get("execution_location") || "";
+  const prefillDocType = searchParams.get("doc_type") || DOC_TYPES.INVOICE;
+
+  const [docType, setDocType] = useState<string>(prefillDocType);
+  const [clientId, setClientId] = useState(prefillClientId);
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
   const [clientReference, setClientReference] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [executionLocation, setExecutionLocation] = useState("");
+  const [executionLocation, setExecutionLocation] = useState(prefillExecLocation);
   const [lines, setLines] = useState<LineRow[]>([{ ...defaultLine }]);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   const { data: clientsData } = useClients({ limit: 500 });
   const { data: productsData } = useProducts({ limit: 500 });
@@ -54,6 +62,38 @@ export default function DocumentNewPage() {
 
   const clients = clientsData?.items || [];
   const products = productsData?.items || [];
+
+  // When client list loads, find the pre-filled client
+  useEffect(() => {
+    if (prefillClientId && clients.length > 0 && !selectedClient) {
+      const found = clients.find((c) => c.id === prefillClientId);
+      if (found) applyClientDefaults(found);
+    }
+  }, [clients, prefillClientId]);
+
+  const applyClientDefaults = (client: Client) => {
+    setSelectedClient(client);
+    // Auto-calculate due date from payment_days
+    if (client.payment_days && client.payment_days > 0) {
+      const issue = new Date(issueDate);
+      issue.setDate(issue.getDate() + client.payment_days);
+      setDueDate(issue.toISOString().slice(0, 10));
+    }
+    // Auto-fill payment method from client default
+    if (client.payment_method) {
+      setPaymentMethod(client.payment_method);
+    }
+  };
+
+  const handleClientChange = (id: string) => {
+    setClientId(id);
+    const client = clients.find((c) => c.id === id);
+    if (client) {
+      applyClientDefaults(client);
+    } else {
+      setSelectedClient(null);
+    }
+  };
 
   const subtotal = useMemo(
     () => lines.reduce((sum, line) => sum + calcLineSubtotal(line), 0),
@@ -124,7 +164,7 @@ export default function DocumentNewPage() {
 
           <div className="space-y-2">
             <Label>{t("documents.client")} *</Label>
-            <Select value={clientId} onValueChange={setClientId}>
+            <Select value={clientId} onValueChange={handleClientChange}>
               <SelectTrigger>
                 <SelectValue placeholder={t("documents.client")} />
               </SelectTrigger>
@@ -136,6 +176,18 @@ export default function DocumentNewPage() {
                 ))}
               </SelectContent>
             </Select>
+            {/* Show auto-filled info as hint */}
+            {selectedClient && (selectedClient.payment_days || selectedClient.default_discount) ? (
+              <p className="text-xs text-muted-foreground">
+                {selectedClient.payment_days
+                  ? `${t("clients.payment_days")}: ${selectedClient.payment_days}d`
+                  : ""}
+                {selectedClient.payment_days && selectedClient.default_discount ? " · " : ""}
+                {selectedClient.default_discount
+                  ? `${t("clients.default_discount")}: ${selectedClient.default_discount}%`
+                  : ""}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -169,11 +221,21 @@ export default function DocumentNewPage() {
           </div>
           <div className="space-y-2">
             <Label>{t("documents.payment_method")}</Label>
-            <Input
+            <Select
               value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              placeholder="Transferencia, Efectivo..."
-            />
+              onValueChange={setPaymentMethod}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Transferencia">Transferencia</SelectItem>
+                <SelectItem value="Efectivo">Efectivo</SelectItem>
+                <SelectItem value="Tarjeta">Tarjeta</SelectItem>
+                <SelectItem value="Domiciliación">Domiciliación</SelectItem>
+                <SelectItem value="Cheque">Cheque</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>{t("documents.execution_location")}</Label>
@@ -194,6 +256,7 @@ export default function DocumentNewPage() {
             lines={lines}
             onChange={setLines}
             products={products}
+            defaultDiscount={selectedClient?.default_discount ?? 0}
           />
         </div>
 

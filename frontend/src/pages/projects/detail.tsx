@@ -266,7 +266,13 @@ export default function ProjectDetailPage() {
                 {t("projects.link_document")}
               </Button>
               <Button size="sm" variant="outline"
-                onClick={() => navigate(`/documents/new`)}>
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (project.client_id) params.set("client_id", project.client_id);
+                  if (project.address) params.set("execution_location", project.address);
+                  else params.set("execution_location", project.name);
+                  navigate(`/documents/new?${params.toString()}`);
+                }}>
                 <Receipt className="h-4 w-4 mr-1" />
                 {t("projects.new_document")}
               </Button>

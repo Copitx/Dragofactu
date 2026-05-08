@@ -154,23 +154,6 @@
     "updated": "Proveedor actualizado correctamente",
     "deleted": "Proveedor eliminado correctamente"
   },
-  "catalog": {
-    "title": "Catálogo",
-    "add_product": "Añadir producto al catálogo",
-    "select_product": "Seleccionar producto...",
-    "supplier_ref": "Ref. proveedor",
-    "purchase_price": "Precio compra (€)",
-    "sale_price": "Precio venta",
-    "margin": "Margen",
-    "product": "Producto",
-    "add": "Añadir",
-    "empty": "Este proveedor no tiene productos en el catálogo",
-    "added": "Producto añadido al catálogo",
-    "removed": "Producto eliminado del catálogo",
-    "price_comparison": "Comparación de precios por proveedor",
-    "search_placeholder": "Buscar en catálogo...",
-    "empty_global": "No hay productos en ningún catálogo de proveedores todavía"
-  },
   "documents": {
     "title": "Documentos",
     "code": "Código",
@@ -564,5 +547,30 @@
     "not_found": "Página no encontrada",
     "not_found_description": "La página que buscas no existe.",
     "go_home": "Ir al inicio"
+  },
+  "search": {
+    "placeholder": "Buscar clientes, documentos, obras...",
+    "type_hint": "Escribe al menos 2 caracteres para buscar",
+    "no_results": "Sin resultados para esa búsqueda",
+    "keyboard_hint": "↵ seleccionar · Esc cerrar"
+  },
+  "catalog": {
+    "search_in_catalog": "Buscar en catálogo de proveedores",
+    "type_to_search": "Escribe al menos 2 caracteres para buscar en el catálogo",
+    "title": "Catálogo",
+    "add_product": "Añadir producto al catálogo",
+    "select_product": "Seleccionar producto...",
+    "supplier_ref": "Ref. proveedor",
+    "purchase_price": "Precio compra",
+    "sale_price": "Precio venta",
+    "margin": "Margen",
+    "product": "Producto",
+    "add": "Añadir",
+    "empty": "Este proveedor no tiene productos en el catálogo",
+    "added": "Producto añadido al catálogo",
+    "removed": "Producto eliminado del catálogo",
+    "price_comparison": "Comparación de precios por proveedor",
+    "search_placeholder": "Buscar en catálogo...",
+    "empty_global": "No hay resultados en el catálogo de proveedores"
   }
 }

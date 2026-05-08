@@ -98,10 +98,12 @@ async def list_documents(
     client_id: Optional[UUID] = Query(None),
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
+    search: Optional[str] = Query(None, description="Search by code or client name"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("documents.read"))
 ):
     """Listar documentos con filtros."""
+    from app.models import Client as ClientModel
     query = db.query(Document).options(
         joinedload(Document.client)
     ).filter(Document.company_id == current_user.company_id)
@@ -128,6 +130,13 @@ async def list_documents(
 
     if client_id:
         query = query.filter(Document.client_id == client_id)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.outerjoin(Document.client).filter(
+            (Document.code.ilike(search_term)) |
+            (ClientModel.name.ilike(search_term))
+        )
 
     if date_from:
         query = query.filter(Document.issue_date >= date_from)

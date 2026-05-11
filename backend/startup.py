@@ -190,6 +190,37 @@ def apply_schema(conn):
             "CREATE INDEX ix_password_reset_tokens_token_hash ON password_reset_tokens(token_hash)"
         )
 
+    # ── company_expenses table (Dietario / Libro de gastos) ─────────────────
+    if not table_exists(cur, "company_expenses"):
+        run(cur, """
+            CREATE TABLE company_expenses (
+                id VARCHAR(36) PRIMARY KEY,
+                company_id VARCHAR(36) NOT NULL REFERENCES companies(id),
+                expense_date DATE NOT NULL,
+                supplier VARCHAR(200) NOT NULL,
+                concept VARCHAR(300) NOT NULL,
+                invoice_ref VARCHAR(100),
+                net_amount FLOAT,
+                vat_rate FLOAT,
+                vat_amount FLOAT,
+                total_amount FLOAT NOT NULL,
+                category VARCHAR(50),
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                payment_method VARCHAR(50),
+                payment_date DATE,
+                paid_by VARCHAR(50),
+                project_id VARCHAR(36) REFERENCES projects(id),
+                notes TEXT,
+                user_id VARCHAR(36) NOT NULL REFERENCES users(id),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE
+            )
+        """, "table company_expenses")
+        cur.execute("CREATE INDEX ix_company_expenses_company_id ON company_expenses(company_id)")
+        cur.execute("CREATE INDEX ix_company_expenses_expense_date ON company_expenses(expense_date)")
+        cur.execute("CREATE INDEX ix_company_expenses_supplier ON company_expenses(supplier)")
+        cur.execute("CREATE INDEX ix_company_expenses_project_id ON company_expenses(project_id)")
+
     conn.commit()
     cur.close()
 

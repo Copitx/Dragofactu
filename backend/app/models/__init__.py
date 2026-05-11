@@ -32,6 +32,7 @@ from app.models.diary import DiaryEntry
 from app.models.reminder import Reminder, ReminderPriority
 from app.models.audit_log import AuditLog
 from app.models.password_reset import PasswordResetToken
+from app.models.company_expense import CompanyExpense, ExpenseStatus, ExpenseCat
 
 __all__ = [
     # Base
@@ -66,4 +67,7 @@ __all__ = [
     'ReminderPriority',
     'AuditLog',
     'PasswordResetToken',
+    'CompanyExpense',
+    'ExpenseStatus',
+    'ExpenseCat',
 ]

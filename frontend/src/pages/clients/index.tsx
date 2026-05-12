@@ -25,6 +25,7 @@ import {
 import { useClients, useCreateClient, useUpdateClient, useDeleteClient } from "@/hooks/use-clients";
 import { clientSchema, type ClientFormData } from "@/lib/validators";
 import { exportCSV, importCSV, downloadBlob } from "@/api/export-import";
+import apiClient from "@/api/client";
 import type { Client } from "@/types/client";
 
 export default function ClientsPage() {
@@ -62,10 +63,16 @@ export default function ClientsPage() {
     defaultValues: emptyClient,
   });
 
-  const openCreate = useCallback(() => {
+  const openCreate = useCallback(async () => {
     setEditing(null);
     form.reset(emptyClient);
     setFormOpen(true);
+    try {
+      const res = await apiClient.get("/clients/next-code");
+      form.setValue("code", res.data.code);
+    } catch {
+      // keep empty if request fails
+    }
   }, [form]);
 
   const openEdit = useCallback((client: Client) => {

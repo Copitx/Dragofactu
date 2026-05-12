@@ -3,6 +3,7 @@ Workers CRUD endpoints.
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -14,6 +15,22 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/workers", tags=["Trabajadores"])
+
+
+def _next_worker_code(db: Session, company_id) -> str:
+    """Generate next worker code: W-00001, W-00002, ..."""
+    prefix = "W-"
+    max_code = db.query(func.max(Worker.code)).filter(
+        Worker.company_id == company_id,
+        Worker.code.like(f"{prefix}%"),
+    ).scalar()
+    next_num = 1
+    if max_code:
+        try:
+            next_num = int(max_code[len(prefix):]) + 1
+        except (ValueError, IndexError):
+            pass
+    return f"{prefix}{next_num:05d}"
 
 
 @router.get("", response_model=WorkerList)
@@ -54,6 +71,15 @@ async def list_workers(
     )
 
 
+@router.get("/next-code", response_model=dict)
+async def next_worker_code(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("workers.read")),
+):
+    """Returns the next auto-generated worker code for this company."""
+    return {"code": _next_worker_code(db, current_user.company_id)}
+
+
 @router.post("", response_model=WorkerResponse, status_code=status.HTTP_201_CREATED)
 async def create_worker(
     data: WorkerCreate,
@@ -61,17 +87,19 @@ async def create_worker(
     current_user: User = Depends(require_permission("workers.create"))
 ):
     """Crear trabajador."""
+    code = data.code or _next_worker_code(db, current_user.company_id)
+
     existing = db.query(Worker).filter(
         Worker.company_id == current_user.company_id,
-        Worker.code == data.code
+        Worker.code == code
     ).first()
 
     if existing:
-        raise HTTPException(status_code=400, detail=f"Ya existe un trabajador con codigo {data.code}")
+        raise HTTPException(status_code=400, detail=f"Ya existe un trabajador con codigo {code}")
 
     worker = Worker(
         company_id=current_user.company_id,
-        **data.model_dump()
+        **{**data.model_dump(), "code": code}
     )
     db.add(worker)
     db.commit()

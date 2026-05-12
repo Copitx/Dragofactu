@@ -4,6 +4,7 @@ All operations are scoped to the current user's company.
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -14,6 +15,22 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/clients", tags=["Clientes"])
+
+
+def _next_client_code(db: Session, company_id) -> str:
+    """Generate next client code: C-00001, C-00002, ..."""
+    prefix = "C-"
+    max_code = db.query(func.max(Client.code)).filter(
+        Client.company_id == company_id,
+        Client.code.like(f"{prefix}%"),
+    ).scalar()
+    next_num = 1
+    if max_code:
+        try:
+            next_num = int(max_code[len(prefix):]) + 1
+        except (ValueError, IndexError):
+            pass
+    return f"{prefix}{next_num:05d}"
 
 
 @router.get("", response_model=ClientList)
@@ -49,6 +66,15 @@ async def list_clients(
     )
 
 
+@router.get("/next-code", response_model=dict)
+async def next_client_code(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("clients.read")),
+):
+    """Returns the next auto-generated client code for this company."""
+    return {"code": _next_client_code(db, current_user.company_id)}
+
+
 @router.post("", response_model=ClientResponse, status_code=status.HTTP_201_CREATED)
 async def create_client(
     data: ClientCreate,
@@ -56,21 +82,24 @@ async def create_client(
     current_user: User = Depends(require_permission("clients.create"))
 ):
     """Crear nuevo cliente."""
+    # Auto-generate code if not provided
+    code = data.code or _next_client_code(db, current_user.company_id)
+
     # Check code uniqueness within company
     existing = db.query(Client).filter(
         Client.company_id == current_user.company_id,
-        Client.code == data.code
+        Client.code == code
     ).first()
 
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ya existe un cliente con el codigo {data.code}"
+            detail=f"Ya existe un cliente con el codigo {code}"
         )
 
     client = Client(
         company_id=current_user.company_id,
-        **data.model_dump()
+        **{**data.model_dump(), "code": code}
     )
     db.add(client)
     db.commit()

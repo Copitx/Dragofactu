@@ -41,6 +41,7 @@ import {
 import { workerSchema, courseSchema, type WorkerFormData, type CourseFormData } from "@/lib/validators";
 import { importCSV } from "@/api/export-import";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import apiClient from "@/api/client";
 import type { WorkerSummary } from "@/types/worker";
 
 export default function WorkersPage() {
@@ -90,13 +91,19 @@ export default function WorkersPage() {
   // Extract unique departments for filter
   const departments = Array.from(new Set((data?.items || []).map((w) => w.department).filter(Boolean))) as string[];
 
-  const openCreate = useCallback(() => {
+  const openCreate = useCallback(async () => {
     setEditingId(null);
     form.reset({
       code: "", first_name: "", last_name: "", phone: "", email: "",
       address: "", position: "", department: "", hire_date: "",
     });
     setFormOpen(true);
+    try {
+      const res = await apiClient.get("/workers/next-code");
+      form.setValue("code", res.data.code);
+    } catch {
+      // keep empty if request fails
+    }
   }, [form]);
 
   const openEdit = useCallback((worker: WorkerSummary) => {

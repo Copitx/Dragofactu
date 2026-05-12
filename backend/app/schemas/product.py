@@ -9,7 +9,7 @@ from app.schemas.base import BaseSchema, TimestampMixin, PaginatedResponse
 
 class ProductBase(BaseModel):
     """Base product fields."""
-    code: str = Field(..., min_length=1, max_length=50)
+    code: Optional[str] = Field(None, min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
     category: Optional[str] = Field(None, max_length=100)

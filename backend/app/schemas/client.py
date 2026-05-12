@@ -10,7 +10,7 @@ from app.schemas.base import BaseSchema, TimestampMixin, PaginatedResponse
 
 class ClientBase(BaseModel):
     """Base client fields."""
-    code: str = Field(..., min_length=1, max_length=20)
+    code: Optional[str] = Field(None, min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=200)
     tax_id: Optional[str] = Field(None, max_length=50)
     address: Optional[str] = Field(None, max_length=500)

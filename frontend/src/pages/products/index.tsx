@@ -33,6 +33,7 @@ import {
 import { productSchema, stockAdjustmentSchema, type ProductFormData, type StockAdjustmentFormData } from "@/lib/validators";
 import { formatCurrency } from "@/lib/utils";
 import { exportCSV, importCSV, downloadBlob } from "@/api/export-import";
+import apiClient from "@/api/client";
 import type { Product } from "@/types/product";
 
 export default function ProductsPage() {
@@ -74,7 +75,7 @@ export default function ProductsPage() {
     defaultValues: { quantity: 0, reason: "" },
   });
 
-  const openCreate = useCallback(() => {
+  const openCreate = useCallback(async () => {
     setEditing(null);
     form.reset({
       code: "", name: "", description: "", category: "",
@@ -82,6 +83,12 @@ export default function ProductsPage() {
       minimum_stock: 0, stock_unit: "unidades", supplier_id: "",
     });
     setFormOpen(true);
+    try {
+      const res = await apiClient.get("/products/next-code");
+      form.setValue("code", res.data.code);
+    } catch {
+      // keep empty if request fails
+    }
   }, [form]);
 
   const openEdit = useCallback((product: Product) => {

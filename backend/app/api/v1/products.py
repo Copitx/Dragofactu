@@ -3,6 +3,7 @@ Products CRUD endpoints with stock management.
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -14,6 +15,22 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/products", tags=["Productos"])
+
+
+def _next_product_code(db: Session, company_id) -> str:
+    """Generate next product code: P-00001, P-00002, ..."""
+    prefix = "P-"
+    max_code = db.query(func.max(Product.code)).filter(
+        Product.company_id == company_id,
+        Product.code.like(f"{prefix}%"),
+    ).scalar()
+    next_num = 1
+    if max_code:
+        try:
+            next_num = int(max_code[len(prefix):]) + 1
+        except (ValueError, IndexError):
+            pass
+    return f"{prefix}{next_num:05d}"
 
 
 @router.get("", response_model=ProductList)
@@ -57,6 +74,15 @@ async def list_products(
     )
 
 
+@router.get("/next-code", response_model=dict)
+async def next_product_code(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("products.read")),
+):
+    """Returns the next auto-generated product code for this company."""
+    return {"code": _next_product_code(db, current_user.company_id)}
+
+
 @router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(
     data: ProductCreate,
@@ -64,16 +90,18 @@ async def create_product(
     current_user: User = Depends(require_permission("products.create"))
 ):
     """Crear nuevo producto."""
+    code = data.code or _next_product_code(db, current_user.company_id)
+
     # Check code uniqueness
     existing = db.query(Product).filter(
         Product.company_id == current_user.company_id,
-        Product.code == data.code
+        Product.code == code
     ).first()
 
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ya existe un producto con el codigo {data.code}"
+            detail=f"Ya existe un producto con el codigo {code}"
         )
 
     # Validate supplier if provided
@@ -90,7 +118,7 @@ async def create_product(
 
     product = Product(
         company_id=current_user.company_id,
-        **data.model_dump()
+        **{**data.model_dump(), "code": code}
     )
     db.add(product)
     db.commit()

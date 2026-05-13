@@ -6,6 +6,7 @@ from typing import Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_permission
@@ -94,9 +95,9 @@ def list_expenses(
             | CompanyExpense.invoice_ref.ilike(term)
         )
     if year:
-        q = q.filter(db.func.extract("year", CompanyExpense.expense_date) == year)
+        q = q.filter(func.extract("year", CompanyExpense.expense_date) == year)
     if month:
-        q = q.filter(db.func.extract("month", CompanyExpense.expense_date) == month)
+        q = q.filter(func.extract("month", CompanyExpense.expense_date) == month)
 
     total = q.count()
     items = (

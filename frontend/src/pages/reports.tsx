@@ -67,9 +67,7 @@ export default function ReportsPage() {
         pending: m.total_pending,
       }))
     : periodData?.by_type.map((bt) => ({
-        name: bt.type === "quote" ? t("documents.types.quote") :
-              bt.type === "invoice" ? t("documents.types.invoice") :
-              t("documents.types.delivery_note"),
+        name: t(`documents.types.${bt.type.toUpperCase()}`),
         count: bt.count,
         total: bt.total,
       })) || [];

@@ -30,6 +30,7 @@ class SuperadminUpdateUserRequest(BaseModel):
     company_id: str | None = None
     is_active: bool | None = None
     full_name: str | None = None
+    username: str | None = None
 
 
 router = APIRouter(prefix="/superadmin", tags=["Superadmin"])
@@ -353,6 +354,13 @@ async def update_user_superadmin(
     if request.full_name is not None:
         user.full_name = request.full_name
         changes.append(f"full_name={request.full_name}")
+
+    if request.username is not None:
+        existing = db.query(User).filter(User.username == request.username).first()
+        if existing and existing.id != user.id:
+            raise HTTPException(status_code=400, detail="El nombre de usuario ya está en uso")
+        user.username = request.username
+        changes.append(f"username={request.username}")
 
     db.commit()
     _audit_superadmin(db, superadmin, "update_user", f"user={user_id} changes={','.join(changes)}")
